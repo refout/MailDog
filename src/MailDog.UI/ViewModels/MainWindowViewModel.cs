@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -32,6 +33,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _engine = engine;
         _engine.EventReceived += OnEngineEvent;
         _engine.Disconnected += OnEngineDisconnected;
+        Reader.PropertyChanged += OnReaderPropertyChanged;
     }
 
     public ObservableCollection<AccountViewModel> Accounts { get; } = [];
@@ -48,9 +50,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public string[] ThemeOptions { get; } = ["跟随系统", "浅色", "深色"];
 
-    public event Action? AccountFlowCompleted;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
+    [NotifyPropertyChangedFor(nameof(OverlayTitle))]
+    [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
+    private bool _isSettingsOpen;
 
-    public event Action? SettingsSaved;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
+    [NotifyPropertyChangedFor(nameof(OverlayTitle))]
+    [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
+    private bool _isAddAccountOpen;
+
+    public bool IsOverlayOpen => IsSettingsOpen || IsAddAccountOpen;
+
+    public string OverlayTitle => IsSettingsOpen ? "设置" : "添加账户";
+
+    public bool IsReaderHtmlVisible => Reader.UseHtml && !IsOverlayOpen;
 
     [ObservableProperty]
     private AccountViewModel? _selectedAccount;
@@ -288,7 +304,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             AddAccountSecret = string.Empty;
 
             await LoadAccountsAsync();
-            AccountFlowCompleted?.Invoke();
+            IsAddAccountOpen = false;
         }
         catch (Exception exception)
         {
@@ -347,12 +363,33 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ApplyTheme();
             StatusMessage = "设置已保存。";
             HasError = false;
-            SettingsSaved?.Invoke();
+            IsSettingsOpen = false;
         }
         catch (Exception exception)
         {
             ShowError(exception);
         }
+    }
+
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        IsAddAccountOpen = false;
+        IsSettingsOpen = true;
+    }
+
+    [RelayCommand]
+    private void OpenAddAccount()
+    {
+        IsSettingsOpen = false;
+        IsAddAccountOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseOverlay()
+    {
+        IsSettingsOpen = false;
+        IsAddAccountOpen = false;
     }
 
     [RelayCommand]
@@ -729,6 +766,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         IsEmpty = Messages.Count == 0 && !IsBusy && SelectedFolder is not null;
     }
 
+    private void OnReaderPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ReaderViewModel.UseHtml))
+        {
+            OnPropertyChanged(nameof(IsReaderHtmlVisible));
+        }
+    }
+
     private void OnEngineEvent(IIpcMessage message)
     {
         _ = Dispatcher.UIThread.InvokeAsync(async () =>
@@ -795,7 +840,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 IsAddingAccount = false;
                 AddAccountStatus = "登录成功。";
                 await LoadAccountsAsync();
-                AccountFlowCompleted?.Invoke();
+                IsAddAccountOpen = false;
                 break;
 
             case AuthStateKind.Failed:
@@ -872,6 +917,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _disposed = true;
         _engine.EventReceived -= OnEngineEvent;
         _engine.Disconnected -= OnEngineDisconnected;
+        Reader.PropertyChanged -= OnReaderPropertyChanged;
         _ = _engine.DisposeAsync();
     }
 }

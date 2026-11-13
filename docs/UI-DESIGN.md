@@ -234,13 +234,13 @@ MailDog
 │       ├── 邮件头（主题、发件人、收件人、时间）
 │       ├── 正文（HTML / 纯文本降级）
 │       └── 附件条
-├── 设置窗口
+├── 设置页（主窗口内）
 │   ├── 账户
 │   ├── 外观
 │   ├── 通知
 │   ├── 存储
 │   └── 关于
-├── 添加账户对话框
+├── 添加账户页（主窗口内）
 │   ├── 选择服务商（Outlook / QQ）
 │   ├── 凭据输入
 │   └── 登录进度
@@ -310,7 +310,7 @@ MailDog
 
 ### 4.4 背景与材质
 
-- Windows 11：`TransparencyLevelHint="Mica"`，标题栏与文件夹栏使用 Mica；列表与阅读区为不透明 `BgLayer`，保证文字对比度。
+- Windows 11：v1 使用不透明 `BgBase`，保证对比度与渲染确定性；Mica 作为后续视觉增强，不改变布局。
 - Mica 不可用：回退 `BgBase` 纯色；不做半透明模糊降级。
 - 深色模式下同样使用 Mica（Dark），不做“纯黑 OLED 特调”。
 
@@ -470,7 +470,9 @@ MailDog
 - 同一级别同时只显示一条；新消息替换旧消息。
 - 错误横幅不自动消失；信息类 5s 后自动消失。
 
-### 5.6 设置窗口
+### 5.6 设置页（主窗口内）
+
+> 设置不打开独立弹窗：在主窗口内容区显示整页覆盖层，左上角返回邮件。
 
 - 尺寸 720×560，最小 640×480；模态但可最小化。
 - 左侧导航 200：账户、外观、通知、存储、关于；项高 36，选中态同文件夹项。
@@ -507,7 +509,9 @@ MailDog
 - 版本、构建号、AOT/运行时信息、开源许可、GitHub 链接。
 - “检查更新”按钮 v1.1。
 
-### 5.7 添加账户对话框
+### 5.7 添加账户页（主窗口内）
+
+> 添加账户不打开独立弹窗：在主窗口内容区显示整页覆盖层，左上角返回邮件。
 
 - 宽 480，`RadiusDialog` 12，标题“添加账户”，右上关闭。
 - **步骤 1：选择服务商**
@@ -549,7 +553,7 @@ MailDog
 
 1. UI 启动，连接 Engine；无账户。
 2. 显示空状态：`Mail` 48 + “添加你的第一个邮箱账户” + “添加账户”。
-3. 点击打开添加账户对话框；完成认证后，Engine 开始首次同步。
+3. 点击进入添加账户页；完成认证后，Engine 开始首次同步。
 4. 列表显示骨架屏；同步完成后显示最近 50 封。
 5. 若同步失败：状态横幅 + 空列表说明 + “重试”。
 
@@ -558,17 +562,17 @@ MailDog
 1. 选择 QQ → 输入邮箱与授权码。
 2. “如何获取授权码？”打开 QQ 邮箱设置页（系统浏览器）。
 3. 点击“连接”：按钮进入加载态（`SpinnerIos` 16 + “正在验证…”）。
-4. 成功：Engine 保存账户，返回 `accountChanged`；对话框显示成功并关闭。
+4. 成功：Engine 保存账户，返回 `accountChanged`；页面显示成功并返回邮件。
 5. 失败：输入框下方显示 `错误：授权码无效或 IMAP 未开启`；提供“重新输入”和帮助链接。
 6. 不在 UI 内存中保留授权码；提交后立即清空输入框。
 
 ### 6.3 添加 Outlook 账户
 
 1. 选择 Outlook → 可填邮箱 → “使用浏览器登录”。
-2. Engine 打开系统浏览器；对话框切换到“等待浏览器登录”，显示取消。
+2. Engine 打开系统浏览器；页面切换到“等待浏览器登录”，显示取消。
 3. 用户在浏览器完成登录/MFA；Engine 捕获回调、换取 token。
-4. 成功：`authState=connected`；对话框成功态并关闭；开始同步。
-5. 用户取消/超时：`authState=failed`；对话框显示原因 + “重试”。
+4. 成功：`authState=connected`；页面成功态并返回邮件；开始同步。
+5. 用户取消/超时：`authState=failed`；页面显示原因 + “重试”。
 6. 用户在浏览器中关闭页面但未完成：5 分钟后超时，提示“未完成登录”。
 
 ### 6.4 阅读邮件与显示图片
@@ -725,7 +729,7 @@ Themes/
 
 | 设计元素 | Avalonia 实现 |
 |---|---|
-| 窗口 + Mica | `Window` + `TransparencyLevelHint="Mica"` + `ExtendClientAreaToDecorationsHint="True"` + `ExtendClientAreaChromeHints="PreferSystemChrome"` |
+| 窗口 + 自绘标题栏 | `Window` + `ExtendClientAreaToDecorationsHint="True"` + `ExtendClientAreaTitleBarHeightHint="48"`；Avalonia 12 保留系统窗口按钮，品牌区 `BeginMoveDrag` / 双击最大化 |
 | 三栏 | `Grid` + 两个 `GridSplitter` |
 | 文件夹树 | `TreeView`（或分组 `ListBox`，v1 用 `TreeView`） |
 | 邮件列表 | `ListBox` + `VirtualizingStackPanel`（默认）+ 编译绑定 `DataTemplate` |
@@ -738,7 +742,7 @@ Themes/
 | 阅读区 HTML | `NativeWebView`（复用单实例） |
 | 纯文本降级 | `SelectableTextBlock` |
 | 状态横幅 | 自定义 `StatusBanner`（`Border` + 图标 + 文本 + 操作） |
-| 设置窗口 | `Window` + 左侧 `ListBox` 导航 + 右侧 `ContentControl` |
+| 设置页 | 主窗口内容区覆盖层 + `ContentControl`，不使用独立 `Window` |
 | 添加账户 | `Window`（模态）+ 步骤切换 `ContentControl` |
 | 浮出账户菜单 | `Flyout` + `ListBox` |
 | 骨架屏 | `Border` + `Animation`（透明度 0.4→0.8，1.2s 往复） |
@@ -787,7 +791,7 @@ Themes/
 ### 视觉
 
 - [ ] Light/Dark 下所有文字对比度达标，无“灰底灰字”。
-- [ ] Mica 可用时标题栏/文件夹栏透出桌面；不可用时纯色回退无闪白。
+- [ ] Mica（后续视觉增强）可用时标题栏/文件夹栏透出桌面；不可用时纯色回退无闪白。
 - [ ] 三栏在 1280/1100/900 宽度下无重叠、无横向滚动条。
 - [ ] 未读/已读、选中/悬停/焦点四种状态可区分。
 - [ ] 图标全部来自 Fluent UI System Icons，无手绘 Path。

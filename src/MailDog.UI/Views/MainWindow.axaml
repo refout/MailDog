@@ -9,6 +9,8 @@
         Height="800"
         MinWidth="900"
         MinHeight="600"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="48"
         Background="{DynamicResource MailDogBrushBgBase}">
   <Grid RowDefinitions="48,Auto,*">
     <!-- 标题栏 -->
@@ -16,11 +18,13 @@
             Background="{DynamicResource MailDogBrushBgSubtle}"
             BorderBrush="{DynamicResource MailDogBrushStroke}"
             BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="Auto,*,Auto" Margin="16,0">
+      <Grid ColumnDefinitions="Auto,*,Auto,138" Margin="16,0">
         <StackPanel Grid.Column="0"
                     Orientation="Horizontal"
                     Spacing="8"
-                    VerticalAlignment="Center">
+                    VerticalAlignment="Center"
+                    PointerPressed="OnTitleBarPointerPressed"
+                    DoubleTapped="OnTitleBarDoubleTapped">
           <ic:FluentIcon Icon="Mail"
                          IconVariant="Filled"
                          IconSize="Size20"
@@ -32,9 +36,10 @@
         </StackPanel>
 
         <TextBox Grid.Column="1"
-                 Width="420"
+                 MaxWidth="420"
                  Height="32"
-                 HorizontalAlignment="Center"
+                 Margin="24,0"
+                 HorizontalAlignment="Stretch"
                  VerticalAlignment="Center"
                  Text="{Binding SearchText}"
                  PlaceholderText="搜索邮件、发件人…">
@@ -52,11 +57,13 @@
                     VerticalAlignment="Center">
           <Button Classes="icon"
                   Command="{Binding RefreshCommand}"
+                  AutomationProperties.Name="立即同步"
                   ToolTip.Tip="立即同步">
             <ic:FluentIcon Icon="ArrowSync" IconSize="Size20" />
           </Button>
           <Button Classes="icon"
-                  Click="OpenSettings_Click"
+                  Command="{Binding OpenSettingsCommand}"
+                  AutomationProperties.Name="设置"
                   ToolTip.Tip="设置">
             <ic:FluentIcon Icon="Settings" IconSize="Size20" />
           </Button>
@@ -181,13 +188,18 @@
           </ListBox>
 
           <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="4" Margin="4,8,0,0">
-            <Button Click="AddAccount_Click" Padding="8,4">
+            <Button Command="{Binding OpenAddAccountCommand}"
+                    AutomationProperties.Name="添加账户"
+                    Padding="8,4">
               <StackPanel Orientation="Horizontal" Spacing="6">
                 <ic:FluentIcon Icon="Add" IconSize="Size16" />
                 <TextBlock Text="添加账户" FontSize="12" VerticalAlignment="Center" />
               </StackPanel>
             </Button>
-            <Button Classes="icon" Click="OpenSettings_Click" ToolTip.Tip="设置">
+            <Button Classes="icon"
+                    Command="{Binding OpenSettingsCommand}"
+                    AutomationProperties.Name="设置"
+                    ToolTip.Tip="设置">
               <ic:FluentIcon Icon="Settings" IconSize="Size16" />
             </Button>
           </StackPanel>
@@ -371,7 +383,7 @@
                                  TextWrapping="Wrap" />
           </ScrollViewer>
 
-          <NativeWebView x:Name="WebView" IsVisible="{Binding Reader.UseHtml}" />
+          <NativeWebView x:Name="WebView" IsVisible="{Binding IsReaderHtmlVisible}" />
 
           <Border IsVisible="{Binding Reader.ShowEmpty}"
                   Background="{DynamicResource MailDogBrushBgLayer}">
@@ -473,10 +485,112 @@
                    Classes="caption"
                    HorizontalAlignment="Center" />
         <Button Content="添加账户"
-                Click="AddAccount_Click"
+                Command="{Binding OpenAddAccountCommand}"
                 HorizontalAlignment="Center"
                 Padding="16,8" />
       </StackPanel>
+    </Border>
+
+    <!-- 主窗口内页面：设置 / 添加账户，不使用弹窗 -->
+    <Border Grid.Row="1"
+            Grid.RowSpan="2"
+            Grid.ColumnSpan="3"
+            IsVisible="{Binding IsOverlayOpen}"
+            Background="{DynamicResource MailDogBrushBgBase}">
+      <Grid RowDefinitions="56,*">
+        <Border BorderBrush="{DynamicResource MailDogBrushStroke}"
+                BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="Auto,*" Margin="16,0">
+            <Button Classes="icon"
+                    Command="{Binding CloseOverlayCommand}"
+                    ToolTip.Tip="返回邮件">
+              <ic:FluentIcon Icon="ChevronLeft" IconSize="Size20" />
+            </Button>
+            <TextBlock Grid.Column="1"
+                       Text="{Binding OverlayTitle}"
+                       FontSize="20"
+                       FontWeight="SemiBold"
+                       Margin="8,0"
+                       VerticalAlignment="Center" />
+          </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1">
+          <Border MaxWidth="560"
+                  Width="560"
+                  Margin="24"
+                  Padding="24"
+                  HorizontalAlignment="Center"
+                  Background="{DynamicResource MailDogBrushBgLayer}"
+                  BorderBrush="{DynamicResource MailDogBrushStroke}"
+                  BorderThickness="1"
+                  CornerRadius="8">
+            <StackPanel Spacing="12">
+              <!-- 设置 -->
+              <StackPanel IsVisible="{Binding IsSettingsOpen}" Spacing="12">
+                <TextBlock Text="外观" Classes="section" />
+                <ComboBox ItemsSource="{Binding ThemeOptions}"
+                          SelectedIndex="{Binding ThemeIndex}"
+                          Width="200"
+                          HorizontalAlignment="Left" />
+                <CheckBox Content="新邮件通知"
+                          IsChecked="{Binding NotificationsEnabled}" />
+
+                <TextBlock Text="Outlook" Classes="section" Margin="0,8,0,0" />
+                <TextBox Text="{Binding EntraClientId}"
+                         PlaceholderText="Entra client id" />
+                <TextBlock Text="在 Azure Portal 注册公共客户端应用，重定向 URI 填 http://localhost 与 http://127.0.0.1。"
+                           Classes="caption"
+                           TextWrapping="Wrap" />
+
+                <Button Content="保存设置"
+                        Command="{Binding SaveSettingsCommand}"
+                        HorizontalAlignment="Left"
+                        Padding="16,8" />
+              </StackPanel>
+
+              <!-- 添加账户 -->
+              <StackPanel IsVisible="{Binding IsAddAccountOpen}" Spacing="12">
+                <ComboBox ItemsSource="{Binding ProviderOptions}"
+                          SelectedIndex="{Binding SelectedProviderIndex}" />
+
+                <TextBox Text="{Binding AddAccountEmail}"
+                         PlaceholderText="邮箱地址" />
+
+                <TextBox Text="{Binding AddAccountSecret}"
+                         PlaceholderText="QQ 邮箱授权码"
+                         PasswordChar="●"
+                         IsVisible="{Binding IsQqProvider}" />
+
+                <TextBlock Text="授权码不是 QQ 密码。请先在 QQ 邮箱设置中开启 IMAP/SMTP 并生成授权码。"
+                           Classes="caption"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding IsQqProvider}" />
+
+                <Button Content="连接"
+                        Command="{Binding AddPasswordAccountCommand}"
+                        IsVisible="{Binding IsQqProvider}"
+                        HorizontalAlignment="Stretch"
+                        Padding="12,8" />
+
+                <Button Content="使用浏览器登录"
+                        Command="{Binding StartOAuthCommand}"
+                        IsVisible="{Binding IsOutlookProvider}"
+                        HorizontalAlignment="Stretch"
+                        Padding="12,8" />
+
+                <ProgressBar IsIndeterminate="True"
+                             Height="3"
+                             IsVisible="{Binding IsAddingAccount}" />
+
+                <TextBlock Text="{Binding AddAccountStatus}"
+                           Classes="caption"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </ScrollViewer>
+      </Grid>
     </Border>
   </Grid>
 </Window>

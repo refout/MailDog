@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
+using Avalonia.Input;
 using Avalonia.Platform;
 using MailDog.UI.ViewModels;
 
@@ -121,16 +121,19 @@ public partial class MainWindow : Window
         WebView.NavigateToString(_pendingHtml);
     }
 
-    private async void AddAccount_Click(object? sender, RoutedEventArgs e)
+    private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        var dialog = new AddAccountWindow(_viewModel);
-        await dialog.ShowDialog(this);
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            BeginMoveDrag(e);
+        }
     }
 
-    private async void OpenSettings_Click(object? sender, RoutedEventArgs e)
+    private void OnTitleBarDoubleTapped(object? sender, TappedEventArgs e)
     {
-        var dialog = new SettingsWindow(_viewModel);
-        await dialog.ShowDialog(this);
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
     }
 
     private void OnClosed(object? sender, EventArgs e)
