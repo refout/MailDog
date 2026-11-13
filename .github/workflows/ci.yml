@@ -41,5 +41,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MailDog-win-x64
-          path: dist/win-x64/MailDog/
+          path: |
+            dist/win-x64/MailDog/
+            dist/win-x64/MailDog-win-x64.zip
           if-no-files-found: error

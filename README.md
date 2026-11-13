@@ -70,10 +70,13 @@ pwsh -File src/build/publish.ps1 -Runtime win-x64
 ## 运行
 
 ```powershell
-# 方式一：后台常驻，托盘启动 UI
+# 发布包：两个 exe 在同一个 zip 中，解压后双击 MailDog.UI.exe
+dist/win-x64/MailDog-win-x64.zip
+
+# 方式一：先启动后台，托盘常驻，需要时打开 UI
 dist/win-x64/MailDog/MailDog.Engine.exe
 
-# 方式二：直接启动 UI（会自动拉起 Engine）
+# 方式二：直接启动 UI（若 Engine 未运行会自动拉起）
 dist/win-x64/MailDog/MailDog.UI.exe
 ```
 
@@ -84,12 +87,15 @@ dist/win-x64/MailDog/MailDog.UI.exe
 ## 已实测产物
 
 ```
-dist/win-x64/MailDog/
-├── MailDog.Engine.exe   12.41 MiB
-└── MailDog.UI.exe       38.05 MiB
+dist/win-x64/
+├── MailDog/
+│   ├── MailDog.Engine.exe   12.41 MiB
+│   └── MailDog.UI.exe       38.05 MiB
+└── MailDog-win-x64.zip      22.52 MiB
 ```
 
-- 两个 exe 均可在空目录中独立运行，无需 .NET 运行时。
+- 两个 exe 均为自包含单文件，无需 .NET 运行时；UI 需与 Engine 位于同一目录，才能自动拉起后台。
+- `MailDog-win-x64.zip` 是完整发布包，解压后双击 `MailDog.UI.exe` 即可。
 - SQLite / Skia / HarfBuzz 原生库嵌入 exe，首次启动解压到 `%LOCALAPPDATA%\MailDog\native\`。
 - UI 使用 Skia 软件渲染，不依赖 ANGLE；WebView2 仍使用自身 GPU 进程。
 - 关闭 UI 后 `MailDog.UI` 与新增的 `msedgewebview2` 进程全部退出，Engine 托盘继续驻留。

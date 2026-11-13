@@ -33,6 +33,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _engine = engine;
         _engine.EventReceived += OnEngineEvent;
         _engine.Disconnected += OnEngineDisconnected;
+        _engine.EngineStarting += OnEngineStarting;
         Reader.PropertyChanged += OnReaderPropertyChanged;
     }
 
@@ -457,6 +458,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             2 => "dark",
             _ => "system"
         };
+    }
+
+    private void OnEngineStarting()
+    {
+        IsBusy = true;
+        StatusMessage = "正在启动 MailDog 后台…";
     }
 
     private async Task ConnectAsync()
@@ -917,6 +924,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _disposed = true;
         _engine.EventReceived -= OnEngineEvent;
         _engine.Disconnected -= OnEngineDisconnected;
+        _engine.EngineStarting -= OnEngineStarting;
         Reader.PropertyChanged -= OnReaderPropertyChanged;
         _ = _engine.DisposeAsync();
     }

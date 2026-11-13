@@ -42,5 +42,12 @@ New-Item -ItemType Directory -Force -Path $dist | Out-Null
 Copy-Item (Join-Path $artifacts 'engine/MailDog.Engine.exe') $dist -Force
 Copy-Item (Join-Path $artifacts 'ui/MailDog.UI.exe') $dist -Force
 
+$package = Join-Path (Split-Path -Parent $dist) "MailDog-$Runtime.zip"
+Remove-Item $package -Force -ErrorAction SilentlyContinue
+Compress-Archive -Path (Join-Path $dist '*') -DestinationPath $package -Force
+
 Write-Host "`nPublished files:"
 Get-ChildItem $dist | Select-Object Name, @{ n = 'SizeMB'; e = { [math]::Round($_.Length / 1MB, 2) } } | Format-Table -AutoSize
+
+Write-Host "Package: $package"
+Get-Item $package | Select-Object Name, @{ n = 'SizeMB'; e = { [math]::Round($_.Length / 1MB, 2) } } | Format-Table -AutoSize

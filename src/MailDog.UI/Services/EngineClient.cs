@@ -36,6 +36,8 @@ public sealed class EngineClient : IAsyncDisposable
 
     public event Action<string>? Disconnected;
 
+    public event Action? EngineStarting;
+
     public async Task<HelloAck> ConnectAsync(CancellationToken cancellationToken)
     {
         if (!IsConnected)
@@ -50,7 +52,8 @@ public sealed class EngineClient : IAsyncDisposable
 
             if (pipe is null)
             {
-                throw new InvalidOperationException("无法连接到 MailDog Engine。");
+                throw new InvalidOperationException(
+                    "无法连接到 MailDog 后台。请确认 MailDog.Engine.exe 与 MailDog.UI.exe 位于同一目录，或先启动 MailDog.Engine.exe。");
             }
 
             _pipe = pipe;
@@ -193,7 +196,7 @@ public sealed class EngineClient : IAsyncDisposable
 
     private static async Task<NamedPipeClientStream?> WaitForEngineAsync(CancellationToken cancellationToken)
     {
-        for (var attempt = 0; attempt < 20; attempt++)
+        for (var attempt = 0; attempt < 40; attempt++)
         {
             await Task.Delay(250, cancellationToken).ConfigureAwait(false);
             var pipe = await TryConnectAsync(cancellationToken).ConfigureAwait(false);
@@ -206,7 +209,7 @@ public sealed class EngineClient : IAsyncDisposable
         return null;
     }
 
-    private static void StartEngine()
+    private void StartEngine()
     {
         var path = Environment.GetEnvironmentVariable("MAILDOG_ENGINE_PATH");
 
@@ -219,6 +222,8 @@ public sealed class EngineClient : IAsyncDisposable
         {
             return;
         }
+
+        EngineStarting?.Invoke();
 
         try
         {
