@@ -1,20 +1,26 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using Avalonia;
+using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform;
-using Avalonia.VisualTree;
+using Avalonia.Styling;
 using MailDog.UI.ViewModels;
 
 namespace MailDog.UI.Views;
 
 public partial class MainWindow : Window
 {
+    private const int DwmwaUseImmersiveDarkMode = 20;
+    private const int DwmwaUseImmersiveDarkModeLegacy = 19;
+
     private readonly MainWindowViewModel _viewModel;
     private bool _adapterReady;
     private bool _internalNavigation;
     private string? _pendingHtml;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
     public MainWindow()
         : this(new MainWindowViewModel(new Services.EngineClient()))
@@ -33,6 +39,7 @@ public partial class MainWindow : Window
         WebView.NavigationStarted += OnNavigationStarted;
         WebView.NavigationCompleted += OnNavigationCompleted;
         viewModel.Reader.PropertyChanged += OnReaderPropertyChanged;
+        ActualThemeVariantChanged += OnActualThemeVariantChanged;
         Opened += OnOpened;
         KeyDown += OnWindowKeyDown;
         Closed += OnClosed;
@@ -41,7 +48,29 @@ public partial class MainWindow : Window
     private async void OnOpened(object? sender, EventArgs e)
     {
         Opened -= OnOpened;
+        ApplyNativeTitleBarTheme();
         await _viewModel.InitializeAsync();
+    }
+
+    private void OnActualThemeVariantChanged(object? sender, EventArgs e)
+    {
+        ApplyNativeTitleBarTheme();
+    }
+
+    private void ApplyNativeTitleBarTheme()
+    {
+        var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var useDark = ActualThemeVariant == ThemeVariant.Dark ? 1 : 0;
+        if (DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkMode, ref useDark, sizeof(int)) != 0)
+        {
+            var legacy = ActualThemeVariant == ThemeVariant.Dark ? 1 : 0;
+            _ = DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkModeLegacy, ref legacy, sizeof(int));
+        }
     }
 
     private void OnEnvironmentRequested(object? sender, WebViewEnvironmentRequestedEventArgs e)
@@ -124,35 +153,6 @@ public partial class MainWindow : Window
         WebView.NavigateToString(_pendingHtml);
     }
 
-    private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || IsInteractiveSource(e.Source))
-        {
-            return;
-        }
-
-        BeginMoveDrag(e);
-    }
-
-    private void OnTitleBarDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (IsInteractiveSource(e.Source))
-        {
-            return;
-        }
-
-        WindowState = WindowState == WindowState.Maximized
-            ? WindowState.Normal
-            : WindowState.Maximized;
-    }
-
-    private static bool IsInteractiveSource(object? source)
-    {
-        return source is Visual visual
-            && (visual.FindAncestorOfType<Button>(includeSelf: true) is not null
-                || visual.FindAncestorOfType<TextBox>(includeSelf: true) is not null);
-    }
-
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape && _viewModel.IsOverlayOpen)
@@ -181,6 +181,7 @@ public partial class MainWindow : Window
     {
         Closed -= OnClosed;
         KeyDown -= OnWindowKeyDown;
+        ActualThemeVariantChanged -= OnActualThemeVariantChanged;
         WebView.EnvironmentRequested -= OnEnvironmentRequested;
         WebView.AdapterCreated -= OnAdapterCreated;
         WebView.NavigationStarted -= OnNavigationStarted;

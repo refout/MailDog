@@ -9,63 +9,10 @@
         Height="800"
         MinWidth="900"
         MinHeight="600"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaTitleBarHeightHint="48"
         Background="{DynamicResource MailDogBrushBgBase}">
-  <Grid RowDefinitions="48,Auto,*">
-    <!-- 标题栏 -->
-    <Border Grid.Row="0"
-            Background="{DynamicResource MailDogBrushBgSubtle}"
-            BorderBrush="{DynamicResource MailDogBrushStroke}"
-            BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="Auto,*,Auto,138"
-            Margin="16,0"
-            Background="Transparent"
-            PointerPressed="OnTitleBarPointerPressed"
-            DoubleTapped="OnTitleBarDoubleTapped">
-        <StackPanel Grid.Column="0"
-                    Orientation="Horizontal"
-                    VerticalAlignment="Center">
-          <TextBlock Text="MailDog"
-                     FontSize="14"
-                     FontWeight="SemiBold"
-                     VerticalAlignment="Center" />
-        </StackPanel>
-
-        <TextBox x:Name="SearchBox"
-                 Grid.ColumnSpan="4"
-                 Width="420"
-                 Height="32"
-                 VerticalAlignment="Center"
-                 HorizontalAlignment="Center"
-                 TextAlignment="Center"
-                 AutomationProperties.Name="搜索邮件"
-                 IsEnabled="{Binding !IsOverlayOpen}"
-                 Text="{Binding SearchText}"
-                 PlaceholderText="搜索邮件、发件人…" />
-
-        <StackPanel Grid.Column="2"
-                    Orientation="Horizontal"
-                    Spacing="4"
-                    VerticalAlignment="Center">
-          <Button Classes="icon"
-                  Command="{Binding RefreshCommand}"
-                  AutomationProperties.Name="立即同步"
-                  ToolTip.Tip="立即同步">
-            <ic:FluentIcon Icon="ArrowSync" IconSize="Size20" />
-          </Button>
-          <Button Classes="icon"
-                  Command="{Binding OpenSettingsCommand}"
-                  AutomationProperties.Name="设置"
-                  ToolTip.Tip="设置">
-            <ic:FluentIcon Icon="Settings" IconSize="Size20" />
-          </Button>
-        </StackPanel>
-      </Grid>
-    </Border>
-
+  <Grid RowDefinitions="Auto,*">
     <!-- 状态横幅 -->
-    <Border Grid.Row="1"
+    <Border Grid.Row="0"
             Height="40"
             IsVisible="{Binding HasStatus}"
             Background="{DynamicResource MailDogBrushWarningTint}"
@@ -92,7 +39,7 @@
     </Border>
 
     <!-- 三栏内容 -->
-    <Grid Grid.Row="2" ColumnDefinitions="240,360,*">
+    <Grid Grid.Row="1" ColumnDefinitions="240,360,*">
       <!-- 文件夹栏 -->
       <Border Grid.Column="0"
               Background="{DynamicResource MailDogBrushBgSubtle}"
@@ -198,6 +145,12 @@
               </StackPanel>
             </Button>
             <Button Classes="icon"
+                    Command="{Binding RefreshCommand}"
+                    AutomationProperties.Name="立即同步"
+                    ToolTip.Tip="立即同步">
+              <ic:FluentIcon Icon="ArrowSync" IconSize="Size16" />
+            </Button>
+            <Button Classes="icon"
                     Command="{Binding OpenSettingsCommand}"
                     AutomationProperties.Name="设置"
                     ToolTip.Tip="设置">
@@ -212,7 +165,7 @@
               Background="{DynamicResource MailDogBrushBgLayer}"
               BorderBrush="{DynamicResource MailDogBrushStroke}"
               BorderThickness="0,0,1,0">
-        <Grid RowDefinitions="Auto,*,Auto">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="16,12,12,8">
             <TextBlock Text="{Binding FolderTitle}"
                        FontSize="20"
@@ -225,7 +178,17 @@
                       SelectedIndex="{Binding FilterIndex}" />
           </Grid>
 
-          <Grid Grid.Row="1">
+          <TextBox x:Name="SearchBox"
+                   Grid.Row="1"
+                   Height="32"
+                   Margin="16,0,12,8"
+                   VerticalAlignment="Center"
+                   TextAlignment="Center"
+                   AutomationProperties.Name="搜索邮件"
+                   Text="{Binding SearchText}"
+                   PlaceholderText="搜索邮件、发件人…" />
+
+          <Grid Grid.Row="2">
             <ListBox Classes="mail-list"
                      Background="Transparent"
                      ItemsSource="{Binding Messages}"
@@ -314,7 +277,7 @@
             </Border>
           </Grid>
 
-          <Button Grid.Row="2"
+          <Button Grid.Row="3"
                   Content="加载更多"
                   Command="{Binding LoadMoreCommand}"
                   IsVisible="{Binding HasMore}"
@@ -466,7 +429,7 @@
     </Grid>
 
     <!-- 首次使用 -->
-    <Border Grid.Row="2"
+    <Border Grid.Row="1"
             Grid.ColumnSpan="3"
             IsVisible="{Binding ShowWelcome}"
             Background="{DynamicResource MailDogBrushBgBase}">
@@ -492,7 +455,7 @@
     </Border>
 
     <!-- 主窗口内页面：设置 / 添加账户，不使用弹窗 -->
-    <Border Grid.Row="1"
+    <Border Grid.Row="0"
             Grid.RowSpan="2"
             Grid.ColumnSpan="3"
             IsVisible="{Binding IsOverlayOpen}"

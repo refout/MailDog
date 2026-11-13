@@ -876,7 +876,7 @@ select, textarea, link, base, meta, svg, math, video, audio, canvas, template`
 - 组合根：`AppServices` 手写构造，不引入 DI 容器；服务包括 `EngineClient`、`RenderCoordinator`、`ThemeService`、`NotificationService`。
 - 线程：所有 ViewModel 状态变更回到 `Dispatcher.UIThread`；`EngineClient` 的后台读取循环通过 `Dispatcher.Post` 回传。
 - 视图结构：
-  - `MainWindow`：标题栏 + 三栏外壳 + 状态横幅。
+  - `MainWindow`：三栏外壳 + 状态横幅，使用系统原生标题栏。
   - `FolderPane`：账户切换、收藏、文件夹树。
   - `MessageListView`：搜索、筛选、虚拟化列表、加载更多。
   - `ReaderPane`：命令栏、头部、WebView/纯文本、附件条。
@@ -1020,7 +1020,7 @@ dotnet publish MailDog.UI/MailDog.UI.csproj `
 | 指标 | 目标 | 实测 |
 |---|---|---|
 | Engine 单文件 | ≤ 35 MiB | **12.41 MiB** |
-| UI 单文件 | ≤ 55 MiB | **38.05 MiB** |
+| UI 单文件 | ≤ 55 MiB | **38.04 MiB** |
 | Engine 启动 | ≤ 1.5s | Stage 0 探针 203 ms；v1 含托盘常驻 |
 | UI 首窗口 | ≤ 2.5s | Stage 0 探针 445 ms |
 | Engine 空闲内存 | ≤ 120 MiB | 待长稳测试 |
