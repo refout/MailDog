@@ -4,4 +4,5 @@
   <Project Path="MailDog.Mail/MailDog.Mail.csproj" />
   <Project Path="MailDog.Engine/MailDog.Engine.csproj" />
   <Project Path="MailDog.UI/MailDog.UI.csproj" />
+  <Project Path="tests/MailDog.Contracts.Tests/MailDog.Contracts.Tests.csproj" />
 </Solution>
