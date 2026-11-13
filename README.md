@@ -13,6 +13,17 @@
 - [界面设计](docs/UI-DESIGN.md)：Fluent 设计令牌、三栏布局、组件规格、交互与可访问性
 - [Stage 0 探针结论](docs/SPIKES.md)：实测结果、原生库嵌入方案、WebView2 与清单修正
 
+## 仓库结构
+
+```
+MailDog/
+├── docs/               方案、界面设计、Stage 0 探针结论
+├── src/                代码根：MailDog.slnx、global.json、项目、tests、build 脚本
+├── .github/            CI 工作流
+├── .editorconfig
+└── README.md
+```
+
 ## 核心决策
 
 | 维度 | 决策 |
@@ -29,10 +40,21 @@
 
 ## 前置条件
 
-- .NET SDK 11（已锁定 `11.0.100`，见 `global.json`）
+- .NET SDK 11（已锁定 `11.0.100`，见 `src/global.json`）
 - Visual Studio Build Tools 2026，勾选 `Microsoft.VisualStudio.Component.VC.Tools.x86.x64` 与 `Microsoft.VisualStudio.Component.Windows11SDK.26100`
 - Windows 10 1809+ / Windows 11
 - Windows 10 需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（Windows 11 已内置）
+
+## 构建
+
+```powershell
+# 构建（global.json 在 src 下）
+cd src
+dotnet build MailDog.slnx -c Release
+
+# 发布两个 AOT 单文件（从仓库根执行）
+pwsh -File src/build/publish.ps1 -Runtime win-x64
+```
 
 ## 已实测产物
 

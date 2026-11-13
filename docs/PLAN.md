@@ -192,17 +192,19 @@ Contracts ← UI
 ## 4. 解决方案结构
 
 ```
-MailDog.sln
-├── global.json
-├── Directory.Build.props
-├── Directory.Packages.props
+MailDog/
 ├── .editorconfig
 ├── .gitignore
 ├── README.md
 ├── docs/
 │   ├── PLAN.md
+│   ├── SPIKES.md
 │   └── UI-DESIGN.md
-├── src/
+├── src/                          ← 代码根，所有代码与构建配置
+│   ├── MailDog.slnx
+│   ├── global.json
+│   ├── Directory.Build.props
+│   ├── Directory.Packages.props
 │   ├── MailDog.Contracts/
 │   │   ├── Ipc/                 Envelope、错误码、消息接口
 │   │   ├── Messages/            Request/Response/Event DTO
@@ -229,30 +231,32 @@ MailDog.sln
 │   │   ├── Tray/                Win32Tray、NativeMethods、Menu
 │   │   ├── Logging/             FileLogger
 │   │   └── MailDog.Engine.csproj
-│   └── MailDog.UI/
-│       ├── Program.cs
-│       ├── App.axaml / App.axaml.cs
-│       ├── Services/            EngineClient、UiSettings、RenderCoordinator
-│       ├── ViewModels/
-│       ├── Views/
-│       ├── Controls/
-│       ├── Themes/              Tokens、Controls、ListStyles
-│       ├── Assets/
-│       └── MailDog.UI.csproj
-├── tests/
-│   ├── MailDog.Contracts.Tests/
-│   ├── MailDog.Html.Tests/
-│   └── MailDog.Mail.Tests/      （可选集成测试，默认 Skip）
-├── build/
-│   ├── publish.ps1
-│   ├── verify-aot.ps1
-│   └── verify-dependencies.ps1
+│   ├── MailDog.UI/
+│   │   ├── Program.cs
+│   │   ├── App.axaml / App.axaml.cs
+│   │   ├── Services/            EngineClient、UiSettings、RenderCoordinator
+│   │   ├── ViewModels/
+│   │   ├── Views/
+│   │   ├── Controls/
+│   │   ├── Themes/              Tokens、Controls、ListStyles
+│   │   ├── Assets/
+│   │   └── MailDog.UI.csproj
+│   ├── tests/
+│   │   ├── MailDog.Contracts.Tests/
+│   │   ├── MailDog.Html.Tests/
+│   │   └── MailDog.Mail.Tests/  （可选集成测试，默认 Skip）
+│   └── build/
+│       ├── publish.ps1
+│       ├── verify-aot.ps1
+│       └── verify-dependencies.ps1
 └── .github/workflows/ci.yml
 ```
 
+> `global.json` 位于 `src/`，因此直接在仓库根执行 `dotnet` 不会应用 SDK 锁定。构建脚本会先切换到 `src/`；手动执行时也应先 `cd src`。
+
 ### 4.1 公共构建属性
 
-`Directory.Build.props`：
+`src/Directory.Build.props`：
 
 ```xml
 <Project>
@@ -283,7 +287,7 @@ AOT 项目额外启用：
 
 ### 4.2 中央包管理
 
-`Directory.Packages.props`：
+`src/Directory.Packages.props`：
 
 ```xml
 <Project>
@@ -305,6 +309,8 @@ AOT 项目额外启用：
 ```
 
 ### 4.3 global.json
+
+位置：`src/global.json`。所有 `dotnet` 命令应在 `src/` 下执行，或使用会切换工作目录的 `src/build/*.ps1`。
 
 ```json
 {
@@ -980,21 +986,26 @@ select, textarea, link, base, meta, svg, math, video, audio, canvas, template`
 只安装 BuildTools 本体不会带 `link.exe` 与 SDK 头文件/库，Native AOT 会在链接阶段失败。
 
 ```powershell
-dotnet publish src/MailDog.Engine/MailDog.Engine.csproj `
-  -c Release -r win-x64 `
-  -p:PublishAot=true `
-  -p:PublishSingleFile=true `
-  -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:StripSymbols=true `
-  -o artifacts/engine
+# 推荐：脚本会切换到 src 执行，并组装 dist
+pwsh -File src/build/publish.ps1 -Runtime win-x64 -Configuration Release
 
-dotnet publish src/MailDog.UI/MailDog.UI.csproj `
+# 手动执行（必须先进入 src，确保 global.json 生效）
+cd src
+dotnet publish MailDog.Engine/MailDog.Engine.csproj `
   -c Release -r win-x64 `
   -p:PublishAot=true `
   -p:PublishSingleFile=true `
   -p:IncludeNativeLibrariesForSelfExtract=true `
   -p:StripSymbols=true `
-  -o artifacts/ui
+  -o ../artifacts/engine
+
+dotnet publish MailDog.UI/MailDog.UI.csproj `
+  -c Release -r win-x64 `
+  -p:PublishAot=true `
+  -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:StripSymbols=true `
+  -o ../artifacts/ui
 ```
 
 - `PublishReadyToRun` 与 AOT 互斥，不启用。

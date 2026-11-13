@@ -9,8 +9,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$root = Split-Path -Parent $PSScriptRoot
-$log = Join-Path $root "artifacts/aot-$Runtime.log"
+$srcRoot = Split-Path -Parent $PSScriptRoot
+$repoRoot = Split-Path -Parent $srcRoot
+$log = Join-Path $repoRoot "artifacts/aot-$Runtime.log"
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $log) | Out-Null
 
 Write-Host "Running AOT publish and capturing output to $log ..."

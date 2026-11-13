@@ -1,7 +1,0 @@
-<Solution>
-  <Project Path="src/MailDog.Contracts/MailDog.Contracts.csproj" />
-  <Project Path="src/MailDog.Html/MailDog.Html.csproj" />
-  <Project Path="src/MailDog.Mail/MailDog.Mail.csproj" />
-  <Project Path="src/MailDog.Engine/MailDog.Engine.csproj" />
-  <Project Path="src/MailDog.UI/MailDog.UI.csproj" />
-</Solution>

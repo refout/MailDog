@@ -127,20 +127,21 @@ new Win32PlatformOptions
 ## 4. 复现命令
 
 ```powershell
-# 构建
+# 构建（global.json 在 src 下）
+cd src
 dotnet build MailDog.slnx -c Release
 
 # Engine AOT
-dotnet publish src/MailDog.Engine/MailDog.Engine.csproj -c Release -r win-x64 `
+dotnet publish MailDog.Engine/MailDog.Engine.csproj -c Release -r win-x64 `
   -p:PublishAot=true -p:PublishSingleFile=true `
   -p:IncludeNativeLibrariesForSelfExtract=true -p:StripSymbols=true `
-  -o artifacts/engine-probe
+  -o ../artifacts/engine-probe
 
 # UI AOT
-dotnet publish src/MailDog.UI/MailDog.UI.csproj -c Release -r win-x64 `
+dotnet publish MailDog.UI/MailDog.UI.csproj -c Release -r win-x64 `
   -p:PublishAot=true -p:PublishSingleFile=true `
   -p:IncludeNativeLibrariesForSelfExtract=true -p:StripSymbols=true `
-  -o artifacts/ui-probe
+  -o ../artifacts/ui-probe
 ```
 
 独立运行验证：把生成的 exe 单独复制到空目录，删除 `%LOCALAPPDATA%\MailDog\native` 后运行，确认自动解压并正常启动。
