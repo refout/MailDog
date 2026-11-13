@@ -1,8 +1,10 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform;
+using Avalonia.VisualTree;
 using MailDog.UI.ViewModels;
 
 namespace MailDog.UI.Views;
@@ -32,6 +34,7 @@ public partial class MainWindow : Window
         WebView.NavigationCompleted += OnNavigationCompleted;
         viewModel.Reader.PropertyChanged += OnReaderPropertyChanged;
         Opened += OnOpened;
+        KeyDown += OnWindowKeyDown;
         Closed += OnClosed;
     }
 
@@ -123,22 +126,61 @@ public partial class MainWindow : Window
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || IsInteractiveSource(e.Source))
         {
-            BeginMoveDrag(e);
+            return;
         }
+
+        BeginMoveDrag(e);
     }
 
     private void OnTitleBarDoubleTapped(object? sender, TappedEventArgs e)
     {
+        if (IsInteractiveSource(e.Source))
+        {
+            return;
+        }
+
         WindowState = WindowState == WindowState.Maximized
             ? WindowState.Normal
             : WindowState.Maximized;
     }
 
+    private static bool IsInteractiveSource(object? source)
+    {
+        return source is Visual visual
+            && (visual.FindAncestorOfType<Button>(includeSelf: true) is not null
+                || visual.FindAncestorOfType<TextBox>(includeSelf: true) is not null);
+    }
+
+    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && _viewModel.IsOverlayOpen)
+        {
+            _viewModel.CloseOverlayCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key == Key.F && !_viewModel.IsOverlayOpen)
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key == Key.OemComma)
+        {
+            _viewModel.OpenSettingsCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
     private void OnClosed(object? sender, EventArgs e)
     {
         Closed -= OnClosed;
+        KeyDown -= OnWindowKeyDown;
         WebView.EnvironmentRequested -= OnEnvironmentRequested;
         WebView.AdapterCreated -= OnAdapterCreated;
         WebView.NavigationStarted -= OnNavigationStarted;

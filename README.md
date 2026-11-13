@@ -86,7 +86,7 @@ dist/win-x64/MailDog/MailDog.UI.exe
 ```
 dist/win-x64/MailDog/
 ├── MailDog.Engine.exe   12.41 MiB
-└── MailDog.UI.exe       38.03 MiB
+└── MailDog.UI.exe       38.05 MiB
 ```
 
 - 两个 exe 均可在空目录中独立运行，无需 .NET 运行时。

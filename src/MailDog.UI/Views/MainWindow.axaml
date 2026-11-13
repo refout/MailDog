@@ -18,38 +18,31 @@
             Background="{DynamicResource MailDogBrushBgSubtle}"
             BorderBrush="{DynamicResource MailDogBrushStroke}"
             BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="Auto,*,Auto,138" Margin="16,0">
+      <Grid ColumnDefinitions="Auto,*,Auto,138"
+            Margin="16,0"
+            Background="Transparent"
+            PointerPressed="OnTitleBarPointerPressed"
+            DoubleTapped="OnTitleBarDoubleTapped">
         <StackPanel Grid.Column="0"
                     Orientation="Horizontal"
-                    Spacing="8"
-                    VerticalAlignment="Center"
-                    PointerPressed="OnTitleBarPointerPressed"
-                    DoubleTapped="OnTitleBarDoubleTapped">
-          <ic:FluentIcon Icon="Mail"
-                         IconVariant="Filled"
-                         IconSize="Size20"
-                         Foreground="{DynamicResource MailDogBrushAccent}" />
+                    VerticalAlignment="Center">
           <TextBlock Text="MailDog"
                      FontSize="14"
                      FontWeight="SemiBold"
                      VerticalAlignment="Center" />
         </StackPanel>
 
-        <TextBox Grid.Column="1"
-                 MaxWidth="420"
+        <TextBox x:Name="SearchBox"
+                 Grid.ColumnSpan="4"
+                 Width="420"
                  Height="32"
-                 Margin="24,0"
-                 HorizontalAlignment="Stretch"
                  VerticalAlignment="Center"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 AutomationProperties.Name="搜索邮件"
+                 IsEnabled="{Binding !IsOverlayOpen}"
                  Text="{Binding SearchText}"
-                 PlaceholderText="搜索邮件、发件人…">
-          <TextBox.InnerLeftContent>
-            <ic:FluentIcon Icon="Search"
-                           IconSize="Size16"
-                           Margin="10,0,2,0"
-                           Foreground="{DynamicResource MailDogBrushTextTertiary}" />
-          </TextBox.InnerLeftContent>
-        </TextBox>
+                 PlaceholderText="搜索邮件、发件人…" />
 
         <StackPanel Grid.Column="2"
                     Orientation="Horizontal"
@@ -121,7 +114,7 @@
                     <TextBlock Text="{Binding Initial}"
                                FontSize="12"
                                FontWeight="SemiBold"
-                               Foreground="White"
+                               Foreground="{DynamicResource MailDogBrushTextOnAccent}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center" />
                   </Border>
@@ -157,10 +150,18 @@
               <DataTemplate x:DataType="vm:FolderViewModel">
                 <Grid ColumnDefinitions="Auto,*,Auto" Height="36" Margin="4,0">
                   <ic:FluentIcon Grid.Column="0"
+                                 Icon="Mail"
+                                 IconSize="Size20"
+                                 Margin="4,0"
+                                 VerticalAlignment="Center"
+                                 IsVisible="{Binding IsInbox}"
+                                 Foreground="{DynamicResource MailDogBrushAccent}" />
+                  <ic:FluentIcon Grid.Column="0"
                                  Icon="Folder"
                                  IconSize="Size20"
                                  Margin="4,0"
                                  VerticalAlignment="Center"
+                                 IsVisible="{Binding IsNotInbox}"
                                  Foreground="{DynamicResource MailDogBrushTextSecondary}" />
                   <TextBlock Grid.Column="1"
                              Text="{Binding Name}"
@@ -178,7 +179,7 @@
                           VerticalAlignment="Center">
                     <TextBlock Text="{Binding UnreadText}"
                                FontSize="11"
-                               Foreground="White"
+                               Foreground="{DynamicResource MailDogBrushTextOnAccent}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center" />
                   </Border>
@@ -231,8 +232,16 @@
                      SelectedItem="{Binding SelectedMessage}">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:MailSummaryViewModel">
-                  <Grid ColumnDefinitions="Auto,*,Auto" Height="76" Margin="12,0">
+                  <Grid ColumnDefinitions="12,Auto,*" Height="76" Margin="12,0">
                     <Border Grid.Column="0"
+                            Width="3"
+                            Height="40"
+                            CornerRadius="1.5"
+                            Background="{DynamicResource MailDogBrushAccent}"
+                            IsVisible="{Binding IsUnread}"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Left" />
+                    <Border Grid.Column="1"
                             Width="32"
                             Height="32"
                             CornerRadius="16"
@@ -241,13 +250,13 @@
                       <TextBlock Text="{Binding AvatarInitial}"
                                  FontSize="12"
                                  FontWeight="SemiBold"
-                                 Foreground="White"
+                                 Foreground="{DynamicResource MailDogBrushTextOnAccent}"
                                  HorizontalAlignment="Center"
                                  VerticalAlignment="Center" />
                     </Border>
 
-                    <StackPanel Grid.Column="1"
-                                Margin="12,0"
+                    <StackPanel Grid.Column="2"
+                                Margin="12,0,0,0"
                                 VerticalAlignment="Center"
                                 Spacing="2">
                       <Grid ColumnDefinitions="*,Auto">
@@ -281,15 +290,6 @@
                                        Foreground="{DynamicResource MailDogBrushAccent}" />
                       </StackPanel>
                     </StackPanel>
-
-                    <Border Grid.Column="2"
-                            Width="8"
-                            Height="8"
-                            CornerRadius="4"
-                            Background="{DynamicResource MailDogBrushAccent}"
-                            IsVisible="{Binding IsUnread}"
-                            VerticalAlignment="Center"
-                            Margin="8,0,0,0" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -503,6 +503,7 @@
           <Grid ColumnDefinitions="Auto,*" Margin="16,0">
             <Button Classes="icon"
                     Command="{Binding CloseOverlayCommand}"
+                    AutomationProperties.Name="返回邮件"
                     ToolTip.Tip="返回邮件">
               <ic:FluentIcon Icon="ChevronLeft" IconSize="Size20" />
             </Button>
@@ -520,6 +521,7 @@
                   Width="560"
                   Margin="24"
                   Padding="24"
+                  VerticalAlignment="Top"
                   HorizontalAlignment="Center"
                   Background="{DynamicResource MailDogBrushBgLayer}"
                   BorderBrush="{DynamicResource MailDogBrushStroke}"
@@ -552,7 +554,8 @@
               <!-- 添加账户 -->
               <StackPanel IsVisible="{Binding IsAddAccountOpen}" Spacing="12">
                 <ComboBox ItemsSource="{Binding ProviderOptions}"
-                          SelectedIndex="{Binding SelectedProviderIndex}" />
+                          SelectedIndex="{Binding SelectedProviderIndex}"
+                          HorizontalAlignment="Stretch" />
 
                 <TextBox Text="{Binding AddAccountEmail}"
                          PlaceholderText="邮箱地址" />

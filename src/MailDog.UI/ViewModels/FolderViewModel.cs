@@ -24,6 +24,8 @@ public sealed partial class FolderViewModel : ObservableObject
 
     public bool IsInbox => Role == FolderRole.Inbox;
 
+    public bool IsNotInbox => !IsInbox;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasUnread))]
     [NotifyPropertyChangedFor(nameof(UnreadText))]
