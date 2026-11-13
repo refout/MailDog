@@ -1,0 +1,542 @@
+using System.Net.Sockets;
+using MailDog.Contracts.Dto;
+using MailDog.Contracts.Messages;
+using MailDog.Mail.Accounts;
+using MailDog.Mail.Auth;
+using MailDog.Mail.Mime;
+using MailDog.Mail.Storage;
+using MailKit;
+using MailKit.Net.Imap;
+using MailKit.Security;
+using MimeKit;
+
+namespace MailDog.Mail.Imap;
+
+public sealed class ImapSyncService : IAsyncDisposable
+{
+    private const int MaxBodyBytes = 10 * 1024 * 1024;
+
+    private readonly SqliteStore _store;
+    private readonly AccountService _accounts;
+    private readonly IAccessTokenProvider _tokens;
+    private readonly Dictionary<string, Session> _sessions = new(StringComparer.Ordinal);
+    private readonly SemaphoreSlim _sessionsGate = new(1, 1);
+
+    public ImapSyncService(SqliteStore store, AccountService accounts, IAccessTokenProvider tokens)
+    {
+        _store = store;
+        _accounts = accounts;
+        _tokens = tokens;
+    }
+
+    public event Action<NewMailEvent>? NewMail;
+
+    public event Action<SyncStateEvent>? SyncStateChanged;
+
+    public event Action<AuthStateEvent>? AuthStateChanged;
+
+    public event Action<string>? Diagnostic;
+
+    public async Task SyncAccountAsync(string accountId, CancellationToken cancellationToken)
+    {
+        var account = _accounts.GetRecord(accountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+
+        var session = await GetSessionAsync(accountId, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            RaiseSync(accountId, null, SyncStateKind.Syncing, 0, "正在连接邮件服务器…");
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var folders = await LoadFoldersAsync(session.Client!, account.Id, cancellationToken).ConfigureAwait(false);
+            _store.UpsertFolders(account.Id, folders);
+
+            var stored = _store.GetFolders(account.Id);
+            var targets = stored
+                .Where(folder => folder.Role is FolderRole.Inbox
+                    or FolderRole.Sent
+                    or FolderRole.Drafts
+                    or FolderRole.Junk
+                    or FolderRole.Trash
+                    or FolderRole.Archive)
+                .ToArray();
+
+            for (var index = 0; index < targets.Length; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var folder = targets[index];
+                RaiseSync(accountId, folder.Id, SyncStateKind.Syncing, (double)index / targets.Length, $"正在同步 {folder.DisplayName}…");
+                await SyncFolderAsync(
+                    session.Client!,
+                    account,
+                    folder,
+                    folder.Role == FolderRole.Inbox ? 200 : 50,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            _store.UpdateAccountStatus(account.Id, AccountStatus.Ok, DateTimeOffset.UtcNow);
+            RaiseSync(accountId, null, SyncStateKind.Idle, 1, null);
+        }
+        catch (AuthenticationException exception)
+        {
+            _store.UpdateAccountStatus(accountId, AccountStatus.AuthRequired);
+            AuthStateChanged?.Invoke(new AuthStateEvent
+            {
+                AccountId = accountId,
+                State = AuthStateKind.Required,
+                Message = exception.Message
+            });
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is IOException or SocketException or ImapProtocolException or ImapCommandException)
+        {
+            _store.UpdateAccountStatus(accountId, AccountStatus.Offline);
+            RaiseSync(accountId, null, SyncStateKind.Error, null, exception.Message);
+            throw;
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    public async Task<MailBodyDto> GetBodyAsync(long messageId, CancellationToken cancellationToken)
+    {
+        var message = _store.GetMessage(messageId)
+            ?? throw new KeyNotFoundException("邮件不存在。");
+
+        var cached = _store.GetBody(messageId);
+        if (cached is not null)
+        {
+            return MimeConverter.ToDto(
+                messageId,
+                message.Subject,
+                cached.Html,
+                cached.PlainText,
+                cached.Truncated,
+                cached.Attachments);
+        }
+
+        if (message.Size > MaxBodyBytes)
+        {
+            _store.UpdateBodyState(messageId, BodyStates.TooLarge);
+            return new MailBodyDto
+            {
+                MessageId = messageId,
+                Subject = message.Subject,
+                PlainText = "邮件内容超过 10 MiB，已跳过正文下载。",
+                Truncated = true
+            };
+        }
+
+        var account = _accounts.GetRecord(message.AccountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var folderRecord = _store.GetFolder(message.FolderId)
+            ?? throw new KeyNotFoundException("文件夹不存在。");
+
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var folder = session.Client!.GetFolder(folderRecord.FullName);
+            await folder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                using var stream = await folder.GetStreamAsync(
+                    new UniqueId((uint)message.Uid),
+                    "BODY.PEEK[]",
+                    cancellationToken).ConfigureAwait(false);
+
+                var mime = await MimeMessage.LoadAsync(stream, cancellationToken).ConfigureAwait(false);
+                var body = MimeConverter.ExtractBody(mime);
+                _store.SaveBody(messageId, body.Html, body.PlainText, body.Truncated, body.Attachments);
+
+                return MimeConverter.ToDto(
+                    messageId,
+                    message.Subject,
+                    body.Html,
+                    body.PlainText,
+                    body.Truncated,
+                    body.Attachments);
+            }
+            finally
+            {
+                await folder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            _store.UpdateBodyState(messageId, BodyStates.Failed);
+            throw;
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    public async Task SetSeenAsync(long messageId, bool isRead, CancellationToken cancellationToken)
+    {
+        _store.UpdateSeen(messageId, isRead);
+        await StoreFlagAsync(messageId, MessageFlags.Seen, isRead, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SetFlaggedAsync(long messageId, bool value, CancellationToken cancellationToken)
+    {
+        _store.UpdateFlagged(messageId, value);
+        await StoreFlagAsync(messageId, MessageFlags.Flagged, value, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task TestPasswordConnectionAsync(
+        MailProvider provider,
+        string email,
+        string secret,
+        CancellationToken cancellationToken)
+    {
+        var config = ProviderCatalog.Get(provider);
+
+        using var client = new ImapClient { Timeout = 30000 };
+        await client.ConnectAsync(config.ImapHost, config.ImapPort, SecureSocketOptions.SslOnConnect, cancellationToken)
+            .ConfigureAwait(false);
+        await client.AuthenticateAsync(new SaslMechanismPlain(email, secret), cancellationToken).ConfigureAwait(false);
+        await client.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task StoreFlagAsync(long messageId, MessageFlags flag, bool value, CancellationToken cancellationToken)
+    {
+        var message = _store.GetMessage(messageId);
+        if (message is null)
+        {
+            return;
+        }
+
+        var account = _accounts.GetRecord(message.AccountId);
+        var folderRecord = _store.GetFolder(message.FolderId);
+        if (account is null || folderRecord is null)
+        {
+            return;
+        }
+
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var folder = session.Client!.GetFolder(folderRecord.FullName);
+            await folder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await folder.StoreAsync(
+                    new UniqueId((uint)message.Uid),
+                    new StoreFlagsRequest(value ? StoreAction.Add : StoreAction.Remove, flag) { Silent = true },
+                    cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await folder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // 本地状态已更新；远端失败不阻塞 UI，下次同步会以服务器状态为准。
+            Diagnostic?.Invoke($"更新邮件标记失败：{exception.Message}");
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    private async Task EnsureConnectedAsync(Session session, AccountRecord account, CancellationToken cancellationToken)
+    {
+        if (session.Client is { IsConnected: true, IsAuthenticated: true })
+        {
+            return;
+        }
+
+        if (session.Client is not null)
+        {
+            await session.Client.DisconnectAsync(true, CancellationToken.None).ConfigureAwait(false);
+            session.Client.Dispose();
+            session.Client = null;
+        }
+
+        var config = ProviderCatalog.Get(account.Provider);
+        var client = new ImapClient { Timeout = 30000 };
+
+        await client.ConnectAsync(config.ImapHost, config.ImapPort, SecureSocketOptions.SslOnConnect, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (account.AuthKind == "oauth2")
+        {
+            var token = await _tokens.GetAccessTokenAsync(account, cancellationToken).ConfigureAwait(false);
+            await client.AuthenticateAsync(new SaslMechanismOAuth2(account.Email, token), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            var password = _accounts.GetPassword(account)
+                ?? throw new AuthenticationException("未找到账户授权码，请重新添加账户。");
+
+            await client.AuthenticateAsync(new SaslMechanismPlain(account.Email, password), cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        session.Client = client;
+    }
+
+    private async Task<IReadOnlyList<FolderRecord>> LoadFoldersAsync(
+        ImapClient client,
+        string accountId,
+        CancellationToken cancellationToken)
+    {
+        var personal = client.GetFolder(client.PersonalNamespaces[0]);
+        var result = new List<FolderRecord>();
+        await CollectFoldersAsync(personal, accountId, result, cancellationToken).ConfigureAwait(false);
+        return result;
+    }
+
+    private static async Task CollectFoldersAsync(
+        IMailFolder parent,
+        string accountId,
+        List<FolderRecord> result,
+        CancellationToken cancellationToken)
+    {
+        IList<IMailFolder> children;
+        try
+        {
+            children = await parent.GetSubfoldersAsync(false, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ImapCommandException)
+        {
+            return;
+        }
+
+        foreach (var folder in children)
+        {
+            long uidValidity = 0;
+            var unread = 0;
+            var total = 0;
+
+            try
+            {
+                await folder.StatusAsync(
+                    StatusItems.Count | StatusItems.Unread | StatusItems.UidValidity,
+                    cancellationToken).ConfigureAwait(false);
+
+                uidValidity = folder.UidValidity;
+                unread = folder.Unread;
+                total = folder.Count;
+            }
+            catch (ImapCommandException)
+            {
+                // 某些服务器拒绝 STATUS，保留 0，后续打开文件夹时再修正。
+            }
+
+            result.Add(new FolderRecord(
+                Id: 0,
+                AccountId: accountId,
+                FullName: folder.FullName,
+                DisplayName: folder.Name,
+                Role: MapRole(folder.Attributes),
+                UidValidity: uidValidity,
+                LastSeenUid: 0,
+                UnreadCount: unread,
+                TotalCount: total));
+
+            await CollectFoldersAsync(folder, accountId, result, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task SyncFolderAsync(
+        ImapClient client,
+        AccountRecord account,
+        FolderRecord folderRecord,
+        int initialLimit,
+        CancellationToken cancellationToken)
+    {
+        var folder = client.GetFolder(folderRecord.FullName);
+        await folder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            var uidValidity = folder.UidValidity;
+            if (folderRecord.UidValidity != 0 && folderRecord.UidValidity != uidValidity)
+            {
+                _store.ResetFolderMessages(folderRecord.Id);
+                folderRecord = folderRecord with { UidValidity = uidValidity, LastSeenUid = 0 };
+            }
+
+            var items = MessageSummaryItems.Envelope
+                        | MessageSummaryItems.Flags
+                        | MessageSummaryItems.InternalDate
+                        | MessageSummaryItems.Size
+                        | MessageSummaryItems.BodyStructure;
+
+            IList<IMessageSummary> summaries;
+            if (folderRecord.LastSeenUid > 0)
+            {
+                var range = new UniqueIdRange(
+                    new UniqueId((uint)(folderRecord.LastSeenUid + 1)),
+                    UniqueId.MaxValue);
+
+                summaries = await folder.FetchAsync(range, items, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                var count = folder.Count;
+                var start = Math.Max(1, count - initialLimit + 1);
+                summaries = count > 0
+                    ? await folder.FetchAsync(start, count, items, cancellationToken).ConfigureAwait(false)
+                    : [];
+            }
+
+            var records = summaries
+                .Select(summary => MimeConverter.ToRecord(summary, account.Id, folderRecord.Id))
+                .ToArray();
+
+            var result = _store.UpsertMessages(account.Id, folderRecord.Id, records);
+            var maxUid = records.Length > 0 ? records.Max(record => record.Uid) : folderRecord.LastSeenUid;
+            _store.UpdateFolderSyncState(folderRecord.Id, uidValidity, maxUid);
+
+            if (result.Count > 0 && result.Latest is not null)
+            {
+                NewMail?.Invoke(new NewMailEvent
+                {
+                    AccountId = account.Id,
+                    FolderId = folderRecord.Id,
+                    Count = result.Count,
+                    Latest = result.Latest
+                });
+            }
+        }
+        finally
+        {
+            await folder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<Session> GetSessionAsync(string accountId, CancellationToken cancellationToken)
+    {
+        await _sessionsGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!_sessions.TryGetValue(accountId, out var session))
+            {
+                session = new Session();
+                _sessions[accountId] = session;
+            }
+
+            return session;
+        }
+        finally
+        {
+            _sessionsGate.Release();
+        }
+    }
+
+    private static FolderRole MapRole(FolderAttributes attributes)
+    {
+        if ((attributes & FolderAttributes.Inbox) != 0)
+        {
+            return FolderRole.Inbox;
+        }
+
+        if ((attributes & FolderAttributes.Sent) != 0)
+        {
+            return FolderRole.Sent;
+        }
+
+        if ((attributes & FolderAttributes.Drafts) != 0)
+        {
+            return FolderRole.Drafts;
+        }
+
+        if ((attributes & FolderAttributes.Trash) != 0)
+        {
+            return FolderRole.Trash;
+        }
+
+        if ((attributes & FolderAttributes.Junk) != 0)
+        {
+            return FolderRole.Junk;
+        }
+
+        if ((attributes & FolderAttributes.Archive) != 0)
+        {
+            return FolderRole.Archive;
+        }
+
+        return FolderRole.Other;
+    }
+
+    private void RaiseSync(string accountId, long? folderId, SyncStateKind state, double? progress, string? message)
+        => SyncStateChanged?.Invoke(new SyncStateEvent
+        {
+            AccountId = accountId,
+            FolderId = folderId,
+            State = state,
+            Progress = progress,
+            Message = message
+        });
+
+    public async ValueTask DisposeAsync()
+    {
+        await _sessionsGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            foreach (var session in _sessions.Values)
+            {
+                if (session.Client is { } client)
+                {
+                    try
+                    {
+                        if (client.IsConnected)
+                        {
+                            await client.DisconnectAsync(true, CancellationToken.None).ConfigureAwait(false);
+                        }
+                    }
+                    catch
+                    {
+                        // 退出时忽略断开异常。
+                    }
+
+                    client.Dispose();
+                }
+
+                session.Gate.Dispose();
+            }
+
+            _sessions.Clear();
+        }
+        finally
+        {
+            _sessionsGate.Release();
+            _sessionsGate.Dispose();
+        }
+    }
+
+    private sealed class Session
+    {
+        public SemaphoreSlim Gate { get; } = new(1, 1);
+
+        public ImapClient? Client { get; set; }
+    }
+}

@@ -1,4 +1,5 @@
 using System.Text;
+using MailDog.Engine.Hosting;
 using MailDog.Mail.Storage;
 using MailKit.Net.Imap;
 using Microsoft.Data.Sqlite;
@@ -9,6 +10,54 @@ namespace MailDog.Engine;
 internal static class Program
 {
     public static int Main(string[] args)
+    {
+        if (args.Contains("--probe", StringComparer.OrdinalIgnoreCase))
+        {
+            return RunProbes();
+        }
+
+        var databasePath = GetArgument(args, "--db") ?? SqliteStore.DefaultDatabasePath;
+
+        using var mutex = new Mutex(true, "Local\\MailDog.Engine.Singleton", out var createdNew);
+        if (!createdNew)
+        {
+            Console.WriteLine("MailDog.Engine 已在运行。");
+            return 0;
+        }
+
+        var host = new EngineHost(databasePath);
+
+        try
+        {
+            host.RunAsync().GetAwaiter().GetResult();
+            return 0;
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception);
+            return 1;
+        }
+        finally
+        {
+            host.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            mutex.ReleaseMutex();
+        }
+    }
+
+    private static string? GetArgument(string[] args, string name)
+    {
+        for (var index = 0; index < args.Length - 1; index++)
+        {
+            if (string.Equals(args[index], name, StringComparison.OrdinalIgnoreCase))
+            {
+                return args[index + 1];
+            }
+        }
+
+        return null;
+    }
+
+    private static int RunProbes()
     {
         Console.WriteLine($"MailDog.Engine · .NET {Environment.Version} · AOT probe");
 
