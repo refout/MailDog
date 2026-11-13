@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 11
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+
+      - name: Restore
+        working-directory: src
+        run: dotnet restore MailDog.slnx
+
+      - name: Build
+        working-directory: src
+        run: dotnet build MailDog.slnx -c Release --no-restore
+
+      - name: Verify dependency direction
+        shell: pwsh
+        run: ./src/build/verify-dependencies.ps1
+
+      - name: Verify Native AOT
+        shell: pwsh
+        run: ./src/build/verify-aot.ps1 -Runtime win-x64
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MailDog-win-x64
+          path: dist/win-x64/MailDog/
+          if-no-files-found: error
