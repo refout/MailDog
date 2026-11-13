@@ -112,7 +112,7 @@ public sealed class Win32Tray : IDisposable
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
     }
 
-    public void ShowNotification(string title, string message)
+    public void ShowNotification(string title, string message, bool playSound = true)
     {
         if (!_iconAdded)
         {
@@ -123,7 +123,9 @@ public sealed class Win32Tray : IDisposable
         data.uFlags = NativeMethods.NIF_INFO;
         data.szInfoTitle = Truncate(title, 63);
         data.szInfo = Truncate(message, 255);
-        data.dwInfoFlags = NativeMethods.NIIF_INFO;
+        data.dwInfoFlags = playSound
+            ? (uint)NativeMethods.NIIF_INFO
+            : (uint)(NativeMethods.NIIF_INFO | NativeMethods.NIIF_NOSOUND);
         data.uTimeoutOrVersion = 5000;
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
     }

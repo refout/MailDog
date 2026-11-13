@@ -46,11 +46,17 @@ public sealed class EngineHost : IAsyncDisposable
         {
             _ipc.Broadcast(IpcMessageTypes.NewMail, message);
 
-            if (message.Latest is not null && _store.GetSettings().NotificationsEnabled)
+            if (message.Latest is not null)
             {
-                _tray?.ShowNotification(
-                    "新邮件",
-                    $"{message.Latest.FromName}: {message.Latest.Subject}");
+                var settings = _store.GetSettings();
+
+                if (settings.NotificationsEnabled)
+                {
+                    _tray?.ShowNotification(
+                        "新邮件",
+                        $"{message.Latest.FromName}: {message.Latest.Subject}",
+                        settings.NotificationSoundEnabled);
+                }
             }
         };
         _sync.SyncStateChanged += message => _ipc.Broadcast(IpcMessageTypes.SyncState, message);
@@ -141,12 +147,12 @@ public sealed class EngineHost : IAsyncDisposable
     {
         await SyncAllAsync(cancellationToken).ConfigureAwait(false);
 
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
-
         try
         {
-            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            while (!cancellationToken.IsCancellationRequested)
             {
+                var minutes = Math.Clamp(_store.GetSettings().SyncIntervalMinutes, 1, 60);
+                await Task.Delay(TimeSpan.FromMinutes(minutes), cancellationToken).ConfigureAwait(false);
                 await SyncAllAsync(cancellationToken).ConfigureAwait(false);
             }
         }

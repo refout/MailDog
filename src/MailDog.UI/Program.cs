@@ -31,8 +31,8 @@ internal static class Program
             .UsePlatformDetect()
             .With(new Win32PlatformOptions
             {
-                // 不携带 ANGLE，Windows 上固定使用 Skia 软件渲染，避免依赖 av_libGLESv2.dll。
-                RenderingMode = new[] { Win32RenderingMode.Software }
+                // 优先 ANGLE 以启用透明窗口与云母/亚克力材质，加载失败时回退软件渲染。
+                RenderingMode = new[] { Win32RenderingMode.AngleEgl, Win32RenderingMode.Software }
             })
             .LogToTrace(LogEventLevel.Debug);
 }

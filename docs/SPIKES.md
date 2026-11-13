@@ -19,14 +19,14 @@
 
 | 产物 | 大小 | 说明 |
 |---|---|---|
-| `MailDog.Engine.exe`（v1） | 12.41 MiB | 含 MailKit、SQLite、OAuth、Win32 托盘 |
-| `MailDog.UI.exe`（v1） | 38.05 MiB | 含 Avalonia、WebView、净化器、Skia/HarfBuzz |
+| `MailDog.Engine.exe`（v1） | 12.42 MiB | 含 MailKit、SQLite、OAuth、Win32 托盘 |
+| `MailDog.UI.exe`（v1） | 43.27 MiB | 含 Avalonia、WebView、净化器、Skia/HarfBuzz/ANGLE |
 | Stage 0 Engine 探针 | 6.00 MiB | 203 ms 执行到退出 |
 | Stage 0 UI 探针 | 35.54 MiB | 445 ms 到首窗口 |
 
-- 两个 exe 均可在**只复制 exe 本身**的空目录中独立运行。
-- 发布目录仍会生成 PDB 与 `av_libglesv2.dll`，部署脚本只复制 exe；PDB 不进入 `dist`。
-- UI 使用 Skia 软件渲染（不携带 ANGLE），WebView2 自身仍使用其 GPU 进程。
+- 两个 exe 均为自包含单文件，无需 .NET 运行时；UI 需与 Engine 同目录才能自动拉起后台。
+- PDB 不进入 `dist`；`av_libglesv2.dll` 与 Skia/HarfBuzz 一样作为嵌入资源，不留在发布目录。
+- UI 优先 ANGLE（用于云母/亚克力材质），加载失败自动回退 Skia 软件渲染；WebView2 自身仍使用其 GPU 进程。
 
 ## 3. 关键发现与修正
 
@@ -90,24 +90,17 @@ windows.Language = "zh-CN";
 
 > 原生库版本必须与 NuGet 包锁定版本一致；升级 `Microsoft.Data.Sqlite` / `SkiaSharp` / `HarfBuzzSharp` 时同步检查嵌入路径。
 
-### 3.4 ANGLE 可选，决定使用软件渲染
+### 3.4 ANGLE 与窗口材质
 
-`Avalonia.Angle.Windows.Natives` 会带出 `av_libglesv2.dll`（5.14 MiB）。删除该 DLL 后 Avalonia 记录：
+`Avalonia.Angle.Windows.Natives` 带出 `av_libglesv2.dll`（5.14 MiB）。早期为保持单文件与行为确定，v1 显式使用软件渲染（`Win32RenderingMode.Software`）。该模式下 Avalonia 报告的 `ActualTransparencyLevel` 恒为 `None`，云母/亚克力无法生效。
 
-```
-[OpenGL]Unable to load ANGLE: DllNotFoundException 'av_libGLESv2.dll'
-```
+加入外观材质后调整为：
 
-随后自动回退软件渲染，UI 与 WebView 均正常。为保持单文件与行为确定，v1 显式设置：
+- `av_libglesv2.dll` 与 Skia/HarfBuzz 一样作为嵌入资源，启动时解压到 `%LOCALAPPDATA%\MailDog\native\ui`，并注册到 `Avalonia.Win32` 程序集的 DllImport 解析器。
+- `RenderingMode = [AngleEgl, Software]`：优先 ANGLE，加载失败自动回退软件渲染。
+- `TransparencyLevelHint` 按设置切换 `Mica` / `AcrylicBlur` / `None`；若 `ActualTransparencyLevel` 仍为 `None`，500ms 后把面板回退为不透明，避免半透明叠在黑底上。
 
-```csharp
-new Win32PlatformOptions
-{
-    RenderingMode = new[] { Win32RenderingMode.Software }
-}
-```
-
-代价：Avalonia 自身 UI 不使用 GPU；邮件列表滚动与动效需要在中低端设备上复测。WebView2 的渲染不受影响。
+代价：UI 单文件增加约 5.2 MiB（38.05 → 43.27 MiB），仍在 55 MiB 目标内。WebView2 渲染不受影响。
 
 ### 3.5 `NativeWebView` 没有公开 `Dispose()`
 
@@ -140,6 +133,15 @@ AOT 产物实测：
 - `GetConsoleWindow` 位于 **kernel32.dll**，不是 user32.dll；放错 DLL 会在启动时抛 `EntryPointNotFoundException`。
 - `Shell_NotifyIcon` 的 `NOTIFYICONDATA` 在 Native AOT 下按普通 `DllImport` 封送可用。
 - Engine 仍是控制台子系统进程；托盘启动后用 `ShowWindow(SW_HIDE)` 隐藏控制台。`--console` 可保留控制台用于排障。
+
+### 3.8 命名管道只能接受一次 UI 连接
+
+`NamedPipeServerStream` 的 `maxNumberOfServerInstances` 曾设为 1。第一封 UI 连接建立后，接受循环再创建下一个实例会抛异常并退出；关闭 UI 后再次打开会一直停在“正在连接”，直到重启 Engine。
+
+修正：
+
+- 最大实例数改为 4（UI 有单实例互斥，实际仍只有一个 UI）。
+- 实例创建包在 try/catch 中，失败等待 250ms 后重试，避免接受循环退出。
 
 ### 3.8 托盘图标来源
 

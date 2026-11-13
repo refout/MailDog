@@ -4,6 +4,8 @@
              RequestedThemeVariant="Default">
   <Application.Resources>
     <ResourceDictionary>
+      <CornerRadius x:Key="ControlCornerRadius">4</CornerRadius>
+      <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://MailDog.UI/Themes/Tokens.axaml" />
       </ResourceDictionary.MergedDictionaries>
@@ -34,6 +36,10 @@
     </Style>
     <Style Selector="ListBox.mail-list">
       <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Margin" Value="4,1" />
     </Style>
   </Application.Styles>
 </Application>

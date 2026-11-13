@@ -34,7 +34,17 @@ public sealed class AppSettingsDto
 {
     public string Theme { get; init; } = "system";
 
+    public string Material { get; init; } = "mica";
+
+    public string? BackgroundColor { get; init; }
+
+    public int BackgroundOpacity { get; init; } = 85;
+
     public bool NotificationsEnabled { get; init; } = true;
+
+    public bool NotificationSoundEnabled { get; init; } = true;
+
+    public int SyncIntervalMinutes { get; init; } = 1;
 
     public int CacheDays { get; init; } = 90;
 

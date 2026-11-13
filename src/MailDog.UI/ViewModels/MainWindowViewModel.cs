@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -51,6 +52,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public string[] ThemeOptions { get; } = ["跟随系统", "浅色", "深色"];
 
+    public string[] MaterialOptions { get; } = ["无", "云母", "亚克力"];
+
+    public string[] SyncIntervalOptions { get; } = ["1 分钟", "5 分钟", "15 分钟", "30 分钟", "60 分钟"];
+
+    public static int[] SyncIntervalValues { get; } = [1, 5, 15, 30, 60];
+
+    public string AppVersion => typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+
+    public string VersionText => $"版本 {AppVersion}";
+
+    public string RuntimeVersion => Environment.Version.ToString();
+
+    public string RuntimeText => $".NET {RuntimeVersion}";
+
+    public ObservableCollection<BackgroundPresetViewModel> BackgroundPresets { get; } = [];
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
     [NotifyPropertyChangedFor(nameof(OverlayTitle))]
@@ -63,9 +80,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
     private bool _isAddAccountOpen;
 
-    public bool IsOverlayOpen => IsSettingsOpen || IsAddAccountOpen;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
+    [NotifyPropertyChangedFor(nameof(OverlayTitle))]
+    [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
+    private bool _isAboutOpen;
 
-    public string OverlayTitle => IsSettingsOpen ? "设置" : "添加账户";
+    public bool IsOverlayOpen => IsSettingsOpen || IsAddAccountOpen || IsAboutOpen;
+
+    public string OverlayTitle => IsSettingsOpen ? "设置" : IsAboutOpen ? "关于" : "添加账户";
 
     public bool IsReaderHtmlVisible => Reader.UseHtml && !IsOverlayOpen;
 
@@ -133,10 +156,56 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private int _themeIndex;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Material))]
+    [NotifyPropertyChangedFor(nameof(IsMaterialEnabled))]
+    private int _materialIndex;
+
+    [ObservableProperty]
+    private string _backgroundColorHex = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OpacityText))]
+    private int _backgroundOpacity = 85;
+
+    [ObservableProperty]
     private bool _notificationsEnabled = true;
 
     [ObservableProperty]
+    private bool _notificationSoundEnabled = true;
+
+    [ObservableProperty]
+    private int _syncIntervalIndex;
+
+    [ObservableProperty]
+    private bool _markReadOnOpen = true;
+
+    [ObservableProperty]
+    private bool _showRemoteImages;
+
+    [ObservableProperty]
     private string _entraClientId = string.Empty;
+
+    public string Material => MaterialIndex switch
+    {
+        1 => "mica",
+        2 => "acrylic",
+        _ => "none"
+    };
+
+    public bool IsMaterialEnabled => MaterialIndex != 0;
+
+    public string OpacityText => $"{BackgroundOpacity}%";
+
+    public double BackgroundOpacityValue
+    {
+        get => BackgroundOpacity;
+        set => BackgroundOpacity = (int)Math.Round(value);
+    }
+
+    partial void OnBackgroundOpacityChanged(int value)
+    {
+        OnPropertyChanged(nameof(BackgroundOpacityValue));
+    }
 
     public bool HasStatus => !string.IsNullOrEmpty(StatusMessage);
 
@@ -347,10 +416,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         var settings = new AppSettingsDto
         {
             Theme = Theme,
+            Material = Material,
+            BackgroundColor = string.IsNullOrWhiteSpace(BackgroundColorHex) ? null : BackgroundColorHex.Trim(),
+            BackgroundOpacity = Math.Clamp(BackgroundOpacity, 40, 100),
             NotificationsEnabled = NotificationsEnabled,
+            NotificationSoundEnabled = NotificationSoundEnabled,
+            SyncIntervalMinutes = SyncIntervalValues[Math.Clamp(SyncIntervalIndex, 0, SyncIntervalValues.Length - 1)],
             CacheDays = _settings.CacheDays,
-            MarkReadOnOpen = _settings.MarkReadOnOpen,
-            ShowRemoteImages = _allowRemoteImages,
+            MarkReadOnOpen = MarkReadOnOpen,
+            ShowRemoteImages = ShowRemoteImages,
             EntraClientId = string.IsNullOrWhiteSpace(EntraClientId) ? null : EntraClientId.Trim()
         };
 
@@ -361,6 +435,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 new UpdateSettingsRequest { Settings = settings });
 
             _settings = settings;
+            _allowRemoteImages = settings.ShowRemoteImages;
             ApplyTheme();
             StatusMessage = "设置已保存。";
             HasError = false;
@@ -376,6 +451,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void OpenSettings()
     {
         IsAddAccountOpen = false;
+        IsAboutOpen = false;
         IsSettingsOpen = true;
     }
 
@@ -383,7 +459,29 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void OpenAddAccount()
     {
         IsSettingsOpen = false;
+        IsAboutOpen = false;
         IsAddAccountOpen = true;
+    }
+
+    [RelayCommand]
+    private void OpenAbout()
+    {
+        IsSettingsOpen = false;
+        IsAddAccountOpen = false;
+        IsAboutOpen = true;
+    }
+
+    [RelayCommand]
+    private void BackFromOverlay()
+    {
+        if (IsAboutOpen)
+        {
+            IsAboutOpen = false;
+            IsSettingsOpen = true;
+            return;
+        }
+
+        CloseOverlay();
     }
 
     [RelayCommand]
@@ -391,6 +489,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         IsSettingsOpen = false;
         IsAddAccountOpen = false;
+        IsAboutOpen = false;
+    }
+
+    [RelayCommand]
+    private void OpenProjectPage()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("https://github.com/refout/MailDog")
+            {
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // 打开浏览器失败时不影响关于页。
+        }
     }
 
     [RelayCommand]
@@ -450,6 +565,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         ApplyTheme();
     }
 
+    partial void OnShowRemoteImagesChanged(bool value)
+    {
+        _allowRemoteImages = value;
+    }
+
     partial void OnThemeIndexChanged(int value)
     {
         Theme = value switch
@@ -505,9 +625,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             "dark" => 2,
             _ => 0
         };
+        MaterialIndex = _settings.Material switch
+        {
+            "mica" => 1,
+            "acrylic" => 2,
+            _ => 0
+        };
+        BackgroundColorHex = _settings.BackgroundColor ?? string.Empty;
+        BackgroundOpacity = _settings.BackgroundOpacity;
         NotificationsEnabled = _settings.NotificationsEnabled;
-        EntraClientId = _settings.EntraClientId ?? string.Empty;
+        NotificationSoundEnabled = _settings.NotificationSoundEnabled;
+        var intervalIndex = Array.IndexOf(SyncIntervalValues, _settings.SyncIntervalMinutes);
+        SyncIntervalIndex = intervalIndex >= 0 ? intervalIndex : 0;
+        MarkReadOnOpen = _settings.MarkReadOnOpen;
+        ShowRemoteImages = _settings.ShowRemoteImages;
         _allowRemoteImages = _settings.ShowRemoteImages;
+        EntraClientId = _settings.EntraClientId ?? string.Empty;
         ApplyTheme();
     }
 
@@ -909,6 +1042,47 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             "dark" => ThemeVariant.Dark,
             _ => ThemeVariant.Default
         };
+
+        RefreshBackgroundPresets();
+    }
+
+    private void RefreshBackgroundPresets()
+    {
+        var dark = Theme == "dark"
+            || (Theme != "light" && Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
+
+        (string Name, string Value)[] presets = dark
+            ? [
+                ("默认", string.Empty),
+                ("石墨", "#26282B"),
+                ("深蓝", "#1D2833"),
+                ("深褐", "#2A2420"),
+                ("墨绿", "#1E2A24"),
+                ("深紫", "#251F2C")
+            ]
+            : [
+                ("默认", string.Empty),
+                ("冷灰", "#EDF1F5"),
+                ("雾蓝", "#E8F1FA"),
+                ("暖沙", "#F7F1E6"),
+                ("浅绿", "#EDF4ED"),
+                ("淡紫", "#F1EDF7")
+            ];
+
+        BackgroundPresets.Clear();
+
+        foreach (var preset in presets)
+        {
+            var preview = !string.IsNullOrEmpty(preset.Value)
+                ? preset.Value
+                : dark ? "#202020" : "#F3F3F3";
+
+            BackgroundPresets.Add(new BackgroundPresetViewModel(
+                preset.Name,
+                preset.Value,
+                preview,
+                value => BackgroundColorHex = value ?? string.Empty));
+        }
     }
 
     private static bool IsDarkTheme()

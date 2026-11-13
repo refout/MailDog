@@ -1,15 +1,17 @@
 using System.Runtime.InteropServices;
+using Avalonia;
 
 namespace MailDog.UI.Services;
 
 /// <summary>
-/// 将嵌入的 Skia / HarfBuzz 原生库解压到本地并注册 DllImport 解析器。
-/// Native AOT 不会把第三方原生库打入单文件；ANGLE 不携带，Windows 渲染显式走软件模式。
+/// 将嵌入的 Skia / HarfBuzz / ANGLE 原生库解压到本地并注册 DllImport 解析器。
+/// Native AOT 不会把第三方原生库打入单文件；ANGLE 用于透明窗口与云母/亚克力材质。
 /// </summary>
 internal static class NativeBootstrap
 {
     private const string SkiaResource = "MailDog.UI.Native.libSkiaSharp.dll";
     private const string HarfBuzzResource = "MailDog.UI.Native.libHarfBuzzSharp.dll";
+    private const string AngleResource = "MailDog.UI.Native.av_libglesv2.dll";
 
     private static int _state;
 
@@ -41,6 +43,20 @@ internal static class NativeBootstrap
         NativeLibrary.SetDllImportResolver(
             typeof(HarfBuzzSharp.Blob).Assembly,
             (name, _, _) => IsLibrary(name, "libHarfBuzzSharp") ? harfBuzzHandle : IntPtr.Zero);
+
+        try
+        {
+            var anglePath = Extract(AngleResource, Path.Combine(directory, "av_libglesv2.dll"));
+            var angleHandle = NativeLibrary.Load(anglePath);
+
+            NativeLibrary.SetDllImportResolver(
+                typeof(Win32RenderingMode).Assembly,
+                (name, _, _) => IsLibrary(name, "av_libglesv2") ? angleHandle : IntPtr.Zero);
+        }
+        catch
+        {
+            // ANGLE 不可用时 Avalonia 自动回退软件渲染，材质回退为纯色。
+        }
     }
 
     private static string Extract(string resourceName, string target)

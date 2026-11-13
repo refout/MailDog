@@ -23,7 +23,12 @@ public sealed class SqliteStoreTests : IDisposable
         var settings = new AppSettingsDto
         {
             Theme = "dark",
+            Material = "acrylic",
+            BackgroundColor = "#26282B",
+            BackgroundOpacity = 72,
             NotificationsEnabled = false,
+            NotificationSoundEnabled = false,
+            SyncIntervalMinutes = 15,
             CacheDays = 30,
             MarkReadOnOpen = false,
             ShowRemoteImages = true,
@@ -34,7 +39,12 @@ public sealed class SqliteStoreTests : IDisposable
         var loaded = _store.GetSettings();
 
         Assert.Equal("dark", loaded.Theme);
+        Assert.Equal("acrylic", loaded.Material);
+        Assert.Equal("#26282B", loaded.BackgroundColor);
+        Assert.Equal(72, loaded.BackgroundOpacity);
         Assert.False(loaded.NotificationsEnabled);
+        Assert.False(loaded.NotificationSoundEnabled);
+        Assert.Equal(15, loaded.SyncIntervalMinutes);
         Assert.Equal(30, loaded.CacheDays);
         Assert.False(loaded.MarkReadOnOpen);
         Assert.True(loaded.ShowRemoteImages);

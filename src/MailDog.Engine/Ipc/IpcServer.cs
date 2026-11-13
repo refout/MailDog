@@ -60,12 +60,22 @@ public sealed class IpcServer : IAsyncDisposable
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            var pipe = new NamedPipeServerStream(
-                IpcProtocol.PipeName,
-                PipeDirection.InOut,
-                maxNumberOfServerInstances: 1,
-                PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+            NamedPipeServerStream pipe;
+
+            try
+            {
+                pipe = new NamedPipeServerStream(
+                    IpcProtocol.PipeName,
+                    PipeDirection.InOut,
+                    maxNumberOfServerInstances: 4,
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
 
             try
             {

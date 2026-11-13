@@ -716,7 +716,18 @@ public sealed class SqliteStore : IDisposable
         return new AppSettingsDto
         {
             Theme = values.GetValueOrDefault("theme", "system"),
+            Material = values.GetValueOrDefault("material", "mica"),
+            BackgroundColor = string.IsNullOrWhiteSpace(values.GetValueOrDefault("backgroundColor"))
+                ? null
+                : values.GetValueOrDefault("backgroundColor"),
+            BackgroundOpacity = int.TryParse(values.GetValueOrDefault("backgroundOpacity"), out var opacity)
+                ? Math.Clamp(opacity, 40, 100)
+                : 85,
             NotificationsEnabled = !values.TryGetValue("notifications", out var notifications) || notifications != "0",
+            NotificationSoundEnabled = !values.TryGetValue("notificationSound", out var notificationSound) || notificationSound != "0",
+            SyncIntervalMinutes = int.TryParse(values.GetValueOrDefault("syncIntervalMinutes"), out var interval)
+                ? Math.Clamp(interval, 1, 60)
+                : 1,
             CacheDays = int.TryParse(values.GetValueOrDefault("cacheDays"), out var days) ? days : 90,
             MarkReadOnOpen = !values.TryGetValue("markReadOnOpen", out var markRead) || markRead != "0",
             ShowRemoteImages = values.GetValueOrDefault("showRemoteImages") == "1",
@@ -730,7 +741,12 @@ public sealed class SqliteStore : IDisposable
         {
             using var transaction = _connection.BeginTransaction();
             UpsertSetting(transaction, "theme", settings.Theme);
+            UpsertSetting(transaction, "material", settings.Material);
+            UpsertSetting(transaction, "backgroundColor", settings.BackgroundColor ?? string.Empty);
+            UpsertSetting(transaction, "backgroundOpacity", settings.BackgroundOpacity.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "notifications", settings.NotificationsEnabled ? "1" : "0");
+            UpsertSetting(transaction, "notificationSound", settings.NotificationSoundEnabled ? "1" : "0");
+            UpsertSetting(transaction, "syncIntervalMinutes", settings.SyncIntervalMinutes.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "cacheDays", settings.CacheDays.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "markReadOnOpen", settings.MarkReadOnOpen ? "1" : "0");
             UpsertSetting(transaction, "showRemoteImages", settings.ShowRemoteImages ? "1" : "0");

@@ -89,15 +89,15 @@ dist/win-x64/MailDog/MailDog.UI.exe
 ```
 dist/win-x64/
 ├── MailDog/
-│   ├── MailDog.Engine.exe   12.41 MiB
-│   └── MailDog.UI.exe       38.05 MiB
-└── MailDog-win-x64.zip      22.52 MiB
+│   ├── MailDog.Engine.exe   12.42 MiB
+│   └── MailDog.UI.exe       43.27 MiB
+└── MailDog-win-x64.zip      24.58 MiB
 ```
 
 - 两个 exe 均为自包含单文件，无需 .NET 运行时；UI 需与 Engine 位于同一目录，才能自动拉起后台。
 - `MailDog-win-x64.zip` 是完整发布包，解压后双击 `MailDog.UI.exe` 即可。
-- SQLite / Skia / HarfBuzz 原生库嵌入 exe，首次启动解压到 `%LOCALAPPDATA%\MailDog\native\`。
-- UI 使用 Skia 软件渲染，不依赖 ANGLE；WebView2 仍使用自身 GPU 进程。
+- SQLite / Skia / HarfBuzz / ANGLE 原生库嵌入 exe，首次启动解压到 `%LOCALAPPDATA%\MailDog\native\`。
+- UI 优先使用 ANGLE 渲染以启用云母/亚克力材质与透明窗口；加载失败时自动回退 Skia 软件渲染。WebView2 仍使用自身 GPU 进程。
 - 关闭 UI 后 `MailDog.UI` 与新增的 `msedgewebview2` 进程全部退出，Engine 托盘继续驻留。
 - 托盘图标由微软 Fluent UI System Icons 的 `Mail` 图标导出。
 

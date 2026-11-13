@@ -43,8 +43,8 @@
 5. **Native AOT 不会打包第三方原生库。**
    `IncludeNativeLibrariesForSelfExtract=true` 在 AOT 下不生效：`e_sqlite3.dll`、`libSkiaSharp.dll`、`libHarfBuzzSharp.dll` 会留在 exe 旁边。解决方式是把它们作为嵌入资源，启动时解压到 `%LOCALAPPDATA%\MailDog\native\`，再用 `NativeLibrary.SetDllImportResolver` 解析。详见 [SPIKES.md](./SPIKES.md) 3.3。
 
-6. **ANGLE 不进入单文件，Windows 固定软件渲染。**
-   `av_libglesv2.dll` 缺失时 Avalonia 自动回退软件渲染且功能正常。为保持单文件与确定性，v1 显式设置 `Win32RenderingMode.Software`；WebView2 仍使用自身的 GPU 进程。
+6. **ANGLE 进入单文件，用于云母/亚克力材质。**
+   软件渲染下 Avalonia 的 `ActualTransparencyLevel` 恒为 `None`，材质无法生效。现在把 `av_libglesv2.dll` 作为嵌入资源解压并注册解析器，`RenderingMode = [AngleEgl, Software]`：优先 ANGLE，失败自动回退。WebView2 仍使用自身的 GPU 进程。详见 [SPIKES.md](./SPIKES.md) 3.4。
 
 7. **UI 必须有应用清单，WebView2 必须有可写的用户数据目录。**
    AOT 产物缺少 `supportedOS` 声明时，`NativeControlHost` 无法创建子窗口；未设置 `UserDataFolder` 时会以 `E_ACCESSDENIED` 失败。两者都已在 Stage 0 修复并写入模板。
@@ -160,7 +160,7 @@ Contracts ← UI
 | `Microsoft.Data.Sqlite` | 11.0.0 | SQLite ADO.NET | 自带 `SQLitePCLRaw.bundle_e_sqlite3`；`e_sqlite3` 需嵌入解压 |
 | `SkiaSharp` / `SkiaSharp.NativeAssets.Win32` | 3.119.4 | Avalonia 渲染 | `libSkiaSharp.dll` 需嵌入解压 |
 | `HarfBuzzSharp` / `HarfBuzzSharp.NativeAssets.Win32` | 8.3.1.3 | 文本整形 | `libHarfBuzzSharp.dll` 需嵌入解压 |
-| `Avalonia.Angle.Windows.Natives` | 2.1.27548.20260419 | ANGLE（传递依赖） | 不进入发行包，v1 使用软件渲染 |
+| `Avalonia.Angle.Windows.Natives` | 2.1.27548.20260419 | ANGLE | 嵌入解压，启用云母/亚克力材质 |
 | `System.Security.Cryptography.ProtectedData` | 11.0.x | Windows DPAPI 令牌加密 | Windows 专用；跨平台后续替换 |
 | xUnit + `Microsoft.NET.Test.Sdk` | 脚手架时锁定 | 单元测试 | 测试项目不 AOT |
 
@@ -1011,16 +1011,16 @@ dotnet publish MailDog.UI/MailDog.UI.csproj `
 ```
 
 - `PublishReadyToRun` 与 AOT 互斥，不启用。
-- **`IncludeNativeLibrariesForSelfExtract=true` 在 Native AOT 下不会打包第三方原生库**；`e_sqlite3`、`libSkiaSharp`、`libHarfBuzzSharp` 通过 `EmbeddedResource` + 启动解压 + `NativeLibrary.SetDllImportResolver` 解决。发布目录可能仍出现 `av_libglesv2.dll`，但发行包只复制两个 exe。
-- UI 显式使用 `Win32RenderingMode.Software`，不携带 ANGLE；WebView2 仍使用自身 GPU 进程。
+- **`IncludeNativeLibrariesForSelfExtract=true` 在 Native AOT 下不会打包第三方原生库**；`e_sqlite3`、`libSkiaSharp`、`libHarfBuzzSharp`、`av_libglesv2` 通过 `EmbeddedResource` + 启动解压 + `NativeLibrary.SetDllImportResolver` 解决。
+- UI 优先 `Win32RenderingMode.AngleEgl`，失败回退 `Software`；材质不可用时自动回退不透明面板。WebView2 仍使用自身 GPU 进程。
 - 产物组装到 `dist/win-x64/MailDog/`：两个 exe + `README.txt` + 可选 `MailDog.Engine.json`（Entra client id）。
 
 ### 14.2 体积与性能预算（最终实测）
 
 | 指标 | 目标 | 实测 |
 |---|---|---|
-| Engine 单文件 | ≤ 35 MiB | **12.41 MiB** |
-| UI 单文件 | ≤ 55 MiB | **38.05 MiB** |
+| Engine 单文件 | ≤ 35 MiB | **12.42 MiB** |
+| UI 单文件 | ≤ 55 MiB | **43.27 MiB** |
 | Engine 启动 | ≤ 1.5s | Stage 0 探针 203 ms；v1 含托盘常驻 |
 | UI 首窗口 | ≤ 2.5s | Stage 0 探针 445 ms |
 | Engine 空闲内存 | ≤ 120 MiB | 待长稳测试 |
