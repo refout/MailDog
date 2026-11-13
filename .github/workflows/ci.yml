@@ -25,6 +25,10 @@ jobs:
         working-directory: src
         run: dotnet build MailDog.slnx -c Release --no-restore
 
+      - name: Test
+        working-directory: src
+        run: dotnet test MailDog.slnx -c Release --no-build
+
       - name: Verify dependency direction
         shell: pwsh
         run: ./src/build/verify-dependencies.ps1

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
@@ -10,6 +11,7 @@ public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel _viewModel;
     private bool _adapterReady;
+    private bool _internalNavigation;
     private string? _pendingHtml;
 
     public MainWindow()
@@ -26,6 +28,7 @@ public partial class MainWindow : Window
 
         WebView.EnvironmentRequested += OnEnvironmentRequested;
         WebView.AdapterCreated += OnAdapterCreated;
+        WebView.NavigationStarted += OnNavigationStarted;
         WebView.NavigationCompleted += OnNavigationCompleted;
         viewModel.Reader.PropertyChanged += OnReaderPropertyChanged;
         Opened += OnOpened;
@@ -60,6 +63,35 @@ public partial class MainWindow : Window
         NavigatePending();
     }
 
+    private void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
+    {
+        if (_internalNavigation)
+        {
+            _internalNavigation = false;
+            return;
+        }
+
+        var request = e.Request;
+        e.Cancel = true;
+
+        if (request is null)
+        {
+            return;
+        }
+
+        if (request.Scheme is "http" or "https" or "mailto")
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(request.AbsoluteUri) { UseShellExecute = true });
+            }
+            catch
+            {
+                // 外部打开失败时不影响阅读。
+            }
+        }
+    }
+
     private void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
     {
         if (!e.IsSuccess && _viewModel.Reader.UseHtml)
@@ -85,6 +117,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        _internalNavigation = true;
         WebView.NavigateToString(_pendingHtml);
     }
 
@@ -105,6 +138,7 @@ public partial class MainWindow : Window
         Closed -= OnClosed;
         WebView.EnvironmentRequested -= OnEnvironmentRequested;
         WebView.AdapterCreated -= OnAdapterCreated;
+        WebView.NavigationStarted -= OnNavigationStarted;
         WebView.NavigationCompleted -= OnNavigationCompleted;
         _viewModel.Reader.PropertyChanged -= OnReaderPropertyChanged;
         _viewModel.Dispose();

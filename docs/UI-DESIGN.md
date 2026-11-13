@@ -1,7 +1,7 @@
 # MailDog 界面设计方案（Fluent Design）
 
-> 状态：设计基线（待评审）
-> 日期：2026-11-13
+> 状态：已实现（v1 只读界面）
+> 日期：2026-11-14
 > 关联文档：[PLAN.md](./PLAN.md)
 > 设计语言：Microsoft Fluent 2（Avalonia `FluentTheme` 落地）
 > 图标：Microsoft Fluent UI System Icons（禁止手绘图标）

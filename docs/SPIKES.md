@@ -17,10 +17,12 @@
 
 ## 2. 实测产物
 
-| 产物 | 大小 | 启动 |
+| 产物 | 大小 | 说明 |
 |---|---|---|
-| `MailDog.Engine.exe` | 6.00 MiB | 203 ms（进程执行到退出） |
-| `MailDog.UI.exe` | 35.54 MiB | 445 ms（进程启动到主窗口句柄可用） |
+| `MailDog.Engine.exe`（v1） | 12.41 MiB | 含 MailKit、SQLite、OAuth、Win32 托盘 |
+| `MailDog.UI.exe`（v1） | 38.04 MiB | 含 Avalonia、WebView、净化器、Skia/HarfBuzz |
+| Stage 0 Engine 探针 | 6.00 MiB | 203 ms 执行到退出 |
+| Stage 0 UI 探针 | 35.54 MiB | 445 ms 到首窗口 |
 
 - 两个 exe 均可在**只复制 exe 本身**的空目录中独立运行。
 - 发布目录仍会生成 PDB 与 `av_libglesv2.dll`，部署脚本只复制 exe；PDB 不进入 `dist`。
@@ -123,6 +125,28 @@ new Win32PlatformOptions
   - `Microsoft.VisualStudio.Component.Windows11SDK.26100`
 - `vswhere -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64` 必须能返回安装路径，否则 AOT 链接会失败。
 - 本次安装后系统提示重启；未重启状态下 AOT 已可正常工作，但 CI 与正式构建机应完成重启。
+
+### 3.7 Win32 托盘 AOT 与生命周期（v1 验收）
+
+AOT 产物实测：
+
+- Engine 启动后创建 `MailDog.Tray` message-only 窗口与托盘图标。
+- 通过 tray `WM_COMMAND` 打开 UI：`MailDog.UI` 启动并显示主窗口。
+- 关闭 UI：`MailDog.UI` 进程数回到 0，`msedgewebview2` 从 12 回到 6（基线），Engine 仍驻留。
+- 通过 tray “退出”：Engine 正常结束，托盘图标移除。
+
+注意：
+
+- `GetConsoleWindow` 位于 **kernel32.dll**，不是 user32.dll；放错 DLL 会在启动时抛 `EntryPointNotFoundException`。
+- `Shell_NotifyIcon` 的 `NOTIFYICONDATA` 在 Native AOT 下按普通 `DllImport` 封送可用。
+- Engine 仍是控制台子系统进程；托盘启动后用 `ShowWindow(SW_HIDE)` 隐藏控制台。`--console` 可保留控制台用于排障。
+
+### 3.8 托盘图标来源
+
+- 图标由微软 Fluent UI System Icons 的 `Mail`（filled）官方 SVG 导出，填充色改为 Fluent 品牌蓝 `#0F6CBD`。
+- 使用 `Svg.Skia` 在构建期渲染为 256×256 PNG，再封装为 ICO；运行时不依赖 Svg.Skia。
+- `ApplicationIcon` 将 ICO 嵌入 exe；托盘用 `ExtractIconEx` 从当前 exe 取图标，保持单文件。
+- 未手绘任何图标。
 
 ## 4. 复现命令
 

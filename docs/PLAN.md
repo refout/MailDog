@@ -1,9 +1,9 @@
 # MailDog 技术方案
 
-> 状态：方案基线（待评审）
-> 日期：2026-11-13
+> 状态：v1 只读实现完成（Stage 0–6）
+> 日期：2026-11-14
 > 适用范围：MailDog v1（Windows 优先）
-> 关联文档：[UI-DESIGN.md](./UI-DESIGN.md)
+> 关联文档：[UI-DESIGN.md](./UI-DESIGN.md)、[SPIKES.md](./SPIKES.md)
 
 ---
 
@@ -13,7 +13,7 @@
 |---|---|
 | 产品名 | **MailDog** |
 | 形态 | 双进程：`MailDog.Engine.exe`（后台常驻）+ `MailDog.UI.exe`（按需启动，关闭即退） |
-| 目标框架 | `net11.0`（本机当前只有 .NET SDK 10.0.403，Stage 0 先安装 .NET 11 SDK） |
+| 目标框架 | `net11.0`（SDK 11.0.100，已安装） |
 | UI 框架 | Avalonia 12.1.6 + `Avalonia.Themes.Fluent` |
 | WebView | `Avalonia.Controls.WebView` 12.1.2（`NativeWebView`，Windows 走 WebView2） |
 | 邮件协议 | MailKit 5.0.0（IMAP/SMTP），不引用 `MimeKit.Cryptography` |
@@ -58,7 +58,7 @@
 - 多账户：Outlook（Microsoft 个人/工作账户，OAuth2 PKCE）+ QQ 邮箱（授权码）。
 - 只读邮件体验：账户、文件夹、邮件列表、邮件正文、未读/旗标状态。
 - 本地索引：SQLite 缓存邮件头、文件夹与正文；离线可读已缓存内容。
-- 新邮件提醒：IMAP IDLE（不可用时轮询）+ Win32 气泡通知。
+- 新邮件提醒：60s 轮询 + Win32 气泡通知（IMAP IDLE 列为 v1.1 优化）。
 - HTML 正文渲染：净化 + CSP + 默认拦截远程图片 + 失败降级纯文本。
 - 托盘常驻：打开 UI、立即同步、账户状态、退出。
 - 主题：Light / Dark / 跟随系统；Fluent Design。
@@ -590,6 +590,8 @@ CREATE TABLE settings (
 
 ### 7.5 IDLE 与轮询
 
+> v1 实现：使用 60s 轮询（PeriodicTimer）完成增量同步，尚未启用 IMAP IDLE；IDLE 作为 v1.1 优化项保留。
+
 - 支持 IDLE 的服务器：进入 IDLE，服务器超时前（通常 9 分钟）主动退出并重入；`CountChanged` 触发增量同步。
 - QQ 若 IDLE 不稳定：provider 能力标记 `UseIdle=false`，改为 60s 轮询 `STATUS (MESSAGES UNSEEN)`，有变化才拉取。
 - 应用从睡眠恢复：监听 `SystemEvents.PowerModeChanged`（Engine 内 P/Invoke 或 `Microsoft.Win32.SystemEvents`；优先 P/Invoke 广播消息），恢复后立即同步。
@@ -1013,16 +1015,16 @@ dotnet publish MailDog.UI/MailDog.UI.csproj `
 - UI 显式使用 `Win32RenderingMode.Software`，不携带 ANGLE；WebView2 仍使用自身 GPU 进程。
 - 产物组装到 `dist/win-x64/MailDog/`：两个 exe + `README.txt` + 可选 `MailDog.Engine.json`（Entra client id）。
 
-### 14.2 体积与性能预算（Stage 0 实测）
+### 14.2 体积与性能预算（最终实测）
 
 | 指标 | 目标 | 实测 |
 |---|---|---|
-| Engine 单文件 | ≤ 35 MiB | **6.00 MiB** |
-| UI 单文件 | ≤ 55 MiB | **35.54 MiB** |
-| Engine 启动 | ≤ 1.5s | **203 ms** |
-| UI 首窗口 | ≤ 2.5s | **445 ms** |
-| Engine 空闲内存 | ≤ 120 MiB | 待 Stage 2 实测 |
-| UI 关闭后残留进程 | 0 | ✅（Stage 0 探针） |
+| Engine 单文件 | ≤ 35 MiB | **12.41 MiB** |
+| UI 单文件 | ≤ 55 MiB | **38.04 MiB** |
+| Engine 启动 | ≤ 1.5s | Stage 0 探针 203 ms；v1 含托盘常驻 |
+| UI 首窗口 | ≤ 2.5s | Stage 0 探针 445 ms |
+| Engine 空闲内存 | ≤ 120 MiB | 待长稳测试 |
+| UI 关闭后残留进程 | 0 | ✅ 已验收（UI 与新增 WebView2 进程均退出） |
 
 ### 14.3 CI
 
@@ -1078,6 +1080,8 @@ GitHub Actions `windows-latest`：
 ## 16. 里程碑
 
 > 每个阶段的“完成”定义：AOT 发布产物冒烟通过 + 文档更新 + 提交到 `main`。
+
+> 实现状态：Stage 0–6 已完成（v1 只读客户端）；Stage 7–8 属于 v1.1。
 
 ### Stage 0：工具链与 AOT 探针（已完成）
 

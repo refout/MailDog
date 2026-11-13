@@ -2,22 +2,32 @@
 
 双进程、全 Native AOT、零 MSAL 的桌面邮件客户端。
 
-- **Engine**：MailKit（IMAP/SMTP）+ SQLite 索引 + Win32 托盘 + OAuth2 PKCE + 命名管道服务
+- **Engine**：MailKit（IMAP）+ SQLite 索引 + Win32 托盘 + OAuth2 PKCE + 命名管道服务
 - **UI**：Avalonia 12 + Fluent Design + NativeWebView，按需启动、关闭即退
 
-> 当前状态：Stage 0 已完成。双进程 AOT 探针、WebView2 渲染、MailKit/SQLite 单文件验证全部通过；下一步进入 Contracts 与 IPC。
+> 当前状态：**v1 只读客户端已完成**。QQ / Outlook 账户、文件夹与邮件列表、HTML 正文渲染、HTML 净化、托盘常驻、通知、单文件 AOT 与 CI 全部落地。
+
+## 已实现
+
+- 多账户：QQ 邮箱授权码 + Outlook OAuth2 Authorization Code + PKCE。
+- 邮件同步：文件夹、最近邮件、未读/旗标、周期增量同步（60s）。
+- 本地索引：SQLite 缓存账户、文件夹、邮件头与正文，离线可读已缓存内容。
+- HTML 正文：白名单净化、CSP、默认拦截远程图片、渲染失败自动降级纯文本。
+- 桌面体验：Fluent 三栏布局、暗色/亮色主题、搜索、筛选、附件元数据。
+- 托盘：打开 UI、立即同步、退出；UI 关闭后 Engine 与托盘继续驻留。
+- 发布：两个 Native AOT 单文件，无 .NET 运行时依赖；GitHub Actions 已通过。
 
 ## 文档
 
 - [技术方案](docs/PLAN.md)：架构、库选型、IPC 协议、存储、认证、AOT 纪律、里程碑、风险
 - [界面设计](docs/UI-DESIGN.md)：Fluent 设计令牌、三栏布局、组件规格、交互与可访问性
-- [Stage 0 探针结论](docs/SPIKES.md)：实测结果、原生库嵌入方案、WebView2 与清单修正
+- [探针结论](docs/SPIKES.md)：AOT、原生库嵌入、WebView2 与工具链实测记录
 
 ## 仓库结构
 
 ```
 MailDog/
-├── docs/               方案、界面设计、Stage 0 探针结论
+├── docs/               方案、界面设计、探针结论
 ├── src/                代码根：MailDog.slnx、global.json、项目、tests、build 脚本
 ├── .github/            CI 工作流
 ├── .editorconfig
@@ -45,43 +55,66 @@ MailDog/
 - Windows 10 1809+ / Windows 11
 - Windows 10 需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（Windows 11 已内置）
 
-## 构建
+## 构建与发布
 
 ```powershell
-# 构建（global.json 在 src 下）
+# 构建与测试（global.json 在 src 下）
 cd src
 dotnet build MailDog.slnx -c Release
+dotnet test MailDog.slnx -c Debug --no-restore
 
 # 发布两个 AOT 单文件（从仓库根执行）
 pwsh -File src/build/publish.ps1 -Runtime win-x64
 ```
 
+## 运行
+
+```powershell
+# 方式一：后台常驻，托盘启动 UI
+dist/win-x64/MailDog/MailDog.Engine.exe
+
+# 方式二：直接启动 UI（会自动拉起 Engine）
+dist/win-x64/MailDog/MailDog.UI.exe
+```
+
+- QQ 邮箱：在 QQ 邮箱网页端开启 IMAP/SMTP，生成**授权码**（不是登录密码）。
+- Outlook：在“设置 → Outlook”填写 Entra 公共客户端 `client_id`，再通过浏览器登录。重定向 URI 需注册 `http://localhost` 与 `http://127.0.0.1`。
+- 数据库与日志：`%LOCALAPPDATA%\MailDog\`。
+
 ## 已实测产物
 
 ```
 dist/win-x64/MailDog/
-├── MailDog.Engine.exe    6.00 MiB
-└── MailDog.UI.exe       35.54 MiB
+├── MailDog.Engine.exe   12.41 MiB
+└── MailDog.UI.exe       38.04 MiB
 ```
 
 - 两个 exe 均可在空目录中独立运行，无需 .NET 运行时。
 - SQLite / Skia / HarfBuzz 原生库嵌入 exe，首次启动解压到 `%LOCALAPPDATA%\MailDog\native\`。
 - UI 使用 Skia 软件渲染，不依赖 ANGLE；WebView2 仍使用自身 GPU 进程。
-- 实测：Engine 203 ms；UI 首个窗口 445 ms。
+- 关闭 UI 后 `MailDog.UI` 与新增的 `msedgewebview2` 进程全部退出，Engine 托盘继续驻留。
+- 托盘图标由微软 Fluent UI System Icons 的 `Mail` 图标导出。
 
 ## 路线图
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | 0 | 工具链与 AOT 探针 | ✅ 已完成 |
-| 1 | Contracts + 源生成序列化 | 下一步 |
-| 2 | Mail + Engine（QQ 只读） | 待开始 |
-| 3 | OAuth2 PKCE（Outlook） | 待开始 |
-| 4 | UI 最小闭环 | 待开始 |
-| 5 | NativeWebView + 净化 + 降级 | 待开始 |
-| 6 | 托盘与进程生命周期闭环 | 待开始 |
+| 1 | Contracts + 源生成序列化 | ✅ 已完成 |
+| 2 | Mail + Engine（QQ 只读） | ✅ 已完成 |
+| 3 | OAuth2 PKCE（Outlook） | ✅ 已完成 |
+| 4 | UI 最小闭环 | ✅ 已完成 |
+| 5 | NativeWebView + 净化 + 降级 | ✅ 已完成 |
+| 6 | 托盘与进程生命周期闭环 | ✅ 已完成 |
+| 7 | 撰写/回复/发信与附件下载 | v1.1 |
+| 8 | 代码签名、安装包、自动更新 | v1.1 |
 
-详见 [技术方案](docs/PLAN.md#16-里程碑)。
+## 已知限制
+
+- 未实现撰写、回复、转发与 SMTP 发信；附件仅显示元数据，不提供下载。
+- 新邮件使用 60s 轮询，尚未启用 IMAP IDLE。
+- Outlook OAuth 与 QQ 真实账户需要在具备凭据的环境中完成手工验收。
+- Engine 仍为控制台子系统进程，启动托盘后会隐藏控制台窗口；后续可改为 `WinExe`。
 
 ## 许可
 
