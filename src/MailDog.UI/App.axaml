@@ -11,5 +11,24 @@
   </Application.Resources>
   <Application.Styles>
     <FluentTheme DensityStyle="Compact" />
+    <Style Selector="Button.icon">
+      <Setter Property="Width" Value="32" />
+      <Setter Property="Height" Value="32" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextSecondary}" />
+    </Style>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextTertiary}" />
+    </Style>
+    <Style Selector="ListBox.mail-list">
+      <Setter Property="Padding" Value="0" />
+    </Style>
   </Application.Styles>
 </Application>

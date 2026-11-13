@@ -6,4 +6,5 @@
   <Project Path="MailDog.UI/MailDog.UI.csproj" />
   <Project Path="tests/MailDog.Contracts.Tests/MailDog.Contracts.Tests.csproj" />
   <Project Path="tests/MailDog.Mail.Tests/MailDog.Mail.Tests.csproj" />
+  <Project Path="tests/MailDog.Html.Tests/MailDog.Html.Tests.csproj" />
 </Solution>

@@ -25,7 +25,9 @@ internal static class Program
             return 0;
         }
 
-        var host = new EngineHost(databasePath);
+        var host = new EngineHost(
+            databasePath,
+            hideConsole: !args.Contains("--console", StringComparer.OrdinalIgnoreCase));
 
         try
         {

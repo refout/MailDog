@@ -4,6 +4,7 @@
     <TargetFramework>net11.0</TargetFramework>
     <AssemblyName>MailDog.Engine</AssemblyName>
     <RootNamespace>MailDog.Engine</RootNamespace>
+    <ApplicationIcon>Assets/maildog.ico</ApplicationIcon>
     <PublishAot>true</PublishAot>
     <IsAotCompatible>true</IsAotCompatible>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>

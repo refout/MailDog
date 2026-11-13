@@ -5,6 +5,7 @@
     <AssemblyName>MailDog.UI</AssemblyName>
     <RootNamespace>MailDog.UI</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/maildog.ico</ApplicationIcon>
     <PublishAot>true</PublishAot>
     <IsAotCompatible>true</IsAotCompatible>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>

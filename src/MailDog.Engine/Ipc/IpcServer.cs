@@ -17,6 +17,17 @@ public sealed class IpcServer : IAsyncDisposable
         _router = router;
     }
 
+    public bool HasConnections
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _connections.Any(connection => connection.IsHandshaken);
+            }
+        }
+    }
+
     public void Start()
     {
         _acceptTask = AcceptLoopAsync(_cts.Token);
