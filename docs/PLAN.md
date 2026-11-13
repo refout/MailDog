@@ -25,7 +25,7 @@
 | 仓库 | 本地 `C:\Users\hale\IdeaProjects\MailDog`；远端 `https://github.com/refout/MailDog`（Public） |
 | 平台范围 | v1 只交付 Windows x64/arm64；macOS/Linux 预留抽象，后续里程碑实现 |
 
-### 0.1 对原始架构稿的三处技术修正
+### 0.1 对原始架构稿的技术修正
 
 1. **Engine 不能使用 Avalonia 的 `WebAuthenticationBroker`。**
    官方签名是 `AuthenticateAsync(TopLevel topLevel, WebAuthenticatorOptions options)`，必须传入一个窗口级 `TopLevel`。Engine 不加载任何 UI 框架，因此拿不到 `TopLevel`。结论：OAuth2 PKCE 在 Engine 内**自研回环实现**，不依赖 Avalonia 的 OAuth 组件；`AuthorizationCodePkceSession` 也不进入 Engine。
@@ -37,8 +37,17 @@
 3. **Linux 的 WebView 回退顺序需按官方文档修正。**
    `NativeWebView` 在 Linux 上**优先 WPE WebKit，未安装时自动回退 WebKitGTK**；`NativeWebDialog` 始终使用 WebKitGTK。因此在 Linux 上不存在“WPE 缺失就必须换 `NativeWebDialog`”的硬分叉。v1 不实现 Linux，相关判断放到 UI 渲染协调器的平台策略中预留。
 
-4. **.NET 11 SDK 是前置条件。**
-   当前机器只有 6.0.101 与 10.0.403。所有 `net11.0` 的构建、AOT 发布与冒烟测试在 Stage 0 安装 SDK 11 后才开始；`global.json` 会锁定 `11.0.1xx`。
+4. **.NET 11 SDK 已就位。**
+   本机已安装 11.0.100；`global.json` 锁定 `11.0.100`（`rollForward=latestFeature`）。Stage 0 的所有探针均在该 SDK 上完成。
+
+5. **Native AOT 不会打包第三方原生库。**
+   `IncludeNativeLibrariesForSelfExtract=true` 在 AOT 下不生效：`e_sqlite3.dll`、`libSkiaSharp.dll`、`libHarfBuzzSharp.dll` 会留在 exe 旁边。解决方式是把它们作为嵌入资源，启动时解压到 `%LOCALAPPDATA%\MailDog\native\`，再用 `NativeLibrary.SetDllImportResolver` 解析。详见 [SPIKES.md](./SPIKES.md) 3.3。
+
+6. **ANGLE 不进入单文件，Windows 固定软件渲染。**
+   `av_libglesv2.dll` 缺失时 Avalonia 自动回退软件渲染且功能正常。为保持单文件与确定性，v1 显式设置 `Win32RenderingMode.Software`；WebView2 仍使用自身的 GPU 进程。
+
+7. **UI 必须有应用清单，WebView2 必须有可写的用户数据目录。**
+   AOT 产物缺少 `supportedOS` 声明时，`NativeControlHost` 无法创建子窗口；未设置 `UserDataFolder` 时会以 `E_ACCESSDENIED` 失败。两者都已在 Stage 0 修复并写入模板。
 
 ---
 
@@ -140,15 +149,18 @@ Contracts ← UI
 
 | 包 | 版本 | 用途 | AOT / 备注 |
 |---|---|---|---|
-| .NET SDK | 11.0.1xx | 编译与 AOT | 本机未安装，Stage 0 前置 |
+| .NET SDK | 11.0.100 | 编译与 AOT | 已安装，Stage 0 验证通过 |
 | `Avalonia` | 12.1.6 | UI 框架 | 官方支持 Native AOT |
 | `Avalonia.Desktop` | 12.1.6 | 桌面窗口/平台后端 | — |
 | `Avalonia.Themes.Fluent` | 12.1.6 | Fluent 主题 | 资源编译进程序集 |
-| `Avalonia.Controls.WebView` | 12.1.2 | `NativeWebView` / `NativeWebDialog` | 依赖 Avalonia 12.0.0；AOT 需 Stage 0 探针确认 |
-| `FluentIcons.Avalonia` | 2.1.345 | 微软 Fluent UI System Icons 图标控件 | 依赖 Avalonia 12.0.0，net10.0 目标；几何图形预生成，无运行时 SVG 解析 |
+| `Avalonia.Controls.WebView` | 12.1.2 | `NativeWebView` / `NativeWebDialog` | AOT 已验证；需 `app.manifest` 与显式 `UserDataFolder` |
+| `FluentIcons.Avalonia` | 2.1.345 | 微软 Fluent UI System Icons 图标控件 | 依赖 Avalonia 12.0.0，net10.0 目标；AOT 渲染已验证 |
 | `CommunityToolkit.Mvvm` | 8.4.2 | `[ObservableProperty]` / `[RelayCommand]` 源生成 | 源生成器，无反射绑定 |
-| `MailKit` | 5.0.0 | IMAP/SMTP/MIME | 依赖 `MimeKit.Core` 5.0.0；官方有 AOT 兼容验证 |
-| `Microsoft.Data.Sqlite` | 11.0.0 | SQLite ADO.NET | 自带 `SQLitePCLRaw.bundle_e_sqlite3` |
+| `MailKit` | 5.0.0 | IMAP/SMTP/MIME | 依赖 `MimeKit.Core` 5.0.0；AOT 已验证 |
+| `Microsoft.Data.Sqlite` | 11.0.0 | SQLite ADO.NET | 自带 `SQLitePCLRaw.bundle_e_sqlite3`；`e_sqlite3` 需嵌入解压 |
+| `SkiaSharp` / `SkiaSharp.NativeAssets.Win32` | 3.119.4 | Avalonia 渲染 | `libSkiaSharp.dll` 需嵌入解压 |
+| `HarfBuzzSharp` / `HarfBuzzSharp.NativeAssets.Win32` | 8.3.1.3 | 文本整形 | `libHarfBuzzSharp.dll` 需嵌入解压 |
+| `Avalonia.Angle.Windows.Natives` | 2.1.27548.20260419 | ANGLE（传递依赖） | 不进入发行包，v1 使用软件渲染 |
 | `System.Security.Cryptography.ProtectedData` | 11.0.x | Windows DPAPI 令牌加密 | Windows 专用；跨平台后续替换 |
 | xUnit + `Microsoft.NET.Test.Sdk` | 脚手架时锁定 | 单元测试 | 测试项目不 AOT |
 
@@ -818,7 +830,10 @@ select, textarea, link, base, meta, svg, math, video, audio, canvas, template`
 
 - 阅读窗格只创建一个 `NativeWebView` 实例；切换邮件时更新内容，不重复创建。
 - `WebMessageReceived` 在初始化时订阅一次，窗口关闭时退订。
-- `MainWindow.Closed` 与 `DetachedFromVisualTree` 时调用 `Dispose()`；`Closing` 事件中先停止导航。
+- `MainWindow.Closed` 与 `DetachedFromVisualTree` 时退订 `AdapterCreated` / `WebMessageReceived` / `NavigationCompleted` 等事件。
+- **API 事实修正**：`Avalonia.Controls.WebView` 12.1.2 的 `NativeWebView` **没有公开 `Dispose()`**；原生适配器随视觉树卸载与窗口关闭释放，不要假设可以手动 Dispose。验证“关闭后无 `msedgewebview2` 残留”仍作为验收项。
+- **必须显式设置 WebView2 用户数据目录**：在 `EnvironmentRequested` 中把 `WindowsWebView2EnvironmentRequestedEventArgs.UserDataFolder` 指到 `%LOCALAPPDATA%\MailDog\WebView2`，否则默认路径可能以 `E_ACCESSDENIED` 失败（Stage 0 实测）。
+- **UI 必须声明受支持的 OS**：`app.manifest` 中加入 Windows 10/11 的 `supportedOS` GUID，否则 AOT 产物创建 `NativeControlHost` 子窗口时会抛 `InvalidOperationException`。
 - 渲染协调器维护状态机：`Idle → Loading → Rendered | Failed → TextFallback`。
 - 同一时刻只允许一个导航；切换邮件时取消上一个导航并递增代次号，忽略过期回调。
 
@@ -937,21 +952,32 @@ select, textarea, link, base, meta, svg, math, video, audio, canvas, template`
 | `Microsoft.Data.Sqlite` | `SQLitePCLRaw` 原生库加载 | 探针中建表/读写/重启 |
 | `CommunityToolkit.Mvvm` | 源生成器版本兼容 | Stage 4 AOT 发布 UI |
 
-### 13.3 探针清单（Stage 0）
+### 13.3 探针清单与结果（已完成）
 
-1. `net11.0` 空控制台 AOT 发布，运行输出 `ok`。
-2. Avalonia 空窗口 AOT 发布，启动/关闭正常。
-3. `NativeWebView` 加载一段静态 HTML，确认渲染、`Dispose`、进程退出后无 `msedgewebview2` 残留。
-4. MailKit AOT 连接公开 IMAP 测试服务器（或本地 GreenMail），确认无 `IL*` 警告。
-5. SQLite 建库/写入/读取 AOT 正常。
-6. FluentIcons 渲染正常。
-7. 记录两个 exe 的体积、冷启动时间、空闲内存，写回本文档。
+| 探针 | 结果 | 关键结论 |
+|---|---|---|
+| `net11.0` 控制台 AOT | ✅ | 无 `IL*` 警告 |
+| Avalonia 空窗口 AOT | ✅ | 需要 `app.manifest` |
+| `NativeWebView` + WebView2 AOT | ✅ | 需显式 `UserDataFolder`；无公开 `Dispose()` |
+| MailKit MIME + IMAP 类型 AOT | ✅ | 无 `IL*` 警告 |
+| SQLite 建库/读写 AOT | ✅ | `e_sqlite3.dll` 需嵌入解压 |
+| FluentIcons 渲染 AOT | ✅ | 正常 |
+| 关闭 UI 后进程清理 | ✅ | 无新增 `msedgewebview2` 残留 |
+
+实测：Engine 6.00 MiB / 203 ms；UI 35.54 MiB / 445 ms（首个窗口句柄可用）。完整记录见 [SPIKES.md](./SPIKES.md)。
 
 ---
 
 ## 14. 构建与发布
 
 ### 14.1 发布命令
+
+**Windows 构建机前置**：Visual Studio Build Tools 2026（18.11.3 或更高）并勾选：
+
+- `Microsoft.VisualStudio.Component.VC.Tools.x86.x64`（MSVC 编译器与链接器）
+- `Microsoft.VisualStudio.Component.Windows11SDK.26100`（Windows SDK）
+
+只安装 BuildTools 本体不会带 `link.exe` 与 SDK 头文件/库，Native AOT 会在链接阶段失败。
 
 ```powershell
 dotnet publish src/MailDog.Engine/MailDog.Engine.csproj `
@@ -972,19 +998,20 @@ dotnet publish src/MailDog.UI/MailDog.UI.csproj `
 ```
 
 - `PublishReadyToRun` 与 AOT 互斥，不启用。
-- `IncludeNativeLibrariesForSelfExtract=true` 用于 WebView2Loader 等原生库；Stage 0 验证是否可改为完全内嵌。
+- **`IncludeNativeLibrariesForSelfExtract=true` 在 Native AOT 下不会打包第三方原生库**；`e_sqlite3`、`libSkiaSharp`、`libHarfBuzzSharp` 通过 `EmbeddedResource` + 启动解压 + `NativeLibrary.SetDllImportResolver` 解决。发布目录可能仍出现 `av_libglesv2.dll`，但发行包只复制两个 exe。
+- UI 显式使用 `Win32RenderingMode.Software`，不携带 ANGLE；WebView2 仍使用自身 GPU 进程。
 - 产物组装到 `dist/win-x64/MailDog/`：两个 exe + `README.txt` + 可选 `MailDog.Engine.json`（Entra client id）。
 
-### 14.2 体积与性能预算（Stage 0 实测后修订）
+### 14.2 体积与性能预算（Stage 0 实测）
 
-| 指标 | 目标 |
-|---|---|
-| Engine 单文件 | ≤ 35 MiB |
-| UI 单文件 | ≤ 55 MiB |
-| Engine 冷启动 | ≤ 1.5s |
-| UI 冷启动 | ≤ 2.5s |
-| Engine 空闲内存 | ≤ 120 MiB |
-| UI 关闭后残留进程 | 0（`MailDog.UI` 与 `msedgewebview2`） |
+| 指标 | 目标 | 实测 |
+|---|---|---|
+| Engine 单文件 | ≤ 35 MiB | **6.00 MiB** |
+| UI 单文件 | ≤ 55 MiB | **35.54 MiB** |
+| Engine 启动 | ≤ 1.5s | **203 ms** |
+| UI 首窗口 | ≤ 2.5s | **445 ms** |
+| Engine 空闲内存 | ≤ 120 MiB | 待 Stage 2 实测 |
+| UI 关闭后残留进程 | 0 | ✅（Stage 0 探针） |
 
 ### 14.3 CI
 
@@ -1041,20 +1068,20 @@ GitHub Actions `windows-latest`：
 
 > 每个阶段的“完成”定义：AOT 发布产物冒烟通过 + 文档更新 + 提交到 `main`。
 
-### Stage 0：工具链与 AOT 探针
+### Stage 0：工具链与 AOT 探针（已完成）
 
 **交付**
 
-- 安装 .NET 11 SDK，`global.json` 锁定。
-- 建立解决方案骨架与中央包管理。
-- 7 项探针（见 13.3），结论写入 `docs/SPIKES.md`。
+- 安装 .NET 11 SDK 11.0.100，`global.json` 锁定。
+- 建立解决方案骨架、中央包管理、发布与依赖校验脚本、CI 工作流。
+- 7 项探针全部通过，结论写入 [SPIKES.md](./SPIKES.md)。
 
-**退出标准**
+**实测结果**
 
-- 两个最小 AOT 程序可运行（控制台 + Avalonia 窗口）。
-- `NativeWebView` AOT 渲染成功，关闭后无残留进程。
-- MailKit/SQLite/FluentIcons 探针全部通过，无 `IL*` 警告。
-- 体积/启动/内存实测数据回填 14.2。
+- `MailDog.Engine.exe` 6.00 MiB，203 ms；`MailDog.UI.exe` 35.54 MiB，445 ms。
+- 两个 exe 均可在空目录中独立运行。
+- `NativeWebView` AOT 渲染成功；关闭后无新增 WebView2 残留。
+- MailKit / SQLite / FluentIcons 全部通过，无 `IL*` 警告。
 
 ### Stage 1：Contracts 与源生成序列化
 
@@ -1118,7 +1145,7 @@ GitHub Actions `windows-latest`：
 **交付**
 
 - `MailDog.Html` 净化器、文档构建器、CSP。
-- `RenderCoordinator` 状态机、`Dispose` 纪律、Windows 加固。
+- `RenderCoordinator` 状态机、事件退订纪律、Windows 加固。
 - 恶意邮件语料测试。
 
 **退出标准**

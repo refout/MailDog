@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="SQLite" GeneratePathProperty="true" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' Or ('$(RuntimeIdentifier)' == '' And '$(NETCoreSdkRuntimeIdentifier)' == 'win-x64')">
+    <EmbeddedResource Include="$(PkgSQLite)\runtimes\win-x64\native\e_sqlite3.dll"
+                      LogicalName="MailDog.Mail.Native.e_sqlite3.dll" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-arm64' Or ('$(RuntimeIdentifier)' == '' And '$(NETCoreSdkRuntimeIdentifier)' == 'win-arm64')">
+    <EmbeddedResource Include="$(PkgSQLite)\runtimes\win-arm64\native\e_sqlite3.dll"
+                      LogicalName="MailDog.Mail.Native.e_sqlite3.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MailDog.Contracts\MailDog.Contracts.csproj" />
+  </ItemGroup>
+</Project>

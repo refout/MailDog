@@ -1,0 +1,34 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ic="using:FluentIcons.Avalonia"
+        x:Class="MailDog.UI.Views.MainWindow"
+        Title="MailDog"
+        Width="1280"
+        Height="800"
+        Background="{DynamicResource MailDogBrushBgBase}">
+  <Grid RowDefinitions="48,*">
+    <Border Grid.Row="0"
+            Background="{DynamicResource MailDogBrushBgSubtle}"
+            BorderBrush="{DynamicResource MailDogBrushStroke}"
+            BorderThickness="0,0,0,1">
+      <StackPanel Margin="16,0"
+                  Orientation="Horizontal"
+                  Spacing="8"
+                  VerticalAlignment="Center">
+        <ic:FluentIcon Icon="Mail"
+                       IconVariant="Filled"
+                       IconSize="Size20" />
+        <TextBlock Text="MailDog"
+                   FontSize="14"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource MailDogBrushTextPrimary}"
+                   VerticalAlignment="Center" />
+        <TextBlock Text="Stage 0 · Native AOT + WebView2 probe"
+                   FontSize="12"
+                   Foreground="{DynamicResource MailDogBrushTextSecondary}"
+                   VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
+    <NativeWebView Grid.Row="1" x:Name="WebView" />
+  </Grid>
+</Window>

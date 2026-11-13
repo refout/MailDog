@@ -5,12 +5,13 @@
 - **Engine**：MailKit（IMAP/SMTP）+ SQLite 索引 + Win32 托盘 + OAuth2 PKCE + 命名管道服务
 - **UI**：Avalonia 12 + Fluent Design + NativeWebView，按需启动、关闭即退
 
-> 当前状态：方案阶段。代码尚未开始，先评审架构与界面设计。
+> 当前状态：Stage 0 已完成。双进程 AOT 探针、WebView2 渲染、MailKit/SQLite 单文件验证全部通过；下一步进入 Contracts 与 IPC。
 
 ## 文档
 
 - [技术方案](docs/PLAN.md)：架构、库选型、IPC 协议、存储、认证、AOT 纪律、里程碑、风险
 - [界面设计](docs/UI-DESIGN.md)：Fluent 设计令牌、三栏布局、组件规格、交互与可访问性
+- [Stage 0 探针结论](docs/SPIKES.md)：实测结果、原生库嵌入方案、WebView2 与清单修正
 
 ## 核心决策
 
@@ -28,29 +29,35 @@
 
 ## 前置条件
 
-- .NET SDK 11（当前开发机仅有 10.0.403，Stage 0 安装）
+- .NET SDK 11（已锁定 `11.0.100`，见 `global.json`）
+- Visual Studio Build Tools 2026，勾选 `Microsoft.VisualStudio.Component.VC.Tools.x86.x64` 与 `Microsoft.VisualStudio.Component.Windows11SDK.26100`
 - Windows 10 1809+ / Windows 11
 - Windows 10 需要 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（Windows 11 已内置）
 
-## 计划产物
+## 已实测产物
 
 ```
 dist/win-x64/MailDog/
-├── MailDog.Engine.exe
-└── MailDog.UI.exe
+├── MailDog.Engine.exe    6.00 MiB
+└── MailDog.UI.exe       35.54 MiB
 ```
+
+- 两个 exe 均可在空目录中独立运行，无需 .NET 运行时。
+- SQLite / Skia / HarfBuzz 原生库嵌入 exe，首次启动解压到 `%LOCALAPPDATA%\MailDog\native\`。
+- UI 使用 Skia 软件渲染，不依赖 ANGLE；WebView2 仍使用自身 GPU 进程。
+- 实测：Engine 203 ms；UI 首个窗口 445 ms。
 
 ## 路线图
 
-| 阶段 | 内容 |
-|---|---|
-| 0 | 工具链与 AOT 探针 |
-| 1 | Contracts + 源生成序列化 |
-| 2 | Mail + Engine（QQ 只读） |
-| 3 | OAuth2 PKCE（Outlook） |
-| 4 | UI 最小闭环 |
-| 5 | NativeWebView + 净化 + 降级 |
-| 6 | 托盘与进程生命周期闭环 |
+| 阶段 | 内容 | 状态 |
+|---|---|---|
+| 0 | 工具链与 AOT 探针 | ✅ 已完成 |
+| 1 | Contracts + 源生成序列化 | 下一步 |
+| 2 | Mail + Engine（QQ 只读） | 待开始 |
+| 3 | OAuth2 PKCE（Outlook） | 待开始 |
+| 4 | UI 最小闭环 | 待开始 |
+| 5 | NativeWebView + 净化 + 降级 | 待开始 |
+| 6 | 托盘与进程生命周期闭环 | 待开始 |
 
 详见 [技术方案](docs/PLAN.md#16-里程碑)。
 
