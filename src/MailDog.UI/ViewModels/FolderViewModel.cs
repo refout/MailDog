@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MailDog.Contracts.Dto;
 
@@ -8,10 +9,27 @@ public sealed partial class FolderViewModel : ObservableObject
     public FolderViewModel(FolderDto folder)
     {
         Id = folder.Id;
-        Name = folder.Name;
+        Name = Localize(folder);
         FullName = folder.FullName;
         Role = folder.Role;
         _unreadCount = folder.UnreadCount;
+    }
+
+    private static string Localize(FolderDto folder)
+    {
+        // 只翻译系统文件夹；服务器自定义文件夹（Mailspring、Notes 等）保留原名。
+        var chinese = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "zh";
+
+        return folder.Role switch
+        {
+            FolderRole.Inbox => chinese ? "收件箱" : "Inbox",
+            FolderRole.Sent => chinese ? "已发送" : "Sent",
+            FolderRole.Drafts => chinese ? "草稿" : "Drafts",
+            FolderRole.Junk => chinese ? "垃圾邮件" : "Junk",
+            FolderRole.Trash => chinese ? "已删除" : "Deleted",
+            FolderRole.Archive => chinese ? "归档" : "Archive",
+            _ => folder.Name
+        };
     }
 
     public long Id { get; }
