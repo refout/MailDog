@@ -328,7 +328,7 @@ MailDog
 - 不扩展客户区，不使用 `ExtendClientAreaToDecorationsHint`，也不自定义拖动区域。
 - 标题栏明暗随应用主题同步：`DwmSetWindowAttribute` 的 `DWMWA_USE_IMMERSIVE_DARK_MODE`。
 - Windows 11 22000+ 同时设置 `DWMWA_CAPTION_COLOR` / `DWMWA_TEXT_COLOR`，标题栏颜色跟随当前背景色与明暗。
-- 搜索、同步、设置不再放在标题栏：搜索框位于邮件列表顶部，设置按钮（仅图标）位于文件夹栏左下角，同步按钮位于“文件夹”标题行右侧。
+- 搜索、同步、设置不再放在标题栏：搜索框位于邮件列表顶部，设置按钮（仅图标、整行宽）位于文件夹栏左下角，同步按钮位于“文件夹”标题行右侧。
 
 - 同步按钮旋转动画只在同步中显示；完成后恢复 `ArrowSync`，不弹 toast。
 - 账户异常时同步按钮旁显示 `Warning` 图标，点击打开账户状态浮出层。
