@@ -179,7 +179,7 @@
               Background="{DynamicResource MailDogBrushBgLayer}"
               BorderBrush="{DynamicResource MailDogBrushStroke}"
               BorderThickness="0,0,1,0">
-        <Grid RowDefinitions="Auto,Auto,*,Auto">
+        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="16,12,12,8">
             <TextBlock Text="{Binding FolderTitle}"
                        FontSize="20"
@@ -203,7 +203,54 @@
                    Text="{Binding SearchText}"
                    PlaceholderText="搜索邮件、发件人…" />
 
-          <Grid Grid.Row="2">
+          <Border Grid.Row="2"
+                  BorderBrush="{DynamicResource MailDogBrushStroke}"
+                  BorderThickness="0,0,0,1"
+                  Padding="16,0,12,8"
+                  IsEnabled="{Binding !IsBatchBusy}">
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <CheckBox Content="全选"
+                          FontSize="12"
+                          IsChecked="{Binding IsAllChecked}" />
+                <TextBlock Grid.Column="1"
+                           Text="{Binding CheckedText}"
+                           Classes="caption"
+                           Margin="12,0"
+                           VerticalAlignment="Center" />
+                <Button Grid.Column="2"
+                        Content="清除"
+                        FontSize="12"
+                        Padding="8,2"
+                        Command="{Binding ClearCheckedMessagesCommand}"
+                        IsVisible="{Binding HasCheckedMessages}" />
+              </Grid>
+              <WrapPanel IsVisible="{Binding HasCheckedMessages}">
+                <Button Content="标记已读"
+                        FontSize="12"
+                        Padding="10,4"
+                        Margin="0,0,6,4"
+                        Command="{Binding MarkCheckedReadCommand}" />
+                <Button Content="标记未读"
+                        FontSize="12"
+                        Padding="10,4"
+                        Margin="0,0,6,4"
+                        Command="{Binding MarkCheckedUnreadCommand}" />
+                <Button Content="添加旗标"
+                        FontSize="12"
+                        Padding="10,4"
+                        Margin="0,0,6,4"
+                        Command="{Binding FlagCheckedCommand}" />
+                <Button Content="取消旗标"
+                        FontSize="12"
+                        Padding="10,4"
+                        Margin="0,0,6,4"
+                        Command="{Binding UnflagCheckedCommand}" />
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+
+          <Grid Grid.Row="3">
             <ListBox x:Name="MailList"
                      Classes="mail-list"
                      Background="Transparent"
@@ -211,7 +258,7 @@
                      SelectedItem="{Binding SelectedMessage}">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:MailSummaryViewModel">
-                  <Grid ColumnDefinitions="12,Auto,*" Height="76" Margin="12,0">
+                  <Grid ColumnDefinitions="12,Auto,Auto,*" Height="76" Margin="12,0">
                     <Border Grid.Column="0"
                             Width="3"
                             Height="40"
@@ -220,7 +267,12 @@
                             IsVisible="{Binding IsUnread}"
                             VerticalAlignment="Center"
                             HorizontalAlignment="Left" />
-                    <Border Grid.Column="1"
+                    <CheckBox Grid.Column="1"
+                              IsChecked="{Binding IsSelected}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,6,0"
+                              AutomationProperties.Name="选择邮件" />
+                    <Border Grid.Column="2"
                             Width="32"
                             Height="32"
                             CornerRadius="16"
@@ -234,7 +286,7 @@
                                  VerticalAlignment="Center" />
                     </Border>
 
-                    <StackPanel Grid.Column="2"
+                    <StackPanel Grid.Column="3"
                                 Margin="12,0,0,0"
                                 VerticalAlignment="Center"
                                 Spacing="2">
@@ -293,7 +345,7 @@
             </Border>
           </Grid>
 
-          <ProgressBar Grid.Row="3"
+          <ProgressBar Grid.Row="4"
                        Height="2"
                        Margin="16,0"
                        IsIndeterminate="True"

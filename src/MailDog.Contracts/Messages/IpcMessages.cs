@@ -118,9 +118,23 @@ public sealed class MarkReadRequest : Ipc.IIpcMessage
     public bool IsRead { get; init; }
 }
 
+public sealed class MarkReadBatchRequest : Ipc.IIpcMessage
+{
+    public long[] MessageIds { get; init; } = [];
+
+    public bool IsRead { get; init; }
+}
+
 public sealed class SetFlagRequest : Ipc.IIpcMessage
 {
     public long MessageId { get; init; }
+
+    public bool Value { get; init; }
+}
+
+public sealed class SetFlagBatchRequest : Ipc.IIpcMessage
+{
+    public long[] MessageIds { get; init; } = [];
 
     public bool Value { get; init; }
 }

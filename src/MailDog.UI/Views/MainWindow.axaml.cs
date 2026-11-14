@@ -315,6 +315,16 @@ public partial class MainWindow : Window
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control)
+            && e.Key == Key.A
+            && !_viewModel.IsOverlayOpen
+            && e.Source is not TextBox)
+        {
+            _viewModel.SelectAllMessagesCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Escape && _viewModel.IsOverlayOpen)
         {
             _viewModel.BackFromOverlayCommand.Execute(null);

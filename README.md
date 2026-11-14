@@ -10,7 +10,7 @@
 ## 已实现
 
 - 多账户：QQ 邮箱授权码 + Outlook OAuth2 Authorization Code + PKCE。
-- 邮件同步：文件夹、最近邮件、未读/旗标、周期增量同步（60s）。
+- 邮件同步：文件夹、最近邮件、未读/旗标、周期增量同步（60s）；支持全选与批量标记已读/未读、添加/取消旗标。
 - 本地索引：SQLite 缓存账户、文件夹、邮件头与正文，离线可读已缓存内容。
 - HTML 正文：白名单净化、CSP、默认拦截远程图片；保留邮件自带的安全内联样式与 `<style>`，可在设置中切换 HTML / 纯文本渲染；渲染失败自动降级纯文本。
 - 桌面体验：Fluent 三栏布局、暗色/亮色主题、搜索、筛选、附件元数据。
@@ -89,9 +89,9 @@ dist/win-x64/MailDog/MailDog.UI.exe
 ```
 dist/win-x64/
 ├── MailDog/
-│   ├── MailDog.Engine.exe   13.37 MiB
-│   └── MailDog.UI.exe       44.74 MiB
-└── MailDog-win-x64.zip      26.12 MiB
+│   ├── MailDog.Engine.exe   13.46 MiB
+│   └── MailDog.UI.exe       44.81 MiB
+└── MailDog-win-x64.zip      26.18 MiB
 ```
 
 - 两个 exe 均为自包含单文件，无需 .NET 运行时；UI 需与 Engine 位于同一目录，才能自动拉起后台。

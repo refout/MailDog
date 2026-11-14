@@ -74,6 +74,9 @@ public sealed partial class MailSummaryViewModel : ObservableObject
     [ObservableProperty]
     private bool _isFlagged;
 
+    [ObservableProperty]
+    private bool _isSelected;
+
     private static string FormatTime(DateTimeOffset date)
     {
         var local = date.ToLocalTime();

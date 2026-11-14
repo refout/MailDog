@@ -199,6 +199,95 @@ public sealed class ImapSyncService : IAsyncDisposable
         await StoreFlagAsync(messageId, MessageFlags.Flagged, value, cancellationToken).ConfigureAwait(false);
     }
 
+    public Task<int> SetSeenManyAsync(
+        IReadOnlyList<long> messageIds,
+        bool isRead,
+        CancellationToken cancellationToken)
+        => SetFlagManyAsync(messageIds, MessageFlags.Seen, isRead, cancellationToken);
+
+    public Task<int> SetFlaggedManyAsync(
+        IReadOnlyList<long> messageIds,
+        bool value,
+        CancellationToken cancellationToken)
+        => SetFlagManyAsync(messageIds, MessageFlags.Flagged, value, cancellationToken);
+
+    private async Task<int> SetFlagManyAsync(
+        IReadOnlyList<long> messageIds,
+        MessageFlags flag,
+        bool value,
+        CancellationToken cancellationToken)
+    {
+        var messages = messageIds
+            .Distinct()
+            .Select(id => _store.GetMessage(id))
+            .Where(message => message is not null)
+            .Select(message => message!)
+            .ToArray();
+
+        if (messages.Length == 0)
+        {
+            return 0;
+        }
+
+        _store.UpdateFlagMany(messages.Select(message => message.Id).ToArray(), ToLocalFlag(flag), value);
+
+        foreach (var group in messages.GroupBy(message => (message.AccountId, message.FolderId)))
+        {
+            var account = _accounts.GetRecord(group.Key.AccountId);
+            var folderRecord = _store.GetFolder(group.Key.FolderId);
+
+            if (account is null || folderRecord is null)
+            {
+                continue;
+            }
+
+            var uids = group
+                .Where(message => message.Uid is > 0 and <= uint.MaxValue)
+                .Select(message => new UniqueId((uint)message.Uid))
+                .Distinct()
+                .ToArray();
+
+            if (uids.Length == 0)
+            {
+                continue;
+            }
+
+            var session = await GetSessionAsync(account.Id, cancellationToken).ConfigureAwait(false);
+            await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+                var folder = session.Client!.GetFolder(folderRecord.FullName);
+                await folder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
+
+                try
+                {
+                    await folder.StoreAsync(
+                        uids,
+                        new StoreFlagsRequest(value ? StoreAction.Add : StoreAction.Remove, flag) { Silent = true },
+                        cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    await folder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // 本地状态已更新；远端失败不阻塞 UI，下次同步会以服务器状态为准。
+                Diagnostic?.Invoke($"批量更新邮件标记失败：{exception.Message}");
+            }
+            finally
+            {
+                session.Gate.Release();
+            }
+        }
+
+        return messages.Length;
+    }
+
     public async Task TestPasswordConnectionAsync(
         MailProvider provider,
         string email,
@@ -218,6 +307,9 @@ public sealed class ImapSyncService : IAsyncDisposable
         => uid is > 0 and <= uint.MaxValue
             ? new UniqueId((uint)uid)
             : throw new InvalidOperationException("邮件同步数据不完整，请点击“立即同步”后重试。");
+
+    private static MailFlags ToLocalFlag(MessageFlags flag)
+        => flag.HasFlag(MessageFlags.Flagged) ? MailFlags.Flagged : MailFlags.Seen;
 
     private async Task StoreFlagAsync(long messageId, MessageFlags flag, bool value, CancellationToken cancellationToken)
     {

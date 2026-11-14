@@ -34,7 +34,9 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.GetMessageBody, IpcJsonContext.Default.GetMessageBodyRequest);
         Register(IpcMessageTypes.MessageBody, IpcJsonContext.Default.MessageBodyResponse);
         Register(IpcMessageTypes.MarkRead, IpcJsonContext.Default.MarkReadRequest);
+        Register(IpcMessageTypes.MarkReadBatch, IpcJsonContext.Default.MarkReadBatchRequest);
         Register(IpcMessageTypes.SetFlag, IpcJsonContext.Default.SetFlagRequest);
+        Register(IpcMessageTypes.SetFlagBatch, IpcJsonContext.Default.SetFlagBatchRequest);
         Register(IpcMessageTypes.SyncAccount, IpcJsonContext.Default.SyncAccountRequest);
         Register(IpcMessageTypes.Ok, IpcJsonContext.Default.OkResponse);
 

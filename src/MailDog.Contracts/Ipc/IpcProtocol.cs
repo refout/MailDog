@@ -34,7 +34,9 @@ public static class IpcMessageTypes
     public const string GetMessageBody = "getMessageBody";
     public const string MessageBody = "messageBody";
     public const string MarkRead = "markRead";
+    public const string MarkReadBatch = "markReadBatch";
     public const string SetFlag = "setFlag";
+    public const string SetFlagBatch = "setFlagBatch";
     public const string SyncAccount = "syncAccount";
     public const string Ok = "ok";
 

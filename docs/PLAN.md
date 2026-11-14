@@ -56,7 +56,7 @@
 ### 1.1 v1 范围内
 
 - 多账户：Outlook（Microsoft 个人/工作账户，OAuth2 PKCE）+ QQ 邮箱（授权码）。
-- 只读邮件体验：账户、文件夹、邮件列表、邮件正文、未读/旗标状态。
+- 只读邮件体验：账户、文件夹、邮件列表、邮件正文、未读/旗标状态；支持全选与批量标记。
 - 本地索引：SQLite 缓存邮件头、文件夹与正文；离线可读已缓存内容。
 - 新邮件提醒：60s 轮询 + Win32 气泡通知（IMAP IDLE 列为 v1.1 优化）。
 - HTML 正文渲染：净化 + CSP + 默认拦截远程图片 + 失败降级纯文本。
@@ -586,7 +586,7 @@ CREATE TABLE settings (
 
 - `UID FETCH (last_seen_uid + 1):* (ENVELOPE FLAGS INTERNALDATE RFC822.SIZE BODYSTRUCTURE)`
 - 对已存在 UID 只更新 flags；对新增 UID 插入并生成 `newMail` 事件。
-- 用户标记已读/旗标：先写本地，再 `STORE +FLAGS/-FLAGS`；网络失败进入重试队列（内存 + 启动时补偿）。
+- 用户标记已读/旗标：先写本地，再 `STORE +FLAGS/-FLAGS`；网络失败进入重试队列（内存 + 启动时补偿）；批量操作按账户/文件夹合并为一次 STORE。
 - `UIDVALIDITY` 变化：删除该文件夹本地邮件，重新首次同步，并记录日志。
 
 ### 7.5 IDLE 与轮询
@@ -1029,8 +1029,8 @@ dotnet publish MailDog.UI/MailDog.UI.csproj `
 
 | 指标 | 目标 | 实测 |
 |---|---|---|
-| Engine 单文件 | ≤ 35 MiB | **13.37 MiB** |
-| UI 单文件 | ≤ 55 MiB | **44.74 MiB** |
+| Engine 单文件 | ≤ 35 MiB | **13.46 MiB** |
+| UI 单文件 | ≤ 55 MiB | **44.81 MiB** |
 | Engine 启动 | ≤ 1.5s | Stage 0 探针 203 ms；v1 含托盘常驻 |
 | UI 首窗口 | ≤ 2.5s | Stage 0 探针 445 ms |
 | Engine 空闲内存 | ≤ 120 MiB | 待长稳测试 |

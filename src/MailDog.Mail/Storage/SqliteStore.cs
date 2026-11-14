@@ -529,6 +529,54 @@ public sealed class SqliteStore : IDisposable
         UpdateFlag(messageId, MailFlags.Flagged, value);
     }
 
+    public void UpdateFlagMany(IReadOnlyList<long> messageIds, MailFlags flag, bool value)
+    {
+        if (messageIds.Count == 0)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            var folders = new HashSet<long>();
+
+            foreach (var messageId in messageIds)
+            {
+                long folderId;
+
+                using (var lookup = _connection.CreateCommand())
+                {
+                    lookup.CommandText = "SELECT folder_id FROM messages WHERE id = $id;";
+                    lookup.Parameters.AddWithValue("$id", messageId);
+                    var result = lookup.ExecuteScalar();
+                    if (result is null)
+                    {
+                        continue;
+                    }
+
+                    folderId = Convert.ToInt64(result, CultureInfo.InvariantCulture);
+                }
+
+                using (var command = _connection.CreateCommand())
+                {
+                    command.CommandText = value
+                        ? "UPDATE messages SET flags = flags | $flag WHERE id = $id;"
+                        : "UPDATE messages SET flags = flags & ~$flag WHERE id = $id;";
+                    command.Parameters.AddWithValue("$flag", (int)flag);
+                    command.Parameters.AddWithValue("$id", messageId);
+                    command.ExecuteNonQuery();
+                }
+
+                folders.Add(folderId);
+            }
+
+            foreach (var folderId in folders)
+            {
+                RecountFolder(folderId);
+            }
+        }
+    }
+
     public void UpdateFlag(long messageId, MailFlags flag, bool value)
     {
         lock (_gate)

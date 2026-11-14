@@ -86,9 +86,23 @@ public sealed class RequestRouter
                 await _sync.SetSeenAsync(request.MessageId, request.IsRead, cancellationToken).ConfigureAwait(false);
                 return new OkResponse { Affected = 1 };
 
+            case MarkReadBatchRequest request:
+                return new OkResponse
+                {
+                    Affected = await _sync.SetSeenManyAsync(request.MessageIds, request.IsRead, cancellationToken)
+                        .ConfigureAwait(false)
+                };
+
             case SetFlagRequest request:
                 await _sync.SetFlaggedAsync(request.MessageId, request.Value, cancellationToken).ConfigureAwait(false);
                 return new OkResponse { Affected = 1 };
+
+            case SetFlagBatchRequest request:
+                return new OkResponse
+                {
+                    Affected = await _sync.SetFlaggedManyAsync(request.MessageIds, request.Value, cancellationToken)
+                        .ConfigureAwait(false)
+                };
 
             case SyncAccountRequest request:
                 if (string.IsNullOrEmpty(request.AccountId))

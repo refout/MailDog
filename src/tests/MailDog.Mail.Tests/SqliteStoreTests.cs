@@ -124,6 +124,49 @@ public sealed class SqliteStoreTests : IDisposable
     }
 
     [Fact]
+    public void UpdateFlagManyUpdatesAllMessagesAndUnreadCount()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+
+        _store.UpsertFolders(account.Id,
+        [
+            new FolderRecord(0, account.Id, "INBOX", "收件箱", FolderRole.Inbox, 7, 0, 0, 0)
+        ]);
+
+        var folder = Assert.Single(_store.GetFolders(account.Id));
+        var now = DateTimeOffset.UtcNow;
+
+        _store.UpsertMessages(account.Id, folder.Id,
+        [
+            new MessageRecord(0, account.Id, folder.Id, 1, "m1", "一", "A", "a@example.com",
+                string.Empty, string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched),
+            new MessageRecord(0, account.Id, folder.Id, 2, "m2", "二", "B", "b@example.com",
+                string.Empty, string.Empty, now.AddMinutes(1), 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched),
+            new MessageRecord(0, account.Id, folder.Id, 3, "m3", "三", "C", "c@example.com",
+                string.Empty, string.Empty, now.AddMinutes(2), 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        var ids = _store.QueryMessages(folder.Id, null, null, 10).Items.Select(item => item.Id).ToArray();
+        Assert.Equal(3, ids.Length);
+        Assert.Equal(3, _store.GetFolders(account.Id)[0].UnreadCount);
+
+        _store.UpdateFlagMany(ids, MailFlags.Seen, true);
+
+        var afterRead = _store.QueryMessages(folder.Id, null, null, 10).Items;
+        Assert.All(afterRead, item => Assert.True((item.Flags & MailFlags.Seen) != 0));
+        Assert.Equal(0, _store.GetFolders(account.Id)[0].UnreadCount);
+
+        _store.UpdateFlagMany(ids, MailFlags.Flagged, true);
+        Assert.All(
+            _store.QueryMessages(folder.Id, null, null, 10).Items,
+            item => Assert.True((item.Flags & MailFlags.Flagged) != 0));
+
+        _store.UpdateFlagMany(ids, MailFlags.Seen, false);
+        Assert.Equal(3, _store.GetFolders(account.Id)[0].UnreadCount);
+    }
+
+    [Fact]
     public void UpsertMessagesDropsLegacyInvalidUidRows()
     {
         var account = CreateAccount();

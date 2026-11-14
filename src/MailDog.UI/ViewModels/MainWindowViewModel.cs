@@ -523,6 +523,45 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsOutlookProvider => SelectedProviderIndex == 0;
 
+    [ObservableProperty]
+    private bool _isBatchBusy;
+
+    public int CheckedCount => Messages.Count(message => message.IsSelected);
+
+    public bool HasCheckedMessages => CheckedCount > 0;
+
+    public string CheckedText => $"已选 {CheckedCount} 封";
+
+    public bool IsAllChecked
+    {
+        get => Messages.Count > 0 && Messages.All(message => message.IsSelected);
+        set
+        {
+            foreach (var message in Messages)
+            {
+                message.IsSelected = value;
+            }
+
+            NotifySelectionState();
+        }
+    }
+
+    private void NotifySelectionState()
+    {
+        OnPropertyChanged(nameof(CheckedCount));
+        OnPropertyChanged(nameof(HasCheckedMessages));
+        OnPropertyChanged(nameof(CheckedText));
+        OnPropertyChanged(nameof(IsAllChecked));
+    }
+
+    private void OnMessagePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MailSummaryViewModel.IsSelected))
+        {
+            NotifySelectionState();
+        }
+    }
+
     [RelayCommand]
     public async Task InitializeAsync()
     {
@@ -651,6 +690,159 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _allowRemoteImages = true;
         RenderCurrentBody();
     }
+
+    [RelayCommand]
+    private void SelectAllMessages()
+    {
+        if (Messages.Count == 0)
+        {
+            return;
+        }
+
+        var select = !IsAllChecked;
+
+        foreach (var message in Messages)
+        {
+            message.IsSelected = select;
+        }
+
+        NotifySelectionState();
+    }
+
+    [RelayCommand]
+    private void ClearCheckedMessages()
+    {
+        if (!HasCheckedMessages)
+        {
+            return;
+        }
+
+        foreach (var message in Messages)
+        {
+            message.IsSelected = false;
+        }
+
+        NotifySelectionState();
+    }
+
+    [RelayCommand]
+    private Task MarkCheckedReadAsync() => SetCheckedReadAsync(true);
+
+    [RelayCommand]
+    private Task MarkCheckedUnreadAsync() => SetCheckedReadAsync(false);
+
+    [RelayCommand]
+    private Task FlagCheckedAsync() => SetCheckedFlagAsync(true);
+
+    [RelayCommand]
+    private Task UnflagCheckedAsync() => SetCheckedFlagAsync(false);
+
+    private async Task SetCheckedReadAsync(bool isRead)
+    {
+        var targets = CheckedTargets();
+        if (targets.Length == 0)
+        {
+            return;
+        }
+
+        IsBatchBusy = true;
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.MarkReadBatch,
+                new MarkReadBatchRequest
+                {
+                    MessageIds = targets.Select(message => message.Id).ToArray(),
+                    IsRead = isRead
+                });
+
+            var changed = 0;
+
+            foreach (var message in targets)
+            {
+                if (message.IsRead != isRead)
+                {
+                    message.IsRead = isRead;
+                    changed++;
+                }
+
+                message.IsSelected = false;
+            }
+
+            if (SelectedFolder is not null && changed > 0)
+            {
+                SelectedFolder.UnreadCount = Math.Max(
+                    0,
+                    SelectedFolder.UnreadCount + (isRead ? -changed : changed));
+            }
+
+            if (FilterIndex == 1)
+            {
+                ApplyFilter();
+            }
+
+            StatusMessage = $"已更新 {targets.Length} 封邮件";
+            NotifySelectionState();
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+        finally
+        {
+            IsBatchBusy = false;
+        }
+    }
+
+    private async Task SetCheckedFlagAsync(bool value)
+    {
+        var targets = CheckedTargets();
+        if (targets.Length == 0)
+        {
+            return;
+        }
+
+        IsBatchBusy = true;
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.SetFlagBatch,
+                new SetFlagBatchRequest
+                {
+                    MessageIds = targets.Select(message => message.Id).ToArray(),
+                    Value = value
+                });
+
+            foreach (var message in targets)
+            {
+                message.IsFlagged = value;
+                message.IsSelected = false;
+            }
+
+            if (FilterIndex == 2)
+            {
+                ApplyFilter();
+            }
+
+            StatusMessage = $"已更新 {targets.Length} 封邮件的旗标";
+            NotifySelectionState();
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+        finally
+        {
+            IsBatchBusy = false;
+        }
+    }
+
+    private MailSummaryViewModel[] CheckedTargets()
+        => IsBatchBusy
+            ? []
+            : Messages.Where(message => message.IsSelected).ToArray();
 
     [RelayCommand]
     private void PreviewNotificationSound()
@@ -1135,6 +1327,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             {
                 SelectedMessage = null;
                 Messages.Clear();
+
+                if (!sameFolder)
+                {
+                    foreach (var message in _allMessages)
+                    {
+                        message.IsSelected = false;
+                    }
+                }
+
                 _allMessages.Clear();
 
                 if (!sameFolder)
@@ -1148,6 +1349,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 _suppressSelectionHandlers = false;
             }
 
+            NotifySelectionState();
             _activeFolderId = folder.Id;
 
             var response = await _engine.RequestAsync<MessagesPageResponse>(
@@ -1304,9 +1506,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             if (_allMessages.All(existing => existing.Id != message.Id))
             {
-                _allMessages.Add(new MailSummaryViewModel(message));
+                var viewModel = new MailSummaryViewModel(message);
+                viewModel.PropertyChanged += OnMessagePropertyChanged;
+                _allMessages.Add(viewModel);
             }
         }
+
+        NotifySelectionState();
     }
 
     private void ApplyFilter(long? preserveId = null)
@@ -1337,6 +1543,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (filtered.Count == Messages.Count && filtered.SequenceEqual(Messages))
         {
             IsEmpty = Messages.Count == 0 && !IsBusy && SelectedFolder is not null;
+            NotifySelectionState();
             return;
         }
 
@@ -1389,6 +1596,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         IsEmpty = Messages.Count == 0 && !IsBusy && SelectedFolder is not null;
+        NotifySelectionState();
     }
 
     private void OnReaderPropertyChanged(object? sender, PropertyChangedEventArgs e)
