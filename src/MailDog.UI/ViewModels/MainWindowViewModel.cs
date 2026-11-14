@@ -30,7 +30,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _initialized;
     private bool _suppressSelectionHandlers;
     private bool _suppressAutoSave;
-    private bool _addAccountFromSettings;
     private bool _readerAppearanceDirty;
     private CancellationTokenSource? _autoSaveCts;
     private bool _disposed;
@@ -95,7 +94,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsOverlayOpen => IsSettingsOpen || IsAddAccountOpen || IsAboutOpen;
 
-    public bool IsWelcomeVisible => ShowWelcome && !IsOverlayOpen;
+    public bool IsWelcomeVisible => ShowWelcome && !IsSettingsOpen;
 
     public string OverlayTitle => IsSettingsOpen ? "设置" : IsAboutOpen ? "关于" : "添加账户";
 
@@ -654,6 +653,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void PreviewNotificationSound()
+    {
+        if (NotificationSoundEnabled)
+        {
+            SystemSoundPlayer.Play(NotificationSound);
+        }
+    }
+
+    [RelayCommand]
     private async Task AddPasswordAccountAsync()
     {
         if (SelectedProviderIndex == 0)
@@ -791,8 +799,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenAddAccount()
     {
-        _addAccountFromSettings = IsSettingsOpen;
-        IsSettingsOpen = false;
+        // 在当前窗口内以模态卡片显示，保留背后的设置页或邮件列表。
         IsAboutOpen = false;
         IsAddAccountOpen = true;
     }
@@ -800,7 +807,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenAbout()
     {
-        IsSettingsOpen = false;
         IsAddAccountOpen = false;
         IsAboutOpen = true;
     }
@@ -808,11 +814,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void BackFromOverlay()
     {
-        if (IsAboutOpen || (IsAddAccountOpen && _addAccountFromSettings))
+        if (IsAboutOpen || IsAddAccountOpen)
         {
             IsAboutOpen = false;
             IsAddAccountOpen = false;
-            IsSettingsOpen = true;
             return;
         }
 

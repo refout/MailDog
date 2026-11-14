@@ -1,5 +1,6 @@
 using System.IO.Pipes;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Collections.Concurrent;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
@@ -253,6 +254,12 @@ public sealed class EngineClient : IAsyncDisposable
 
         // 开发时 UI 与 Engine 分属不同输出目录，向上查找同仓库的 Engine 构建产物。
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        var runtime = RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "win-arm64" : "win-x64";
+        var configurations = AppContext.BaseDirectory.Contains(
+            $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}",
+            StringComparison.OrdinalIgnoreCase)
+            ? new[] { "Release", "Debug" }
+            : new[] { "Debug", "Release" };
 
         for (var depth = 0; depth < 6 && directory is not null; depth++, directory = directory.Parent)
         {
@@ -263,8 +270,37 @@ public sealed class EngineClient : IAsyncDisposable
                 continue;
             }
 
-            foreach (var configuration in new[] { "Release", "Debug" })
+            foreach (var configuration in configurations)
             {
+                if (configuration == "Release")
+                {
+                    // 优先使用最近一次 AOT 发布产物，避免误用陈旧的 Release apphost。
+                    var artifact = Path.Combine(
+                        directory.FullName,
+                        "artifacts",
+                        runtime,
+                        "engine",
+                        "MailDog.Engine.exe");
+
+                    if (File.Exists(artifact))
+                    {
+                        return artifact;
+                    }
+                }
+
+                // 优先使用 RID 发布产物，避免误用旧的非 RID apphost。
+                var published = Path.Combine(
+                    binRoot,
+                    configuration,
+                    "net11.0",
+                    runtime,
+                    "MailDog.Engine.exe");
+
+                if (File.Exists(published))
+                {
+                    return published;
+                }
+
                 var candidate = Path.Combine(binRoot, configuration, "net11.0", "MailDog.Engine.exe");
 
                 if (File.Exists(candidate))

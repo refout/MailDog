@@ -17,6 +17,7 @@ public sealed class Win32Tray : IDisposable
     private readonly Action _openUi;
     private readonly Action _syncAll;
     private readonly Action _exit;
+    private readonly Func<bool> _isDarkTheme;
     private readonly NativeMethods.WndProcDelegate _wndProc;
     private readonly IntPtr _className;
 
@@ -28,11 +29,12 @@ public sealed class Win32Tray : IDisposable
     private string _tooltip = "MailDog";
     private bool _disposed;
 
-    public Win32Tray(Action openUi, Action syncAll, Action exit)
+    public Win32Tray(Action openUi, Action syncAll, Action exit, Func<bool> isDarkTheme)
     {
         _openUi = openUi;
         _syncAll = syncAll;
         _exit = exit;
+        _isDarkTheme = isDarkTheme;
         _wndProc = WindowProc;
         _className = Marshal.StringToHGlobalUni("MailDog.Tray");
     }
@@ -138,6 +140,13 @@ public sealed class Win32Tray : IDisposable
         {
             NativeMethods.PlaySound(customSound, IntPtr.Zero, SndAlias | SndAsync | SndNoDefault);
         }
+    }
+
+    private void ApplyMenuTheme()
+    {
+        // 2 = ForceDark, 3 = ForceLight；让托盘菜单跟随应用主题而不是系统默认。
+        NativeMethods.SetPreferredAppMode(_isDarkTheme() ? 2 : 3);
+        NativeMethods.FlushMenuThemes();
     }
 
     private static string? GetSoundAlias(string? sound)
@@ -246,6 +255,8 @@ public sealed class Win32Tray : IDisposable
 
     private void ShowMenu()
     {
+        ApplyMenuTheme();
+
         var menu = NativeMethods.CreatePopupMenu();
 
         try

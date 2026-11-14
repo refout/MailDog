@@ -8,12 +8,19 @@ public sealed class HtmlDocumentBuilder
     private const string LightCss = """
         :root { color-scheme: light; }
         body {
-          margin: 0; padding: 24px;
+          margin: 0; padding: 16px;
           font-family: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
           font-size: 14px; line-height: 1.65;
           color: #1b1b1b; background: #ffffff;
           word-wrap: break-word; overflow-wrap: anywhere;
         }
+        .maildog-mail {
+          max-width: 900px; margin: 0 auto; padding: 24px;
+          background: #ffffff; color: #1b1b1b;
+          border-radius: 10px;
+        }
+        .maildog-mail a { color: #0f6cbd; }
+        .maildog-mail pre { background: #f6f6f6; color: #1b1b1b; }
         a { color: #0f6cbd; text-decoration: none; }
         a:hover { text-decoration: underline; }
         img { max-width: 100%; height: auto; }
@@ -30,12 +37,19 @@ public sealed class HtmlDocumentBuilder
     private const string DarkCss = """
         :root { color-scheme: dark; }
         body {
-          margin: 0; padding: 24px;
+          margin: 0; padding: 16px;
           font-family: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
           font-size: 14px; line-height: 1.65;
           color: #ffffff; background: #272727;
           word-wrap: break-word; overflow-wrap: anywhere;
         }
+        .maildog-mail {
+          max-width: 900px; margin: 0 auto; padding: 24px;
+          background: #ffffff; color: #1b1b1b;
+          border-radius: 10px;
+        }
+        .maildog-mail a { color: #0f6cbd; }
+        .maildog-mail pre { background: #f6f6f6; color: #1b1b1b; }
         a { color: #479ef5; text-decoration: none; }
         a:hover { text-decoration: underline; }
         img { max-width: 100%; height: auto; }
@@ -78,8 +92,9 @@ public sealed class HtmlDocumentBuilder
         }
 
         builder.Append('>')
+            .Append("<div class=\"maildog-mail\">")
             .Append(sanitizedHtml)
-            .Append("</body></html>");
+            .Append("</div></body></html>");
 
         return builder.ToString();
     }

@@ -839,7 +839,7 @@ cellpadding, cellspacing, span, bgcolor, color, face, size, style, class, id`
 
 - 默认模式：`img-src 'none'`；用户点击“显示图片”后切换为 `img-src https: data:`。
 - 基础 CSS 由应用注入（字体、行高、引用、代码块、暗色模式）作为兜底；保留邮件自带的安全内联样式与 `<style>` 以还原原始排版。
-- 正文背景取阅读区背景色（`BgLayer`），不注入表格单元格边框/内边距，避免出现大片色差与“满屏方框”。
+- 正文放在浅色“纸张”卡片中，卡片外使用阅读区背景色；不注入表格单元格边框/内边距，避免文字与背景同色以及“满屏方框”。
 - 暗色模式：`prefers-color-scheme` + 应用传入的 `data-theme` 双保险。
 
 ### 10.4 WebView 生命周期
@@ -914,9 +914,11 @@ cellpadding, cellspacing, span, bgcolor, color, face, size, style, class, id`
   - 立即同步
   - 账户状态（子菜单，禁用态展示）
   - 退出
+- 菜单主题通过 uxtheme `SetPreferredAppMode` + `FlushMenuThemes` 跟随应用明暗设置，而不是固定系统默认。
 - 左键单击：启动 UI 或发 `showMainWindow`。
 - 任务栏重建：`RegisterWindowMessageW("TaskbarCreated")` 后重新 `NIM_ADD`。
 - 通知：`NIF_INFO` 气泡；同一账户 30s 内最多 1 条；点击气泡打开 UI 并定位邮件（通过 `NIN_BALLOONUSERCLICK`）。
+- 通知声音：默认 / 邮件 / 提醒 / 提示；非默认铃声用 `PlaySound` 播放系统别名并抑制气泡默认音。
 - 退出时 `NIM_DELETE`、`DestroyWindow`、`PostQuitMessage`。
 
 ### 12.3 UI 进程管理
@@ -1028,7 +1030,7 @@ dotnet publish MailDog.UI/MailDog.UI.csproj `
 | 指标 | 目标 | 实测 |
 |---|---|---|
 | Engine 单文件 | ≤ 35 MiB | **13.37 MiB** |
-| UI 单文件 | ≤ 55 MiB | **44.73 MiB** |
+| UI 单文件 | ≤ 55 MiB | **44.74 MiB** |
 | Engine 启动 | ≤ 1.5s | Stage 0 探针 203 ms；v1 含托盘常驻 |
 | UI 首窗口 | ≤ 2.5s | Stage 0 探针 445 ms |
 | Engine 空闲内存 | ≤ 120 MiB | 待长稳测试 |

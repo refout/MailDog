@@ -77,7 +77,8 @@ public sealed class EngineHost : IAsyncDisposable
         _tray = new Win32Tray(
             OpenUi,
             () => _ = SyncAllAsync(_cts.Token),
-            () => _cts.Cancel());
+            () => _cts.Cancel(),
+            IsDarkTheme);
 
         _tray.UpdateTooltip(BuildTooltip());
 
@@ -93,6 +94,37 @@ public sealed class EngineHost : IAsyncDisposable
         }
 
         return Task.CompletedTask;
+    }
+
+    private bool IsDarkTheme()
+    {
+        var theme = _store.GetSettings().Theme;
+
+        if (theme == "dark")
+        {
+            return true;
+        }
+
+        if (theme == "light")
+        {
+            return false;
+        }
+
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            return key?.GetValue("AppsUseLightTheme") is int value && value == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void OpenUi()

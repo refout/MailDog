@@ -343,6 +343,39 @@
           <TextBlock Text="{Binding Reader.DateText}"
                      FontSize="12"
                      Foreground="{DynamicResource MailDogBrushTextTertiary}" />
+          <ItemsControl ItemsSource="{Binding Reader.Attachments}"
+                        IsVisible="{Binding Reader.HasAttachments}"
+                        Margin="0,8,0,0">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:AttachmentViewModel">
+                <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                        BorderBrush="{DynamicResource MailDogBrushStroke}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="10,8"
+                        Margin="0,0,8,8">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <ic:FluentIcon Icon="Attach"
+                                   IconSize="Size16"
+                                   VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding FileName}"
+                               FontSize="12"
+                               MaxWidth="220"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding SizeText}"
+                               Classes="caption"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
         </StackPanel>
 
         <Grid Grid.Row="2" Margin="0,8,0,0">
@@ -398,39 +431,6 @@
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource MailDogBrushDanger}" />
           </Border>
-
-          <ItemsControl ItemsSource="{Binding Reader.Attachments}"
-                        IsVisible="{Binding Reader.HasAttachments}">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel />
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:AttachmentViewModel">
-                <Border Background="{DynamicResource MailDogBrushBgSubtle}"
-                        BorderBrush="{DynamicResource MailDogBrushStroke}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="10,8"
-                        Margin="0,0,8,8">
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <ic:FluentIcon Icon="Attach"
-                                   IconSize="Size16"
-                                   VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding FileName}"
-                               FontSize="12"
-                               MaxWidth="220"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding SizeText}"
-                               Classes="caption"
-                               VerticalAlignment="Center" />
-                  </StackPanel>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
         </StackPanel>
       </Grid>
     </Grid>
@@ -466,9 +466,9 @@
       </StackPanel>
     </Border>
 
-    <!-- 主窗口内页面：设置 / 添加账户，不使用弹窗 -->
+    <!-- 设置页：主窗口内整页显示 -->
     <Border Grid.ColumnSpan="3"
-            IsVisible="{Binding IsOverlayOpen}"
+            IsVisible="{Binding IsSettingsOpen}"
             Background="{DynamicResource MailDogBrushBgBase}">
       <Grid RowDefinitions="56,*">
         <Border BorderBrush="{DynamicResource MailDogBrushStroke}"
@@ -698,7 +698,15 @@
                         <CheckBox Content="新邮件通知" IsChecked="{Binding NotificationsEnabled}" />
                         <CheckBox Content="通知声音" IsChecked="{Binding NotificationSoundEnabled}" />
                         <StackPanel Spacing="6" IsEnabled="{Binding NotificationSoundEnabled}">
-                          <TextBlock Text="通知铃声" FontSize="13" />
+                          <Grid ColumnDefinitions="Auto,Auto,*">
+                            <TextBlock Text="通知铃声" FontSize="13" VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Content="试听"
+                                    Command="{Binding PreviewNotificationSoundCommand}"
+                                    Padding="10,2"
+                                    Margin="12,0,0,0"
+                                    FontSize="12" />
+                          </Grid>
                           <StackPanel Orientation="Horizontal" Spacing="16">
                             <RadioButton GroupName="sound"
                                          Content="默认"
@@ -781,114 +789,173 @@
                 </Grid>
               </Grid>
 
-              <!-- 添加账户 -->
-              <StackPanel IsVisible="{Binding IsAddAccountOpen}"
-                          MaxWidth="640"
-                          Margin="32"
-                          Spacing="12"
-                          VerticalAlignment="Center"
-                          HorizontalAlignment="Stretch">
-                <ComboBox ItemsSource="{Binding ProviderOptions}"
-                          SelectedIndex="{Binding SelectedProviderIndex}"
-                          HorizontalAlignment="Stretch" />
-
-                <TextBox Text="{Binding AddAccountEmail}"
-                         PlaceholderText="邮箱地址" />
-
-                <TextBox Text="{Binding AddAccountSecret}"
-                         PlaceholderText="QQ 邮箱授权码"
-                         PasswordChar="●"
-                         IsVisible="{Binding IsQqProvider}" />
-
-                <TextBlock Text="授权码不是 QQ 密码。请先在 QQ 邮箱设置中开启 IMAP/SMTP 并生成授权码。"
-                           Classes="caption"
-                           TextWrapping="Wrap"
-                           IsVisible="{Binding IsQqProvider}" />
-
-                <Button Content="连接"
-                        Command="{Binding AddPasswordAccountCommand}"
-                        IsVisible="{Binding IsQqProvider}"
-                        HorizontalAlignment="Stretch"
-                        Padding="12,8" />
-
-                <Button Content="使用浏览器登录"
-                        Command="{Binding StartOAuthCommand}"
-                        IsVisible="{Binding IsOutlookProvider}"
-                        HorizontalAlignment="Stretch"
-                        Padding="12,8" />
-
-                <ProgressBar IsIndeterminate="True"
-                             Height="3"
-                             IsVisible="{Binding IsAddingAccount}" />
-
-                <TextBlock Text="{Binding AddAccountStatus}"
-                           Classes="caption"
-                           TextWrapping="Wrap" />
-              </StackPanel>
-
-              <!-- 关于 -->
-              <StackPanel IsVisible="{Binding IsAboutOpen}"
-                          MaxWidth="640"
-                          Margin="32"
-                          Spacing="16"
-                          VerticalAlignment="Top"
-                          HorizontalAlignment="Stretch">
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                  <Border Width="48"
-                          Height="48"
-                          CornerRadius="10"
-                          ClipToBounds="True">
-                    <Image Source="avares://MailDog.UI/Assets/logo.png"
-                           Width="48"
-                           Height="48"
-                           Stretch="UniformToFill" />
-                  </Border>
-                  <StackPanel VerticalAlignment="Center" Spacing="2">
-                    <TextBlock Text="MailDog" FontSize="20" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding VersionText}" Classes="caption" />
-                  </StackPanel>
-                </StackPanel>
-
-                <TextBlock Text="双进程、全 Native AOT 的桌面邮件客户端。"
-                           TextWrapping="Wrap" />
-
-                <Border Background="{DynamicResource MailDogBrushBgSubtle}"
-                        BorderBrush="{DynamicResource MailDogBrushStroke}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="16">
-                  <StackPanel Spacing="8">
-                    <TextBlock Text="运行时" Classes="section" />
-                    <Grid ColumnDefinitions="Auto,*">
-                      <TextBlock Text=".NET" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-                      <TextBlock Grid.Column="1" Text="{Binding RuntimeText}" FontSize="13" HorizontalAlignment="Right" />
-                    </Grid>
-                    <Grid ColumnDefinitions="Auto,*">
-                      <TextBlock Text="界面" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-                      <TextBlock Grid.Column="1" Text="Avalonia 12.1.6 · Fluent" FontSize="13" HorizontalAlignment="Right" />
-                    </Grid>
-                    <Grid ColumnDefinitions="Auto,*">
-                      <TextBlock Text="邮件" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-                      <TextBlock Grid.Column="1" Text="MailKit 5.0.0" FontSize="13" HorizontalAlignment="Right" />
-                    </Grid>
-                    <Grid ColumnDefinitions="Auto,*">
-                      <TextBlock Text="存储" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-                      <TextBlock Grid.Column="1" Text="SQLite" FontSize="13" HorizontalAlignment="Right" />
-                    </Grid>
-                  </StackPanel>
-                </Border>
-
-                <Button Content="打开项目主页"
-                        Command="{Binding OpenProjectPageCommand}"
-                        HorizontalAlignment="Stretch"
-                        Padding="16,8" />
-
-                <TextBlock Text="界面图标来自 Fluent UI System Icons（MIT）。"
-                           Classes="caption"
-                           TextWrapping="Wrap" />
-              </StackPanel>
         </Grid>
       </Grid>
+    </Border>
+
+    <!-- 添加账户：当前窗口内的模态卡片 -->
+    <Border Grid.ColumnSpan="3"
+            IsVisible="{Binding IsAddAccountOpen}"
+            Background="#66000000">
+      <Border Width="520"
+              MaxHeight="600"
+              Margin="32"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Background="{DynamicResource MailDogBrushBgLayer}"
+              BorderBrush="{DynamicResource MailDogBrushStroke}"
+              BorderThickness="1"
+              CornerRadius="{DynamicResource OverlayCornerRadius}"
+              Padding="24"
+              BoxShadow="0 12 32 0 #48000000">
+        <Grid RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+            <TextBlock Text="添加账户"
+                       FontSize="20"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="1"
+                    Classes="icon"
+                    Command="{Binding BackFromOverlayCommand}"
+                    AutomationProperties.Name="关闭"
+                    ToolTip.Tip="关闭">
+              <ic:FluentIcon Icon="Dismiss" IconSize="Size16" />
+            </Button>
+          </Grid>
+
+          <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="12">
+              <ComboBox ItemsSource="{Binding ProviderOptions}"
+                        SelectedIndex="{Binding SelectedProviderIndex}"
+                        HorizontalAlignment="Stretch" />
+
+              <TextBox Text="{Binding AddAccountEmail}"
+                       PlaceholderText="邮箱地址" />
+
+              <TextBox Text="{Binding AddAccountSecret}"
+                       PlaceholderText="QQ 邮箱授权码"
+                       PasswordChar="●"
+                       IsVisible="{Binding IsQqProvider}" />
+
+              <TextBlock Text="授权码不是 QQ 密码。请先在 QQ 邮箱设置中开启 IMAP/SMTP 并生成授权码。"
+                         Classes="caption"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding IsQqProvider}" />
+
+              <Button Content="连接"
+                      Command="{Binding AddPasswordAccountCommand}"
+                      IsVisible="{Binding IsQqProvider}"
+                      HorizontalAlignment="Stretch"
+                      Padding="12,8" />
+
+              <Button Content="使用浏览器登录"
+                      Command="{Binding StartOAuthCommand}"
+                      IsVisible="{Binding IsOutlookProvider}"
+                      HorizontalAlignment="Stretch"
+                      Padding="12,8" />
+
+              <ProgressBar IsIndeterminate="True"
+                           Height="3"
+                           IsVisible="{Binding IsAddingAccount}" />
+
+              <TextBlock Text="{Binding AddAccountStatus}"
+                         Classes="caption"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Border>
+
+    <!-- 关于：当前窗口内的模态卡片 -->
+    <Border Grid.ColumnSpan="3"
+            IsVisible="{Binding IsAboutOpen}"
+            Background="#66000000">
+      <Border Width="560"
+              MaxHeight="640"
+              Margin="32"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Background="{DynamicResource MailDogBrushBgLayer}"
+              BorderBrush="{DynamicResource MailDogBrushStroke}"
+              BorderThickness="1"
+              CornerRadius="{DynamicResource OverlayCornerRadius}"
+              Padding="24"
+              BoxShadow="0 12 32 0 #48000000">
+        <Grid RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+            <TextBlock Text="关于"
+                       FontSize="20"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="1"
+                    Classes="icon"
+                    Command="{Binding BackFromOverlayCommand}"
+                    AutomationProperties.Name="关闭"
+                    ToolTip.Tip="关闭">
+              <ic:FluentIcon Icon="Dismiss" IconSize="Size16" />
+            </Button>
+          </Grid>
+
+          <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="16">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <Border Width="48"
+                        Height="48"
+                        CornerRadius="10"
+                        ClipToBounds="True">
+                  <Image Source="avares://MailDog.UI/Assets/logo.png"
+                         Width="48"
+                         Height="48"
+                         Stretch="UniformToFill" />
+                </Border>
+                <StackPanel VerticalAlignment="Center" Spacing="2">
+                  <TextBlock Text="MailDog" FontSize="20" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding VersionText}" Classes="caption" />
+                </StackPanel>
+              </StackPanel>
+
+              <TextBlock Text="双进程、全 Native AOT 的桌面邮件客户端。"
+                         TextWrapping="Wrap" />
+
+              <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                      BorderBrush="{DynamicResource MailDogBrushStroke}"
+                      BorderThickness="1"
+                      CornerRadius="8"
+                      Padding="16">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="运行时" Classes="section" />
+                  <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Text=".NET" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                    <TextBlock Grid.Column="1" Text="{Binding RuntimeText}" FontSize="13" HorizontalAlignment="Right" />
+                  </Grid>
+                  <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Text="界面" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                    <TextBlock Grid.Column="1" Text="Avalonia 12.1.6 · Fluent" FontSize="13" HorizontalAlignment="Right" />
+                  </Grid>
+                  <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Text="邮件" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                    <TextBlock Grid.Column="1" Text="MailKit 5.0.0" FontSize="13" HorizontalAlignment="Right" />
+                  </Grid>
+                  <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Text="存储" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                    <TextBlock Grid.Column="1" Text="SQLite" FontSize="13" HorizontalAlignment="Right" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+
+              <Button Content="打开项目主页"
+                      Command="{Binding OpenProjectPageCommand}"
+                      HorizontalAlignment="Stretch"
+                      Padding="16,8" />
+
+              <TextBlock Text="界面图标来自 Fluent UI System Icons（MIT）。"
+                         Classes="caption"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
     </Border>
   </Grid>
 </Window>

@@ -209,6 +209,7 @@ public sealed class HtmlSanitizerTests
             bodyBackground: "#2D2D2D");
 
         Assert.Contains("style=\"background:#2D2D2D\"", document);
+        Assert.Contains("class=\"maildog-mail\"", document);
         Assert.DoesNotContain("border: 1px solid", document);
     }
 

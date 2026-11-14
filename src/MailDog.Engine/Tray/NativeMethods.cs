@@ -151,6 +151,12 @@ internal static class NativeMethods
     [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
     internal static extern bool PlaySound(string sound, IntPtr module, uint flags);
 
+    [DllImport("uxtheme.dll", EntryPoint = "#135")]
+    internal static extern int SetPreferredAppMode(int mode);
+
+    [DllImport("uxtheme.dll", EntryPoint = "#136")]
+    internal static extern void FlushMenuThemes();
+
     [DllImport("user32.dll")]
     internal static extern IntPtr CreatePopupMenu();
 
