@@ -734,6 +734,9 @@ public sealed class SqliteStore : IDisposable
                 : 85,
             NotificationsEnabled = !values.TryGetValue("notifications", out var notifications) || notifications != "0",
             NotificationSoundEnabled = !values.TryGetValue("notificationSound", out var notificationSound) || notificationSound != "0",
+            NotificationSound = values.GetValueOrDefault("notificationSoundName") is "mail" or "reminder" or "asterisk"
+                ? values.GetValueOrDefault("notificationSoundName")!
+                : "default",
             SyncIntervalMinutes = int.TryParse(values.GetValueOrDefault("syncIntervalMinutes"), out var interval)
                 ? Math.Clamp(interval, 1, 60)
                 : 1,
@@ -755,6 +758,7 @@ public sealed class SqliteStore : IDisposable
             UpsertSetting(transaction, "backgroundOpacity", settings.BackgroundOpacity.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "notifications", settings.NotificationsEnabled ? "1" : "0");
             UpsertSetting(transaction, "notificationSound", settings.NotificationSoundEnabled ? "1" : "0");
+            UpsertSetting(transaction, "notificationSoundName", settings.NotificationSound);
             UpsertSetting(transaction, "syncIntervalMinutes", settings.SyncIntervalMinutes.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "cacheDays", settings.CacheDays.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "markReadOnOpen", settings.MarkReadOnOpen ? "1" : "0");

@@ -10,6 +10,9 @@ public sealed class Win32Tray : IDisposable
     private const int CommandOpen = 1;
     private const int CommandSync = 2;
     private const int CommandExit = 3;
+    private const uint SndAlias = 0x00010000;
+    private const uint SndAsync = 0x0001;
+    private const uint SndNoDefault = 0x0002;
 
     private readonly Action _openUi;
     private readonly Action _syncAll;
@@ -112,23 +115,39 @@ public sealed class Win32Tray : IDisposable
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
     }
 
-    public void ShowNotification(string title, string message, bool playSound = true)
+    public void ShowNotification(string title, string message, bool playSound = true, string? sound = null)
     {
         if (!_iconAdded)
         {
             return;
         }
 
+        var customSound = playSound ? GetSoundAlias(sound) : null;
+
         var data = CreateData();
         data.uFlags = NativeMethods.NIF_INFO;
         data.szInfoTitle = Truncate(title, 63);
         data.szInfo = Truncate(message, 255);
-        data.dwInfoFlags = playSound
+        data.dwInfoFlags = playSound && customSound is null
             ? (uint)NativeMethods.NIIF_INFO
             : (uint)(NativeMethods.NIIF_INFO | NativeMethods.NIIF_NOSOUND);
         data.uTimeoutOrVersion = 5000;
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
+
+        if (customSound is not null)
+        {
+            NativeMethods.PlaySound(customSound, IntPtr.Zero, SndAlias | SndAsync | SndNoDefault);
+        }
     }
+
+    private static string? GetSoundAlias(string? sound)
+        => sound switch
+        {
+            "mail" => "SystemMailBeep",
+            "reminder" => "SystemExclamation",
+            "asterisk" => "SystemAsterisk",
+            _ => null
+        };
 
     public void Quit()
     {

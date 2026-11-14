@@ -28,6 +28,7 @@ public sealed class SqliteStoreTests : IDisposable
             BackgroundOpacity = 72,
             NotificationsEnabled = false,
             NotificationSoundEnabled = false,
+            NotificationSound = "mail",
             SyncIntervalMinutes = 15,
             CacheDays = 30,
             MarkReadOnOpen = false,
@@ -44,6 +45,7 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.Equal(72, loaded.BackgroundOpacity);
         Assert.False(loaded.NotificationsEnabled);
         Assert.False(loaded.NotificationSoundEnabled);
+        Assert.Equal("mail", loaded.NotificationSound);
         Assert.Equal(15, loaded.SyncIntervalMinutes);
         Assert.Equal(30, loaded.CacheDays);
         Assert.False(loaded.MarkReadOnOpen);

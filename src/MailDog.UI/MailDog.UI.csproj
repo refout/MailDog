@@ -37,6 +37,9 @@
     <EmbeddedResource Include="$(PkgAvalonia_Angle_Windows_Natives)\runtimes\win-arm64\native\av_libglesv2.dll" LogicalName="MailDog.UI.Native.av_libglesv2.dll" />
   </ItemGroup>
   <ItemGroup>
+    <AvaloniaResource Include="Assets\logo.png" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\MailDog.Contracts\MailDog.Contracts.csproj" />
     <ProjectReference Include="..\MailDog.Html\MailDog.Html.csproj" />
   </ItemGroup>

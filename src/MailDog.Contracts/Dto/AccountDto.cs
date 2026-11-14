@@ -44,6 +44,8 @@ public sealed class AppSettingsDto
 
     public bool NotificationSoundEnabled { get; init; } = true;
 
+    public string NotificationSound { get; init; } = "default";
+
     public int SyncIntervalMinutes { get; init; } = 1;
 
     public int CacheDays { get; init; } = 90;

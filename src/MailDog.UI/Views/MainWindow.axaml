@@ -442,10 +442,16 @@
       <StackPanel HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   Spacing="12">
-        <ic:FluentIcon Icon="Mail"
-                       IconSize="Size48"
-                       HorizontalAlignment="Center"
-                       Foreground="{DynamicResource MailDogBrushAccent}" />
+        <Border Width="72"
+                Height="72"
+                CornerRadius="14"
+                ClipToBounds="True"
+                HorizontalAlignment="Center">
+          <Image Source="avares://MailDog.UI/Assets/logo.png"
+                 Width="72"
+                 Height="72"
+                 Stretch="UniformToFill" />
+        </Border>
         <TextBlock Text="添加你的第一个邮箱账户"
                    FontSize="20"
                    FontWeight="SemiBold"
@@ -543,7 +549,7 @@
                                 Background="Transparent">
                           <StackPanel Orientation="Horizontal" Spacing="12">
                             <ic:FluentIcon Icon="Info" IconSize="Size16" />
-                            <TextBlock Text="关于 MailDog" FontSize="13" VerticalAlignment="Center" />
+                            <TextBlock Text="关于" FontSize="13" VerticalAlignment="Center" />
                           </StackPanel>
                         </Button>
                       </StackPanel>
@@ -562,16 +568,32 @@
 
                         <StackPanel Spacing="6">
                           <TextBlock Text="主题" FontSize="13" />
-                          <ComboBox ItemsSource="{Binding ThemeOptions}"
-                                    SelectedIndex="{Binding ThemeIndex}"
-                                    HorizontalAlignment="Stretch" />
+                          <StackPanel Orientation="Horizontal" Spacing="16">
+                            <RadioButton GroupName="theme"
+                                         Content="跟随系统"
+                                         IsChecked="{Binding IsThemeSystem}" />
+                            <RadioButton GroupName="theme"
+                                         Content="浅色"
+                                         IsChecked="{Binding IsThemeLight}" />
+                            <RadioButton GroupName="theme"
+                                         Content="深色"
+                                         IsChecked="{Binding IsThemeDark}" />
+                          </StackPanel>
                         </StackPanel>
 
                         <StackPanel Spacing="6">
                           <TextBlock Text="背景材质" FontSize="13" />
-                          <ComboBox ItemsSource="{Binding MaterialOptions}"
-                                    SelectedIndex="{Binding MaterialIndex}"
-                                    HorizontalAlignment="Stretch" />
+                          <StackPanel Orientation="Horizontal" Spacing="16">
+                            <RadioButton GroupName="material"
+                                         Content="无"
+                                         IsChecked="{Binding IsMaterialNone}" />
+                            <RadioButton GroupName="material"
+                                         Content="云母"
+                                         IsChecked="{Binding IsMaterialMica}" />
+                            <RadioButton GroupName="material"
+                                         Content="亚克力"
+                                         IsChecked="{Binding IsMaterialAcrylic}" />
+                          </StackPanel>
                           <TextBlock Text="云母仅 Windows 11 支持；不可用时自动回退为纯色。"
                                      Classes="caption"
                                      TextWrapping="Wrap" />
@@ -675,6 +697,26 @@
                         </StackPanel>
                         <CheckBox Content="新邮件通知" IsChecked="{Binding NotificationsEnabled}" />
                         <CheckBox Content="通知声音" IsChecked="{Binding NotificationSoundEnabled}" />
+                        <StackPanel Spacing="6" IsEnabled="{Binding NotificationSoundEnabled}">
+                          <TextBlock Text="通知铃声" FontSize="13" />
+                          <StackPanel Orientation="Horizontal" Spacing="16">
+                            <RadioButton GroupName="sound"
+                                         Content="默认"
+                                         IsChecked="{Binding IsSoundDefault}" />
+                            <RadioButton GroupName="sound"
+                                         Content="邮件"
+                                         IsChecked="{Binding IsSoundMail}" />
+                            <RadioButton GroupName="sound"
+                                         Content="提醒"
+                                         IsChecked="{Binding IsSoundReminder}" />
+                            <RadioButton GroupName="sound"
+                                         Content="提示"
+                                         IsChecked="{Binding IsSoundAsterisk}" />
+                          </StackPanel>
+                          <TextBlock Text="选择新邮件通知使用的系统提示音。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
                       </StackPanel>
 
                       <StackPanel IsVisible="{Binding IsReadingSection}" Spacing="16">
@@ -701,9 +743,28 @@
                         </StackPanel>
                         <StackPanel Spacing="6">
                           <TextBlock Text="同步间隔" FontSize="13" />
-                          <ComboBox ItemsSource="{Binding SyncIntervalOptions}"
-                                    SelectedIndex="{Binding SyncIntervalIndex}"
-                                    HorizontalAlignment="Stretch" />
+                          <WrapPanel>
+                            <RadioButton GroupName="sync"
+                                         Content="1 分钟"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSync1Minute}" />
+                            <RadioButton GroupName="sync"
+                                         Content="5 分钟"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSync5Minutes}" />
+                            <RadioButton GroupName="sync"
+                                         Content="15 分钟"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSync15Minutes}" />
+                            <RadioButton GroupName="sync"
+                                         Content="30 分钟"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSync30Minutes}" />
+                            <RadioButton GroupName="sync"
+                                         Content="60 分钟"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSync60Minutes}" />
+                          </WrapPanel>
                         </StackPanel>
                       </StackPanel>
                     </StackPanel>
@@ -775,13 +836,12 @@
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <Border Width="48"
                           Height="48"
-                          CornerRadius="24"
-                          Background="{DynamicResource MailDogBrushAccent}">
-                    <ic:FluentIcon Icon="Mail"
-                                   IconSize="Size24"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource MailDogBrushTextOnAccent}" />
+                          CornerRadius="10"
+                          ClipToBounds="True">
+                    <Image Source="avares://MailDog.UI/Assets/logo.png"
+                           Width="48"
+                           Height="48"
+                           Stretch="UniformToFill" />
                   </Border>
                   <StackPanel VerticalAlignment="Center" Spacing="2">
                     <TextBlock Text="MailDog" FontSize="20" FontWeight="SemiBold" />

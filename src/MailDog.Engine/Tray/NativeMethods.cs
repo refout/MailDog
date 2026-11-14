@@ -148,6 +148,9 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     internal static extern bool DestroyIcon(IntPtr icon);
 
+    [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
+    internal static extern bool PlaySound(string sound, IntPtr module, uint flags);
+
     [DllImport("user32.dll")]
     internal static extern IntPtr CreatePopupMenu();
 

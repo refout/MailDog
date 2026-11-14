@@ -55,7 +55,8 @@ public sealed class EngineHost : IAsyncDisposable
                     _tray?.ShowNotification(
                         "新邮件",
                         $"{message.Latest.FromName}: {message.Latest.Subject}",
-                        settings.NotificationSoundEnabled);
+                        settings.NotificationSoundEnabled,
+                        settings.NotificationSound);
                 }
             }
         };

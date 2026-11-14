@@ -60,12 +60,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public string[] ProviderOptions { get; } = ["Outlook", "QQ 邮箱"];
 
-    public string[] ThemeOptions { get; } = ["跟随系统", "浅色", "深色"];
-
-    public string[] MaterialOptions { get; } = ["无", "云母", "亚克力"];
-
-    public string[] SyncIntervalOptions { get; } = ["1 分钟", "5 分钟", "15 分钟", "30 分钟", "60 分钟"];
-
     public static int[] SyncIntervalValues { get; } = [1, 5, 15, 30, 60];
 
     public string AppVersion => typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
@@ -224,6 +218,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _notificationSoundEnabled = true;
 
     [ObservableProperty]
+    private string _notificationSound = "default";
+
+    [ObservableProperty]
     private int _syncIntervalIndex;
 
     [ObservableProperty]
@@ -259,6 +256,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     partial void OnMaterialIndexChanged(int value)
     {
+        OnPropertyChanged(nameof(IsMaterialNone));
+        OnPropertyChanged(nameof(IsMaterialMica));
+        OnPropertyChanged(nameof(IsMaterialAcrylic));
         _readerAppearanceDirty = true;
         QueueSettingsSave();
     }
@@ -279,8 +279,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         QueueSettingsSave();
     }
 
+    partial void OnNotificationSoundChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsSoundDefault));
+        OnPropertyChanged(nameof(IsSoundMail));
+        OnPropertyChanged(nameof(IsSoundReminder));
+        OnPropertyChanged(nameof(IsSoundAsterisk));
+        QueueSettingsSave();
+    }
+
     partial void OnSyncIntervalIndexChanged(int value)
     {
+        OnPropertyChanged(nameof(IsSync1Minute));
+        OnPropertyChanged(nameof(IsSync5Minutes));
+        OnPropertyChanged(nameof(IsSync15Minutes));
+        OnPropertyChanged(nameof(IsSync30Minutes));
+        OnPropertyChanged(nameof(IsSync60Minutes));
         QueueSettingsSave();
     }
 
@@ -324,6 +338,186 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnIsBusyChanged(bool value)
     {
         IsEmpty = Messages.Count == 0 && !value && SelectedFolder is not null;
+    }
+
+    public bool IsThemeSystem
+    {
+        get => ThemeIndex == 0;
+        set
+        {
+            if (value)
+            {
+                ThemeIndex = 0;
+            }
+        }
+    }
+
+    public bool IsThemeLight
+    {
+        get => ThemeIndex == 1;
+        set
+        {
+            if (value)
+            {
+                ThemeIndex = 1;
+            }
+        }
+    }
+
+    public bool IsThemeDark
+    {
+        get => ThemeIndex == 2;
+        set
+        {
+            if (value)
+            {
+                ThemeIndex = 2;
+            }
+        }
+    }
+
+    public bool IsMaterialNone
+    {
+        get => MaterialIndex == 0;
+        set
+        {
+            if (value)
+            {
+                MaterialIndex = 0;
+            }
+        }
+    }
+
+    public bool IsMaterialMica
+    {
+        get => MaterialIndex == 1;
+        set
+        {
+            if (value)
+            {
+                MaterialIndex = 1;
+            }
+        }
+    }
+
+    public bool IsMaterialAcrylic
+    {
+        get => MaterialIndex == 2;
+        set
+        {
+            if (value)
+            {
+                MaterialIndex = 2;
+            }
+        }
+    }
+
+    public bool IsSync1Minute
+    {
+        get => SyncIntervalIndex == 0;
+        set
+        {
+            if (value)
+            {
+                SyncIntervalIndex = 0;
+            }
+        }
+    }
+
+    public bool IsSync5Minutes
+    {
+        get => SyncIntervalIndex == 1;
+        set
+        {
+            if (value)
+            {
+                SyncIntervalIndex = 1;
+            }
+        }
+    }
+
+    public bool IsSync15Minutes
+    {
+        get => SyncIntervalIndex == 2;
+        set
+        {
+            if (value)
+            {
+                SyncIntervalIndex = 2;
+            }
+        }
+    }
+
+    public bool IsSync30Minutes
+    {
+        get => SyncIntervalIndex == 3;
+        set
+        {
+            if (value)
+            {
+                SyncIntervalIndex = 3;
+            }
+        }
+    }
+
+    public bool IsSync60Minutes
+    {
+        get => SyncIntervalIndex == 4;
+        set
+        {
+            if (value)
+            {
+                SyncIntervalIndex = 4;
+            }
+        }
+    }
+
+    public bool IsSoundDefault
+    {
+        get => NotificationSound == "default";
+        set
+        {
+            if (value)
+            {
+                NotificationSound = "default";
+            }
+        }
+    }
+
+    public bool IsSoundMail
+    {
+        get => NotificationSound == "mail";
+        set
+        {
+            if (value)
+            {
+                NotificationSound = "mail";
+            }
+        }
+    }
+
+    public bool IsSoundReminder
+    {
+        get => NotificationSound == "reminder";
+        set
+        {
+            if (value)
+            {
+                NotificationSound = "reminder";
+            }
+        }
+    }
+
+    public bool IsSoundAsterisk
+    {
+        get => NotificationSound == "asterisk";
+        set
+        {
+            if (value)
+            {
+                NotificationSound = "asterisk";
+            }
+        }
     }
 
     public bool IsQqProvider => SelectedProviderIndex == 1;
@@ -533,6 +727,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             BackgroundOpacity = Math.Clamp(BackgroundOpacity, 40, 100),
             NotificationsEnabled = NotificationsEnabled,
             NotificationSoundEnabled = NotificationSoundEnabled,
+            NotificationSound = NotificationSound,
             SyncIntervalMinutes = SyncIntervalValues[Math.Clamp(SyncIntervalIndex, 0, SyncIntervalValues.Length - 1)],
             CacheDays = _settings.CacheDays,
             MarkReadOnOpen = MarkReadOnOpen,
@@ -732,6 +927,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     partial void OnThemeIndexChanged(int value)
     {
+        OnPropertyChanged(nameof(IsThemeSystem));
+        OnPropertyChanged(nameof(IsThemeLight));
+        OnPropertyChanged(nameof(IsThemeDark));
         Theme = value switch
         {
             1 => "light",
@@ -799,6 +997,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             BackgroundOpacity = _settings.BackgroundOpacity;
             NotificationsEnabled = _settings.NotificationsEnabled;
             NotificationSoundEnabled = _settings.NotificationSoundEnabled;
+            NotificationSound = _settings.NotificationSound is "mail" or "reminder" or "asterisk"
+                ? _settings.NotificationSound
+                : "default";
             var intervalIndex = Array.IndexOf(SyncIntervalValues, _settings.SyncIntervalMinutes);
             SyncIntervalIndex = intervalIndex >= 0 ? intervalIndex : 0;
             MarkReadOnOpen = _settings.MarkReadOnOpen;
