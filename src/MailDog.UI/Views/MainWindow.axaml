@@ -525,12 +525,6 @@
                           <TextBlock Text="同步" FontSize="13" VerticalAlignment="Center" />
                         </StackPanel>
                       </ListBoxItem>
-                      <ListBoxItem Padding="10,8">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                          <ic:FluentIcon Icon="Globe" IconSize="Size16" />
-                          <TextBlock Text="Outlook" FontSize="13" VerticalAlignment="Center" />
-                        </StackPanel>
-                      </ListBoxItem>
                     </ListBox>
 
                     <Border Grid.Row="1"
@@ -716,21 +710,6 @@
                           <ComboBox ItemsSource="{Binding SyncIntervalOptions}"
                                     SelectedIndex="{Binding SyncIntervalIndex}"
                                     HorizontalAlignment="Stretch" />
-                        </StackPanel>
-                      </StackPanel>
-
-                      <StackPanel IsVisible="{Binding IsOutlookSection}" Spacing="16">
-                        <StackPanel Spacing="4">
-                          <TextBlock Text="Outlook" FontSize="20" FontWeight="SemiBold" />
-                          <TextBlock Text="OAuth2 公共客户端应用配置。" Classes="caption" />
-                        </StackPanel>
-                        <StackPanel Spacing="6">
-                          <TextBlock Text="Entra client id" FontSize="13" />
-                          <TextBox Text="{Binding EntraClientId}"
-                                   PlaceholderText="Entra client id" />
-                          <TextBlock Text="在 Azure Portal 注册公共客户端应用，重定向 URI 填 http://localhost 与 http://127.0.0.1。"
-                                     Classes="caption"
-                                     TextWrapping="Wrap" />
                         </StackPanel>
                       </StackPanel>
                     </StackPanel>

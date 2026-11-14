@@ -636,6 +636,7 @@ CREATE TABLE settings (
 | 重定向 URI | `http://localhost` 与 `http://127.0.0.1`（两者都注册，端口忽略） |
 | 允许公共客户端流 | 是 |
 | 客户端密钥 | 不需要 |
+| 客户端 ID | 内置在 `OutlookAuthService.DefaultClientId`；可用环境变量 `MAILDOG_ENTRA_CLIENT_ID` 覆盖 |
 | 租户 | `common`（同时支持个人与工作账户） |
 
 **授权请求参数**
@@ -1019,14 +1020,14 @@ dotnet publish MailDog.UI/MailDog.UI.csproj `
 - `PublishReadyToRun` 与 AOT 互斥，不启用。
 - **`IncludeNativeLibrariesForSelfExtract=true` 在 Native AOT 下不会打包第三方原生库**；`e_sqlite3`、`libSkiaSharp`、`libHarfBuzzSharp`、`av_libglesv2` 通过 `EmbeddedResource` + 启动解压 + `NativeLibrary.SetDllImportResolver` 解决。
 - UI 优先 `Win32RenderingMode.AngleEgl`，失败回退 `Software`；材质不可用时自动回退不透明面板。WebView2 仍使用自身 GPU 进程。
-- 产物组装到 `dist/win-x64/MailDog/`：两个 exe + `README.txt` + 可选 `MailDog.Engine.json`（Entra client id）。
+- 产物组装到 `dist/win-x64/MailDog/`：两个 exe + `README.txt`。
 
 ### 14.2 体积与性能预算（最终实测）
 
 | 指标 | 目标 | 实测 |
 |---|---|---|
 | Engine 单文件 | ≤ 35 MiB | **13.19 MiB** |
-| UI 单文件 | ≤ 55 MiB | **44.23 MiB** |
+| UI 单文件 | ≤ 55 MiB | **44.22 MiB** |
 | Engine 启动 | ≤ 1.5s | Stage 0 探针 203 ms；v1 含托盘常驻 |
 | UI 首窗口 | ≤ 2.5s | Stage 0 探针 445 ms |
 | Engine 空闲内存 | ≤ 120 MiB | 待长稳测试 |
@@ -1220,7 +1221,7 @@ GitHub Actions `windows-latest`：
 
 ## 18. 开放问题
 
-1. **Entra client id**：由谁注册应用并提供公开 client id？是否内置到发布包，还是首次运行时由用户填写？
+1. **Entra client id**：已内置公开客户端 ID（公共客户端 ID 不是机密），无需用户填写；如需替换可用环境变量 `MAILDOG_ENTRA_CLIENT_ID`。
 2. **许可证**：Public 仓库采用 MIT / Apache-2.0 / 其他？
 3. **代码签名**：是否已有证书？没有的话 v1 先以未签名 ZIP 分发？
 4. **发信范围**：v1 是否必须包含撰写/回复？当前方案将其放入 v1.1。

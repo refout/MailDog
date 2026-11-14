@@ -7,13 +7,3 @@ public interface IOutlookAuthService
 
     void Cancel();
 }
-
-public sealed class NotConfiguredOutlookAuthService : IOutlookAuthService
-{
-    public Task StartAsync(string? loginHint, CancellationToken cancellationToken)
-        => throw new NotSupportedException("Outlook 登录尚未配置，请先设置 Entra client id。");
-
-    public void Cancel()
-    {
-    }
-}

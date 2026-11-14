@@ -81,7 +81,7 @@ dist/win-x64/MailDog/MailDog.UI.exe
 ```
 
 - QQ 邮箱：在 QQ 邮箱网页端开启 IMAP/SMTP，生成**授权码**（不是登录密码）。
-- Outlook：在“设置 → Outlook”填写 Entra 公共客户端 `client_id`，再通过浏览器登录。重定向 URI 需注册 `http://localhost` 与 `http://127.0.0.1`。
+- Outlook：直接点击“使用浏览器登录”，应用已内置 Entra 公共客户端（公共客户端 ID 不属于机密）。如需改用自己注册的应用，可设置环境变量 `MAILDOG_ENTRA_CLIENT_ID`。
 - 数据库与日志：`%LOCALAPPDATA%\MailDog\`。
 
 ## 已实测产物
@@ -90,7 +90,7 @@ dist/win-x64/MailDog/MailDog.UI.exe
 dist/win-x64/
 ├── MailDog/
 │   ├── MailDog.Engine.exe   13.19 MiB
-│   └── MailDog.UI.exe       44.23 MiB
+│   └── MailDog.UI.exe       44.22 MiB
 └── MailDog-win-x64.zip      25.45 MiB
 ```
 

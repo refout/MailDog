@@ -18,6 +18,10 @@ public sealed class OutlookAuthService : IOutlookAuthService, IAccessTokenProvid
 {
     private const string AuthorizeEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
     private const string TokenEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+
+    // Entra 公共客户端 ID 不是机密，内置后用户无需自行注册应用。
+    private const string DefaultClientId = "036018c4-ee11-4e8c-86ee-1eeb1e409094";
+
     private const string Scope =
         "offline_access openid profile email "
         + "https://outlook.office.com/IMAP.AccessAsUser.All "
@@ -47,10 +51,6 @@ public sealed class OutlookAuthService : IOutlookAuthService, IAccessTokenProvid
     public Task StartAsync(string? loginHint, CancellationToken cancellationToken)
     {
         var clientId = ResolveClientId();
-        if (string.IsNullOrWhiteSpace(clientId))
-        {
-            throw new NotSupportedException("请先在设置中填写 Entra client id。");
-        }
 
         Cancel();
 
@@ -87,8 +87,7 @@ public sealed class OutlookAuthService : IOutlookAuthService, IAccessTokenProvid
             throw new AuthenticationException("缺少 Outlook refresh token，请重新登录。");
         }
 
-        var clientId = ResolveClientId()
-            ?? throw new AuthenticationException("未配置 Entra client id。");
+        var clientId = ResolveClientId();
 
         OAuthTokenResponse token;
         try
@@ -273,16 +272,11 @@ public sealed class OutlookAuthService : IOutlookAuthService, IAccessTokenProvid
                ?? throw new AuthenticationException("令牌响应为空。");
     }
 
-    private string? ResolveClientId()
+    private static string ResolveClientId()
     {
+        // 保留环境变量覆盖，便于用自己的 Entra 应用调试或分发。
         var fromEnvironment = Environment.GetEnvironmentVariable("MAILDOG_ENTRA_CLIENT_ID");
-        if (!string.IsNullOrWhiteSpace(fromEnvironment))
-        {
-            return fromEnvironment.Trim();
-        }
-
-        var fromSettings = _store.GetSettings().EntraClientId;
-        return string.IsNullOrWhiteSpace(fromSettings) ? null : fromSettings.Trim();
+        return string.IsNullOrWhiteSpace(fromEnvironment) ? DefaultClientId : fromEnvironment.Trim();
     }
 
     private static string BuildAuthorizeUri(

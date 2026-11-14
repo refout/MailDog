@@ -195,15 +195,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsSyncSection => SettingsSectionIndex == 3;
 
-    public bool IsOutlookSection => SettingsSectionIndex == 4;
-
     partial void OnSettingsSectionIndexChanged(int value)
     {
         OnPropertyChanged(nameof(IsAppearanceSection));
         OnPropertyChanged(nameof(IsNotificationsSection));
         OnPropertyChanged(nameof(IsReadingSection));
         OnPropertyChanged(nameof(IsSyncSection));
-        OnPropertyChanged(nameof(IsOutlookSection));
     }
 
     public Color BackgroundColorValue
@@ -233,9 +230,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private int _renderModeIndex;
-
-    [ObservableProperty]
-    private string _entraClientId = string.Empty;
 
     public string Material => MaterialIndex switch
     {
@@ -284,11 +278,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     partial void OnMarkReadOnOpenChanged(bool value)
-    {
-        QueueSettingsSave();
-    }
-
-    partial void OnEntraClientIdChanged(string value)
     {
         QueueSettingsSave();
     }
@@ -545,8 +534,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             CacheDays = _settings.CacheDays,
             MarkReadOnOpen = MarkReadOnOpen,
             ShowRemoteImages = ShowRemoteImages,
-            RenderMode = RenderModeIndex == 1 ? "plain" : "html",
-            EntraClientId = string.IsNullOrWhiteSpace(EntraClientId) ? null : EntraClientId.Trim()
+            RenderMode = RenderModeIndex == 1 ? "plain" : "html"
         };
 
     private void QueueSettingsSave()
@@ -801,7 +789,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ShowRemoteImages = _settings.ShowRemoteImages;
             RenderModeIndex = _settings.RenderMode == "plain" ? 1 : 0;
             _allowRemoteImages = _settings.ShowRemoteImages;
-            EntraClientId = _settings.EntraClientId ?? string.Empty;
             ApplyTheme();
             SettingsSaveHint = "所有更改会自动保存";
         }
