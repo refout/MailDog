@@ -58,6 +58,7 @@ public partial class MainWindow : Window
     private void OnActualThemeVariantChanged(object? sender, EventArgs e)
     {
         ApplyAppearance();
+        _viewModel.RefreshBackgroundPresets();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

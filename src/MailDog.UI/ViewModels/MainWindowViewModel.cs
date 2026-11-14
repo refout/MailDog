@@ -39,6 +39,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _engine.Disconnected += OnEngineDisconnected;
         _engine.EngineStarting += OnEngineStarting;
         Reader.PropertyChanged += OnReaderPropertyChanged;
+        RefreshBackgroundPresets();
     }
 
     public ObservableCollection<AccountViewModel> Accounts { get; } = [];
@@ -1160,7 +1161,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         RefreshBackgroundPresets();
     }
 
-    private void RefreshBackgroundPresets()
+    public void RefreshBackgroundPresets()
     {
         var dark = Theme == "dark"
             || (Theme != "light" && Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
@@ -1168,13 +1169,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         (string Name, string Value)[] presets = dark
             ? [
                 ("默认", string.Empty),
-                ("石墨", "#26282B"),
-                ("藏青", "#1B2430"),
-                ("深蓝", "#1D2833"),
-                ("深褐", "#2A2420"),
-                ("墨绿", "#1E2A24"),
-                ("深紫", "#251F2C"),
-                ("炭黑", "#181818")
+                ("石墨", "#2F3337"),
+                ("藏青", "#24334D"),
+                ("深蓝", "#1F3B5C"),
+                ("深褐", "#3B2F27"),
+                ("墨绿", "#233A2C"),
+                ("深紫", "#342A40"),
+                ("炭黑", "#121212")
             ]
             : [
                 ("默认", string.Empty),
