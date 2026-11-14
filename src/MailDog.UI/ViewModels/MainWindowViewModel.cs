@@ -73,21 +73,26 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
     [NotifyPropertyChangedFor(nameof(OverlayTitle))]
     [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
+    [NotifyPropertyChangedFor(nameof(IsWelcomeVisible))]
     private bool _isSettingsOpen;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
     [NotifyPropertyChangedFor(nameof(OverlayTitle))]
     [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
+    [NotifyPropertyChangedFor(nameof(IsWelcomeVisible))]
     private bool _isAddAccountOpen;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
     [NotifyPropertyChangedFor(nameof(OverlayTitle))]
     [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
+    [NotifyPropertyChangedFor(nameof(IsWelcomeVisible))]
     private bool _isAboutOpen;
 
     public bool IsOverlayOpen => IsSettingsOpen || IsAddAccountOpen || IsAboutOpen;
+
+    public bool IsWelcomeVisible => ShowWelcome && !IsOverlayOpen;
 
     public string OverlayTitle => IsSettingsOpen ? "设置" : IsAboutOpen ? "关于" : "添加账户";
 
@@ -131,6 +136,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isEmpty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsWelcomeVisible))]
     private bool _showWelcome;
 
     [ObservableProperty]

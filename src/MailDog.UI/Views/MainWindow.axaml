@@ -40,7 +40,7 @@
     </Border>
 
     <!-- 三栏内容 -->
-    <Grid Grid.Row="1" ColumnDefinitions="240,360,*">
+    <Grid Grid.Row="1" ColumnDefinitions="240,360,*" IsVisible="{Binding !IsOverlayOpen}">
       <!-- 文件夹栏 -->
       <Border Grid.Column="0"
               Background="{DynamicResource MailDogBrushBgSubtle}"
@@ -437,8 +437,8 @@
     <!-- 首次使用 -->
     <Border Grid.Row="1"
             Grid.ColumnSpan="3"
-            IsVisible="{Binding ShowWelcome}"
-            Background="{DynamicResource MailDogBrushBgOverlay}">
+            IsVisible="{Binding IsWelcomeVisible}"
+            Background="{DynamicResource MailDogBrushBgBase}">
       <StackPanel HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   Spacing="12">
@@ -465,7 +465,7 @@
             Grid.RowSpan="2"
             Grid.ColumnSpan="3"
             IsVisible="{Binding IsOverlayOpen}"
-            Background="{DynamicResource MailDogBrushBgOverlay}">
+            Background="{DynamicResource MailDogBrushBgBase}">
       <Grid RowDefinitions="56,*">
         <Border BorderBrush="{DynamicResource MailDogBrushStroke}"
                 BorderThickness="0,0,0,1">
@@ -485,23 +485,13 @@
           </Grid>
         </Border>
 
-        <ScrollViewer Grid.Row="1">
-          <Border MaxWidth="780"
-                  Width="780"
-                  Margin="24"
-                  VerticalAlignment="Top"
-                  HorizontalAlignment="Center"
-                  Background="{DynamicResource MailDogBrushBgLayer}"
-                  BorderBrush="{DynamicResource MailDogBrushStroke}"
-                  BorderThickness="1"
-                  CornerRadius="8">
-            <StackPanel Spacing="0">
-              <!-- 设置 -->
-              <Grid IsVisible="{Binding IsSettingsOpen}"
-                    ColumnDefinitions="188,*"
-                    Height="500">
-                <Border Background="{DynamicResource MailDogBrushBgSubtle}"
-                        CornerRadius="8,0,0,8">
+        <Grid Grid.Row="1">
+          <!-- 设置 -->
+          <Grid IsVisible="{Binding IsSettingsOpen}"
+                ColumnDefinitions="220,*">
+            <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                    BorderBrush="{DynamicResource MailDogBrushStroke}"
+                    BorderThickness="0,0,1,0">
                   <Grid RowDefinitions="*,Auto">
                     <ListBox SelectedIndex="{Binding SettingsSectionIndex}"
                              Background="Transparent"
@@ -558,7 +548,7 @@
 
                 <Grid Grid.Column="1" RowDefinitions="*,Auto">
                   <ScrollViewer Grid.Row="0">
-                    <StackPanel Margin="24,24,24,8" Spacing="20">
+                    <StackPanel Margin="32,24,32,16" Spacing="24">
                       <StackPanel IsVisible="{Binding IsAppearanceSection}" Spacing="16">
                         <StackPanel Spacing="4">
                           <TextBlock Text="外观" FontSize="20" FontWeight="SemiBold" />
@@ -584,46 +574,51 @@
 
                         <StackPanel Spacing="8">
                           <TextBlock Text="背景颜色" FontSize="13" />
-                          <ItemsControl ItemsSource="{Binding BackgroundPresets}">
-                            <ItemsControl.ItemsPanel>
-                              <ItemsPanelTemplate>
-                                <WrapPanel />
-                              </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                              <DataTemplate x:DataType="vm:BackgroundPresetViewModel">
-                                <Button Classes="icon"
-                                        Margin="0,0,8,8"
-                                        AutomationProperties.Name="{Binding Name}"
-                                        Command="{Binding SelectCommand}"
-                                        ToolTip.Tip="{Binding Name}">
-                                  <Border Width="26"
-                                          Height="26"
-                                          CornerRadius="13"
-                                          Background="{Binding Brush}"
-                                          BorderBrush="{DynamicResource MailDogBrushStroke}"
-                                          BorderThickness="1" />
-                                </Button>
-                              </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                          </ItemsControl>
-                          <Grid ColumnDefinitions="*,Auto">
-                            <TextBox Text="{Binding BackgroundColorHex, Mode=TwoWay}"
-                                     PlaceholderText="#RRGGBB" />
-                            <Button Grid.Column="1"
-                                    Content="取色"
-                                    Margin="8,0,0,0"
-                                    Padding="14,6">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ItemsControl ItemsSource="{Binding BackgroundPresets}">
+                              <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                  <WrapPanel />
+                                </ItemsPanelTemplate>
+                              </ItemsControl.ItemsPanel>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:BackgroundPresetViewModel">
+                                  <Button Width="36"
+                                          Height="36"
+                                          Margin="0,0,8,8"
+                                          Padding="0"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          AutomationProperties.Name="{Binding Name}"
+                                          Command="{Binding SelectCommand}"
+                                          ToolTip.Tip="{Binding Name}">
+                                    <Border Width="30"
+                                            Height="30"
+                                            CornerRadius="7"
+                                            Background="{Binding Brush}"
+                                            BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                            BorderThickness="1" />
+                                  </Button>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="自定义…"
+                                    Margin="0,0,0,2"
+                                    Padding="12,6"
+                                    VerticalAlignment="Top">
                               <Button.Flyout>
-                                <Flyout Placement="BottomEdgeAlignedRight">
+                                <Flyout Placement="BottomEdgeAlignedLeft">
                                   <ColorView Color="{Binding BackgroundColorValue, Mode=TwoWay}"
                                              IsAlphaEnabled="False"
+                                             IsHexInputVisible="False"
+                                             IsColorComponentsVisible="False"
+                                             IsAccentColorsVisible="False"
                                              Width="320" />
                                 </Flyout>
                               </Button.Flyout>
                             </Button>
-                          </Grid>
-                          <TextBlock Text="可直接输入 #RRGGBB 或 #AARRGGBB；留空使用主题默认。"
+                          </StackPanel>
+                          <TextBlock Text="直接选择颜色块；需要更多颜色时点“自定义…”。"
                                      Classes="caption"
                                      TextWrapping="Wrap" />
                         </StackPanel>
@@ -694,7 +689,7 @@
                   <Border Grid.Row="1"
                           BorderBrush="{DynamicResource MailDogBrushStroke}"
                           BorderThickness="0,1,0,0"
-                          Padding="24,12">
+                          Padding="32,12">
                     <Button Content="保存设置"
                             Command="{Binding SaveSettingsCommand}"
                             HorizontalAlignment="Stretch"
@@ -704,7 +699,12 @@
               </Grid>
 
               <!-- 添加账户 -->
-              <StackPanel IsVisible="{Binding IsAddAccountOpen}" Margin="24" Spacing="12">
+              <StackPanel IsVisible="{Binding IsAddAccountOpen}"
+                          MaxWidth="640"
+                          Margin="32"
+                          Spacing="12"
+                          VerticalAlignment="Center"
+                          HorizontalAlignment="Stretch">
                 <ComboBox ItemsSource="{Binding ProviderOptions}"
                           SelectedIndex="{Binding SelectedProviderIndex}"
                           HorizontalAlignment="Stretch" />
@@ -744,7 +744,12 @@
               </StackPanel>
 
               <!-- 关于 -->
-              <StackPanel IsVisible="{Binding IsAboutOpen}" Margin="24" Spacing="16">
+              <StackPanel IsVisible="{Binding IsAboutOpen}"
+                          MaxWidth="640"
+                          Margin="32"
+                          Spacing="16"
+                          VerticalAlignment="Top"
+                          HorizontalAlignment="Stretch">
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <Border Width="48"
                           Height="48"
@@ -800,9 +805,7 @@
                            Classes="caption"
                            TextWrapping="Wrap" />
               </StackPanel>
-            </StackPanel>
-          </Border>
-        </ScrollViewer>
+        </Grid>
       </Grid>
     </Border>
   </Grid>

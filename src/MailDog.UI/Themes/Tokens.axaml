@@ -5,7 +5,6 @@
       <SolidColorBrush x:Key="MailDogBrushBgBase" Color="#F3F3F3" />
       <SolidColorBrush x:Key="MailDogBrushBgLayer" Color="#FFFFFF" />
       <SolidColorBrush x:Key="MailDogBrushBgSubtle" Color="#FAFAFA" />
-      <SolidColorBrush x:Key="MailDogBrushBgOverlay" Color="#F3F3F3" />
       <SolidColorBrush x:Key="MailDogBrushHover" Color="#0A000000" />
       <SolidColorBrush x:Key="MailDogBrushStroke" Color="#E0E0E0" />
       <SolidColorBrush x:Key="MailDogBrushStrokeSubtle" Color="#EBEBEB" />
@@ -27,7 +26,6 @@
       <SolidColorBrush x:Key="MailDogBrushBgBase" Color="#202020" />
       <SolidColorBrush x:Key="MailDogBrushBgLayer" Color="#272727" />
       <SolidColorBrush x:Key="MailDogBrushBgSubtle" Color="#1F1F1F" />
-      <SolidColorBrush x:Key="MailDogBrushBgOverlay" Color="#202020" />
       <SolidColorBrush x:Key="MailDogBrushHover" Color="#0FFFFFFF" />
       <SolidColorBrush x:Key="MailDogBrushStroke" Color="#3D3D3D" />
       <SolidColorBrush x:Key="MailDogBrushStrokeSubtle" Color="#333333" />
