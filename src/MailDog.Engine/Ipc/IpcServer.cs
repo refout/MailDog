@@ -7,14 +7,16 @@ namespace MailDog.Engine.Ipc;
 public sealed class IpcServer : IAsyncDisposable
 {
     private readonly RequestRouter _router;
+    private readonly Action<string>? _diagnostic;
     private readonly List<UiConnection> _connections = [];
     private readonly object _gate = new();
     private readonly CancellationTokenSource _cts = new();
     private Task? _acceptTask;
 
-    public IpcServer(RequestRouter router)
+    public IpcServer(RequestRouter router, Action<string>? diagnostic = null)
     {
         _router = router;
+        _diagnostic = diagnostic;
     }
 
     public bool HasConnections
@@ -92,7 +94,7 @@ public sealed class IpcServer : IAsyncDisposable
                 continue;
             }
 
-            var connection = new UiConnection(pipe, _router);
+            var connection = new UiConnection(pipe, _router, _diagnostic);
             lock (_gate)
             {
                 _connections.Add(connection);

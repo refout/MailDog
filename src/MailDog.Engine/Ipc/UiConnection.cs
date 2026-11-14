@@ -11,14 +11,16 @@ public sealed class UiConnection : IAsyncDisposable
 {
     private readonly NamedPipeServerStream _pipe;
     private readonly RequestRouter _router;
+    private readonly Action<string>? _diagnostic;
     private readonly Channel<IpcEnvelope> _sendQueue = Channel.CreateUnbounded<IpcEnvelope>(
         new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
     private readonly CancellationTokenSource _cts = new();
 
-    public UiConnection(NamedPipeServerStream pipe, RequestRouter router)
+    public UiConnection(NamedPipeServerStream pipe, RequestRouter router, Action<string>? diagnostic = null)
     {
         _pipe = pipe;
         _router = router;
+        _diagnostic = diagnostic;
     }
 
     public bool IsHandshaken { get; private set; }
@@ -134,25 +136,41 @@ public sealed class UiConnection : IAsyncDisposable
         }
         catch (AuthenticationException exception)
         {
+            Log($"请求 {envelope.Type} 认证失败：{exception.Message}");
             EnqueueError(envelope.RequestId, IpcErrorCodes.AuthRequired, "认证失败，请重新登录。", exception.Message);
         }
         catch (KeyNotFoundException exception)
         {
+            Log($"请求 {envelope.Type} 失败：{exception.Message}");
             EnqueueError(envelope.RequestId, IpcErrorCodes.NotFound, exception.Message);
+        }
+        catch (InvalidOperationException exception)
+        {
+            Log($"请求 {envelope.Type} 失败：{exception.Message}");
+            EnqueueError(envelope.RequestId, IpcErrorCodes.InvalidRequest, exception.Message);
         }
         catch (ArgumentException exception)
         {
+            Log($"请求 {envelope.Type} 参数错误：{exception}");
             EnqueueError(envelope.RequestId, IpcErrorCodes.InvalidRequest, exception.Message);
         }
         catch (NotSupportedException exception)
         {
+            Log($"请求 {envelope.Type} 失败：{exception.Message}");
             EnqueueError(envelope.RequestId, IpcErrorCodes.InvalidRequest, exception.Message);
         }
         catch (Exception exception)
         {
-            EnqueueError(envelope.RequestId, IpcErrorCodes.Internal, "Engine 处理请求失败。", exception.ToString());
+            Log($"请求 {envelope.Type} 异常：{exception}");
+            EnqueueError(
+                envelope.RequestId,
+                IpcErrorCodes.Internal,
+                $"Engine 处理请求失败：{exception.Message}",
+                exception.ToString());
         }
     }
+
+    private void Log(string message) => _diagnostic?.Invoke(message);
 
     private void EnqueueError(long requestId, string code, string message, string? detail = null)
     {

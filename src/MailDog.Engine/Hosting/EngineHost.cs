@@ -38,7 +38,7 @@ public sealed class EngineHost : IAsyncDisposable
         _outlookAuth = new OutlookAuthService(_store, _accounts, _secrets);
         _sync = new ImapSyncService(_store, _accounts, _outlookAuth);
         _router = new RequestRouter(_store, _accounts, _sync, _outlookAuth);
-        _ipc = new IpcServer(_router);
+        _ipc = new IpcServer(_router, message => _log.Warn(message));
 
         _router.Diagnostic += message => _log.Warn(message);
         _sync.Diagnostic += message => _log.Warn(message);

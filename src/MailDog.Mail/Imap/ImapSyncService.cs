@@ -152,12 +152,9 @@ public sealed class ImapSyncService : IAsyncDisposable
 
             try
             {
-                using var stream = await folder.GetStreamAsync(
+                var mime = await folder.GetMessageAsync(
                     ToUniqueId(message.Uid),
-                    "BODY.PEEK[]",
                     cancellationToken).ConfigureAwait(false);
-
-                var mime = await MimeMessage.LoadAsync(stream, cancellationToken).ConfigureAwait(false);
                 var body = MimeConverter.ExtractBody(mime);
                 _store.SaveBody(messageId, body.Html, body.PlainText, body.Truncated, body.Attachments);
 
