@@ -725,11 +725,10 @@
                           <TextBlock Text="阅读" FontSize="20" FontWeight="SemiBold" />
                           <TextBlock Text="打开邮件时的默认行为。" Classes="caption" />
                         </StackPanel>
-                        <StackPanel Spacing="6">
+                        <StackPanel Spacing="8">
                           <TextBlock Text="渲染方式" FontSize="13" />
-                          <ComboBox ItemsSource="{Binding RenderModeOptions}"
-                                    SelectedIndex="{Binding RenderModeIndex}"
-                                    HorizontalAlignment="Stretch" />
+                          <CheckBox Content="全量渲染（HTML）" IsChecked="{Binding IsHtmlRenderMode}" />
+                          <CheckBox Content="纯文本" IsChecked="{Binding IsPlainRenderMode}" />
                           <TextBlock Text="纯文本模式只显示文本内容；邮件没有纯文本时自动回退到 HTML。"
                                      Classes="caption"
                                      TextWrapping="Wrap" />

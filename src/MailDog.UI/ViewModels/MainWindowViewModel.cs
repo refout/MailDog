@@ -64,8 +64,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public string[] SyncIntervalOptions { get; } = ["1 分钟", "5 分钟", "15 分钟", "30 分钟", "60 分钟"];
 
-    public string[] RenderModeOptions { get; } = ["全量渲染（HTML）", "纯文本"];
-
     public static int[] SyncIntervalValues { get; } = [1, 5, 15, 30, 60];
 
     public string AppVersion => typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
@@ -295,8 +293,34 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         QueueSettingsSave();
     }
 
+    public bool IsHtmlRenderMode
+    {
+        get => RenderModeIndex == 0;
+        set
+        {
+            if (value)
+            {
+                RenderModeIndex = 0;
+            }
+        }
+    }
+
+    public bool IsPlainRenderMode
+    {
+        get => RenderModeIndex == 1;
+        set
+        {
+            if (value)
+            {
+                RenderModeIndex = 1;
+            }
+        }
+    }
+
     partial void OnRenderModeIndexChanged(int value)
     {
+        OnPropertyChanged(nameof(IsHtmlRenderMode));
+        OnPropertyChanged(nameof(IsPlainRenderMode));
         QueueSettingsSave();
         RenderCurrentBody();
     }
