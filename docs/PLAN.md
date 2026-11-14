@@ -580,7 +580,7 @@ CREATE TABLE settings (
 2. 对 INBOX 执行 `UID FETCH` 最近 200 封的 `ENVELOPE / FLAGS / INTERNALDATE / RFC822.SIZE / BODYSTRUCTURE`。
 3. 写入 `messages`，计算 `preview`（主题或正文首 160 字符，纯文本化）。
 4. 更新 `last_seen_uid = max(uid)`、`unread_count`、`total_count`。
-5. 列表首屏返回 50 条，剩余由“加载更多”触发本地查询；本地不足且服务器还有更早邮件时，Engine 再向 IMAP 拉取一页（200 条）后返回。
+5. 列表首屏返回 50 条，剩余由滚动到底部自动触发本地查询；本地不足且服务器还有更早邮件时，Engine 再向 IMAP 拉取一页（200 条）后返回。
 
 ### 7.4 增量同步
 
@@ -838,7 +838,8 @@ cellpadding, cellspacing, span, bgcolor, color, face, size, style, class, id`
 ```
 
 - 默认模式：`img-src 'none'`；用户点击“显示图片”后切换为 `img-src https: data:`。
-- 基础 CSS 由应用注入（字体、行高、表格、引用、代码块、暗色模式）作为兜底；保留邮件自带的安全内联样式与 `<style>` 以还原原始排版。
+- 基础 CSS 由应用注入（字体、行高、引用、代码块、暗色模式）作为兜底；保留邮件自带的安全内联样式与 `<style>` 以还原原始排版。
+- 正文背景取阅读区背景色（`BgLayer`），不注入表格单元格边框/内边距，避免出现大片色差与“满屏方框”。
 - 暗色模式：`prefers-color-scheme` + 应用传入的 `data-theme` 双保险。
 
 ### 10.4 WebView 生命周期
@@ -885,7 +886,7 @@ cellpadding, cellspacing, span, bgcolor, color, face, size, style, class, id`
 - 视图结构：
   - `MainWindow`：三栏外壳 + 状态横幅，使用系统原生标题栏。
   - `FolderPane`：账户切换、收藏、文件夹树。
-  - `MessageListView`：搜索、筛选、虚拟化列表、加载更多。
+  - `MessageListView`：搜索、筛选、虚拟化列表、滚动到底部自动加载。
   - `ReaderPane`：命令栏、头部、WebView/纯文本、附件条。
   - `SettingsWindow`、`AddAccountDialog`。
 - 可访问性与键盘映射详见 [UI-DESIGN.md](./UI-DESIGN.md)。

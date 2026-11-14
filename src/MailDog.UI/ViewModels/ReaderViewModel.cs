@@ -117,6 +117,7 @@ public sealed partial class ReaderViewModel : ObservableObject
         HtmlDocumentBuilder builder,
         bool allowRemoteImages,
         bool darkMode,
+        string backgroundHex,
         bool preferPlainText)
     {
         Subject = body.Subject;
@@ -134,7 +135,7 @@ public sealed partial class ReaderViewModel : ObservableObject
 
         if (hasHtml && !preferPlainText)
         {
-            HtmlDocument = builder.Build(sanitized.Html, darkMode, allowRemoteImages);
+            HtmlDocument = builder.Build(sanitized.Html, darkMode, allowRemoteImages, backgroundHex);
             UseHtml = true;
             return;
         }

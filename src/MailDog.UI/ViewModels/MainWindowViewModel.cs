@@ -31,6 +31,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _suppressSelectionHandlers;
     private bool _suppressAutoSave;
     private bool _addAccountFromSettings;
+    private bool _readerAppearanceDirty;
     private CancellationTokenSource? _autoSaveCts;
     private bool _disposed;
 
@@ -138,6 +139,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _hasMore;
+
+    [ObservableProperty]
+    private bool _isLoadingMore;
 
     [ObservableProperty]
     private bool _isEmpty;
@@ -249,16 +253,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnBackgroundOpacityChanged(int value)
     {
         OnPropertyChanged(nameof(BackgroundOpacityValue));
+        _readerAppearanceDirty = true;
         QueueSettingsSave();
     }
 
     partial void OnMaterialIndexChanged(int value)
     {
+        _readerAppearanceDirty = true;
         QueueSettingsSave();
     }
 
     partial void OnBackgroundColorHexChanged(string value)
     {
+        _readerAppearanceDirty = true;
         QueueSettingsSave();
     }
 
@@ -366,22 +373,32 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task LoadMoreAsync()
     {
-        if (!HasMore || SelectedFolder is null)
+        if (!HasMore || SelectedFolder is null || IsLoadingMore)
         {
             return;
         }
 
+        IsLoadingMore = true;
+
         try
         {
+            var folderId = SelectedFolder.Id;
+
             var response = await _engine.RequestAsync<MessagesPageResponse>(
                 IpcMessageTypes.GetMessages,
                 new GetMessagesRequest
                 {
-                    FolderId = SelectedFolder.Id,
+                    FolderId = folderId,
                     BeforeDate = _nextDate,
                     BeforeId = _nextId,
                     Limit = 50
                 });
+
+            if (_activeFolderId != folderId)
+            {
+                // 加载期间切换了文件夹，丢弃过期结果。
+                return;
+            }
 
             AddMessages(response.Items);
             HasMore = response.HasMore;
@@ -392,6 +409,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         catch (Exception exception)
         {
             ShowError(exception);
+        }
+        finally
+        {
+            IsLoadingMore = false;
         }
     }
 
@@ -436,24 +457,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         _allowRemoteImages = true;
         RenderCurrentBody();
-    }
-
-    [RelayCommand]
-    private void TogglePlainText()
-    {
-        if (_currentBody is null)
-        {
-            return;
-        }
-
-        if (Reader.UseHtml)
-        {
-            // 通过 Apply 重新生成纯文本，保证没有 text/plain 段时也能从 HTML 提取。
-            RenderCurrentBody(preferPlain: true);
-            return;
-        }
-
-        RenderCurrentBody(preferPlain: false);
     }
 
     [RelayCommand]
@@ -627,6 +630,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         IsSettingsOpen = false;
         IsAddAccountOpen = false;
         IsAboutOpen = false;
+        RefreshReaderAppearance();
+    }
+
+    private void RefreshReaderAppearance()
+    {
+        if (!_readerAppearanceDirty)
+        {
+            return;
+        }
+
+        _readerAppearanceDirty = false;
+        RenderCurrentBody();
     }
 
     [RelayCommand]
@@ -705,6 +720,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnThemeChanged(string value)
     {
         ApplyTheme();
+        _readerAppearanceDirty = true;
         QueueSettingsSave();
     }
 
@@ -1011,6 +1027,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var (background, dark) = GetReaderAppearance();
+
         Reader.Apply(
             _currentBody,
             Reader.SenderLine,
@@ -1018,8 +1036,31 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _sanitizer,
             _builder,
             _allowRemoteImages,
-            IsDarkTheme(),
+            dark,
+            background,
             preferPlain ?? RenderModeIndex == 1);
+    }
+
+    private (string Background, bool Dark) GetReaderAppearance()
+    {
+        var themeDark = IsDarkTheme();
+        var baseColor = Color.TryParse(BackgroundColorHex, out var custom)
+            ? custom
+            : themeDark ? Color.Parse("#202020") : Color.Parse("#F3F3F3");
+
+        // 与窗口的 MailDogBrushBgLayer 保持一致：基色上提 5%。
+        var layer = AdjustColor(baseColor, 0.05);
+        var dark = (0.2126 * layer.R) + (0.7152 * layer.G) + (0.0722 * layer.B) < 140;
+
+        return ($"#{layer.R:X2}{layer.G:X2}{layer.B:X2}", dark);
+    }
+
+    private static Color AdjustColor(Color color, double delta)
+    {
+        static byte Clamp(double value) => (byte)Math.Clamp((int)Math.Round(value), 0, 255);
+
+        var offset = delta * 255;
+        return Color.FromRgb(Clamp(color.R + offset), Clamp(color.G + offset), Clamp(color.B + offset));
     }
 
     private async Task MarkReadAsync(MailSummaryViewModel message, bool isRead)
@@ -1098,17 +1139,43 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _suppressSelectionHandlers = true;
         try
         {
-            SelectedMessage = null;
-            Messages.Clear();
+            // 原地增删，避免清空列表导致滚动位置与选中项跳变（滚到底部自动加载时需要）。
+            var target = filtered.ToHashSet();
 
-            foreach (var message in filtered)
+            for (var index = Messages.Count - 1; index >= 0; index--)
             {
-                Messages.Add(message);
+                if (!target.Contains(Messages[index]))
+                {
+                    Messages.RemoveAt(index);
+                }
             }
 
-            SelectedMessage = keepId is null
-                ? null
-                : Messages.FirstOrDefault(message => message.Id == keepId);
+            for (var index = 0; index < filtered.Count; index++)
+            {
+                if (index >= Messages.Count)
+                {
+                    Messages.Add(filtered[index]);
+                }
+                else if (!ReferenceEquals(Messages[index], filtered[index]))
+                {
+                    var existing = Messages.IndexOf(filtered[index]);
+                    if (existing >= 0)
+                    {
+                        Messages.Move(existing, index);
+                    }
+                    else
+                    {
+                        Messages.Insert(index, filtered[index]);
+                    }
+                }
+            }
+
+            if (SelectedMessage is null || !Messages.Contains(SelectedMessage))
+            {
+                SelectedMessage = keepId is null
+                    ? null
+                    : Messages.FirstOrDefault(message => message.Id == keepId);
+            }
         }
         finally
         {

@@ -199,6 +199,19 @@ public sealed class HtmlSanitizerTests
         Assert.Contains("background: #272727", document);
     }
 
+    [Fact]
+    public void UsesReaderBackgroundAndKeepsMailTablesUnstyled()
+    {
+        var document = _builder.Build(
+            "<table><tr><td>A</td></tr></table>",
+            darkMode: true,
+            allowRemoteImages: false,
+            bodyBackground: "#2D2D2D");
+
+        Assert.Contains("style=\"background:#2D2D2D\"", document);
+        Assert.DoesNotContain("border: 1px solid", document);
+    }
+
     private static int CountOccurrences(string input, string value)
     {
         var count = 0;

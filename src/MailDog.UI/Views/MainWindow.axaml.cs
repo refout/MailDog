@@ -44,6 +44,7 @@ public partial class MainWindow : Window
         WebView.NavigationCompleted += OnNavigationCompleted;
         viewModel.Reader.PropertyChanged += OnReaderPropertyChanged;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        MailList.AddHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
         Opened += OnOpened;
         KeyDown += OnWindowKeyDown;
@@ -288,6 +289,30 @@ public partial class MainWindow : Window
         WebView.NavigateToString(_pendingHtml);
     }
 
+    private void OnMailListScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (e.Source is not ScrollViewer viewer
+            || viewer.Viewport.Height <= 0
+            || viewer.Extent.Height <= 0)
+        {
+            return;
+        }
+
+        const double threshold = 240;
+        var remaining = viewer.Extent.Height - (viewer.Offset.Y + viewer.Viewport.Height);
+        if (remaining > threshold)
+        {
+            return;
+        }
+
+        if (_viewModel.IsLoadingMore || !_viewModel.HasMore)
+        {
+            return;
+        }
+
+        _viewModel.LoadMoreCommand.Execute(null);
+    }
+
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape && _viewModel.IsOverlayOpen)
@@ -316,6 +341,7 @@ public partial class MainWindow : Window
     {
         Closed -= OnClosed;
         KeyDown -= OnWindowKeyDown;
+        MailList.RemoveHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
         ActualThemeVariantChanged -= OnActualThemeVariantChanged;
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         WebView.EnvironmentRequested -= OnEnvironmentRequested;

@@ -17,8 +17,7 @@ public sealed class HtmlDocumentBuilder
         a { color: #0f6cbd; text-decoration: none; }
         a:hover { text-decoration: underline; }
         img { max-width: 100%; height: auto; }
-        table { max-width: 100%; border-collapse: collapse; }
-        td, th { padding: 6px 8px; border: 1px solid #e0e0e0; vertical-align: top; }
+        table { max-width: 100%; }
         blockquote { margin: 12px 0; padding: 4px 16px; border-left: 3px solid #d0d0d0; color: #5c5c5c; }
         pre, code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 13px; }
         pre { padding: 12px; background: #f6f6f6; border-radius: 6px; overflow-x: auto; }
@@ -40,8 +39,7 @@ public sealed class HtmlDocumentBuilder
         a { color: #479ef5; text-decoration: none; }
         a:hover { text-decoration: underline; }
         img { max-width: 100%; height: auto; }
-        table { max-width: 100%; border-collapse: collapse; }
-        td, th { padding: 6px 8px; border: 1px solid #3d3d3d; vertical-align: top; }
+        table { max-width: 100%; }
         blockquote { margin: 12px 0; padding: 4px 16px; border-left: 3px solid #4d4d4d; color: #c7c7c7; }
         pre, code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 13px; }
         pre { padding: 12px; background: #1f1f1f; border-radius: 6px; overflow-x: auto; }
@@ -51,7 +49,11 @@ public sealed class HtmlDocumentBuilder
         hr { border: 0; border-top: 1px solid #3d3d3d; margin: 20px 0; }
         """;
 
-    public string Build(string sanitizedHtml, bool darkMode, bool allowRemoteImages)
+    public string Build(
+        string sanitizedHtml,
+        bool darkMode,
+        bool allowRemoteImages,
+        string? bodyBackground = null)
     {
         var imageSource = allowRemoteImages ? "https:" : "'none'";
         var css = darkMode ? DarkCss : LightCss;
@@ -67,7 +69,15 @@ public sealed class HtmlDocumentBuilder
             .Append("<meta name=\"referrer\" content=\"no-referrer\">")
             .Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
             .Append("<style>").Append(css).Append("</style>")
-            .Append("</head><body>")
+            .Append("</head><body");
+
+        if (!string.IsNullOrWhiteSpace(bodyBackground))
+        {
+            // 让正文背景与应用阅读区一致，避免 WebView 出现一块突兀的白色/黑色区域。
+            builder.Append(" style=\"background:").Append(bodyBackground).Append('"');
+        }
+
+        builder.Append('>')
             .Append(sanitizedHtml)
             .Append("</body></html>");
 
