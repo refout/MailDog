@@ -33,6 +33,11 @@ public sealed class HtmlSanitizer
         "br", "hr", "img"
     };
 
+    private static readonly HashSet<string> VoidDangerousTags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "meta", "link", "base", "input"
+    };
+
     private static readonly HashSet<string> DangerousTags = new(StringComparer.OrdinalIgnoreCase)
     {
         "script", "style", "iframe", "frame", "frameset", "object", "embed", "applet",
@@ -203,7 +208,19 @@ public sealed class HtmlSanitizer
 
             if (DangerousTags.Contains(name))
             {
-                return SkipDangerousElement(input, nameEnd, name);
+                var dangerousEnd = FindTagEnd(input, nameEnd);
+                if (dangerousEnd < 0)
+                {
+                    return input.Length;
+                }
+
+                var isSelfClosing = input[dangerousEnd - 1] == '/';
+                if (VoidDangerousTags.Contains(name) || isSelfClosing)
+                {
+                    return dangerousEnd + 1;
+                }
+
+                return SkipDangerousElement(input, dangerousEnd + 1, name);
             }
 
             var tagEnd = FindTagEnd(input, nameEnd);
@@ -485,11 +502,12 @@ public sealed class HtmlSanitizer
             var closeIndex = input.IndexOf(closingTag, contentStart, StringComparison.OrdinalIgnoreCase);
             if (closeIndex < 0)
             {
-                return input.Length;
+                // 没有闭合标签时只跳过起始标签，避免把后续正文全部丢弃。
+                return contentStart;
             }
 
             var tagEnd = FindTagEnd(input, closeIndex + closingTag.Length);
-            return tagEnd < 0 ? input.Length : tagEnd + 1;
+            return tagEnd < 0 ? contentStart : tagEnd + 1;
         }
 
         private static int FindTagEnd(string input, int start)

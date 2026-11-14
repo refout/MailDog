@@ -15,6 +15,16 @@ public sealed class HtmlSanitizerTests
     }
 
     [Fact]
+    public void KeepsBodyWhenHeadContainsVoidMetaTag()
+    {
+        var result = _sanitizer.Sanitize(
+            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>t</title></head>"
+            + "<body><p>验证码 123456</p></body></html>");
+
+        Assert.Contains("验证码 123456", result.Html);
+    }
+
+    [Fact]
     public void RemovesEventHandlersAndStyleAttributes()
     {
         var result = _sanitizer.Sanitize(

@@ -7,6 +7,7 @@ using MailDog.Mail.Mime;
 using MailDog.Mail.Storage;
 using MailKit;
 using MailKit.Net.Imap;
+using MailKit.Search;
 using MailKit.Security;
 using MimeKit;
 
@@ -394,21 +395,43 @@ public sealed class ImapSyncService : IAsyncDisposable
                         | MessageSummaryItems.BodyStructure;
 
             IList<IMessageSummary> summaries;
-            if (folderRecord.LastSeenUid is > 0 and < uint.MaxValue)
-            {
-                var range = new UniqueIdRange(
-                    new UniqueId((uint)(folderRecord.LastSeenUid + 1)),
-                    UniqueId.MaxValue);
+            var hasIncrementalRange = folderRecord.LastSeenUid is > 0 and < uint.MaxValue;
 
-                summaries = await folder.FetchAsync(range, items, cancellationToken).ConfigureAwait(false);
-            }
-            else
+            try
             {
-                var count = folder.Count;
-                var start = Math.Max(1, count - initialLimit + 1);
-                summaries = count > 0
-                    ? await folder.FetchAsync(start, count, items, cancellationToken).ConfigureAwait(false)
-                    : [];
+                if (hasIncrementalRange
+                    && folder.UidNext is { } uidNext
+                    && folderRecord.LastSeenUid + 1 >= uidNext.Id)
+                {
+                    // 没有新邮件时不要对超出最大 UID 的区间执行 FETCH，Exchange 会返回 NO。
+                    summaries = [];
+                }
+                else if (hasIncrementalRange)
+                {
+                    var range = new UniqueIdRange(
+                        new UniqueId((uint)(folderRecord.LastSeenUid + 1)),
+                        UniqueId.MaxValue);
+
+                    summaries = await folder.FetchAsync(range, items, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    // 用 UID 抓取最近一页。Exchange 对序号区间较严格，序号 FETCH 可能返回
+                    // “The specified message set is invalid”，UID 集合更可靠。
+                    var uids = await folder.SearchAsync(SearchQuery.All, cancellationToken).ConfigureAwait(false);
+                    var take = Math.Min(initialLimit, uids.Count);
+                    var subset = uids.Skip(uids.Count - take).ToArray();
+
+                    summaries = take > 0
+                        ? await folder.FetchAsync(subset, items, cancellationToken).ConfigureAwait(false)
+                        : [];
+                }
+            }
+            catch (ImapCommandException exception)
+            {
+                Diagnostic?.Invoke(
+                    $"文件夹 {folderRecord.FullName} 抓取失败（count={folder.Count}, lastSeen={folderRecord.LastSeenUid}, uidNext={folder.UidNext?.Id}）：{exception.Message}");
+                throw;
             }
 
             var records = summaries
