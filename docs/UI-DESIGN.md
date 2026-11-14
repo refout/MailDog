@@ -550,7 +550,7 @@ MailDog
 
 ### 5.9 通知
 
-- 使用 Windows 气泡通知（`Shell_NotifyIcon` + `NIF_INFO`）。
+- 使用 Windows 气泡通知（`Shell_NotifyIcon` + `NIF_INFO`），通过 `NIIF_USER` + `hBalloonIcon` 显示应用大图标（logo）。
 - 内容：标题“新邮件 — Alice Chen”，正文主题（最多 80 字符）。
 - 同一账户 30s 内最多 1 条；批量到达时合并为“Alice 等 5 封新邮件”。
 - 点击通知：打开/聚焦 UI，选中对应邮件。

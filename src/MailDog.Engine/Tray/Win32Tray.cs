@@ -23,6 +23,7 @@ public sealed class Win32Tray : IDisposable
 
     private IntPtr _window;
     private IntPtr _icon;
+    private IntPtr _largeIcon;
     private bool _iconOwned;
     private uint _taskbarCreatedMessage;
     private bool _iconAdded;
@@ -84,7 +85,8 @@ public sealed class Win32Tray : IDisposable
 
         _taskbarCreatedMessage = NativeMethods.RegisterWindowMessage("TaskbarCreated");
         var appIcon = LoadAppIcon();
-        _icon = appIcon.Icon;
+        _icon = appIcon.Small;
+        _largeIcon = appIcon.Large;
         _iconOwned = appIcon.Owned;
         AddIcon();
 
@@ -131,8 +133,9 @@ public sealed class Win32Tray : IDisposable
         data.szInfoTitle = Truncate(title, 63);
         data.szInfo = Truncate(message, 255);
         data.dwInfoFlags = playSound && customSound is null
-            ? (uint)NativeMethods.NIIF_INFO
-            : (uint)(NativeMethods.NIIF_INFO | NativeMethods.NIIF_NOSOUND);
+            ? (uint)(NativeMethods.NIIF_USER | NativeMethods.NIIF_LARGE_ICON)
+            : (uint)(NativeMethods.NIIF_USER | NativeMethods.NIIF_LARGE_ICON | NativeMethods.NIIF_NOSOUND);
+        data.hBalloonIcon = _largeIcon != IntPtr.Zero ? _largeIcon : _icon;
         data.uTimeoutOrVersion = 5000;
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
 
@@ -299,7 +302,7 @@ public sealed class Win32Tray : IDisposable
         }
     }
 
-    private static (IntPtr Icon, bool Owned) LoadAppIcon()
+    private static (IntPtr Small, IntPtr Large, bool Owned) LoadAppIcon()
     {
         var executable = Environment.ProcessPath;
 
@@ -310,20 +313,17 @@ public sealed class Win32Tray : IDisposable
                 var count = NativeMethods.ExtractIconEx(executable, 0, out var large, out var small, 1);
                 if (count > 0)
                 {
-                    if (large != IntPtr.Zero && large != small)
+                    if (small == IntPtr.Zero)
                     {
-                        NativeMethods.DestroyIcon(large);
+                        small = large;
                     }
 
-                    if (small != IntPtr.Zero)
+                    if (large == IntPtr.Zero)
                     {
-                        return (small, true);
+                        large = small;
                     }
 
-                    if (large != IntPtr.Zero)
-                    {
-                        return (large, true);
-                    }
+                    return (small, large, small != IntPtr.Zero);
                 }
             }
             catch
@@ -332,7 +332,7 @@ public sealed class Win32Tray : IDisposable
             }
         }
 
-        return (NativeMethods.LoadIcon(IntPtr.Zero, NativeMethods.IdiApplication), false);
+        return (NativeMethods.LoadIcon(IntPtr.Zero, NativeMethods.IdiApplication), IntPtr.Zero, false);
     }
 
     private static string Truncate(string value, int length)
@@ -359,10 +359,20 @@ public sealed class Win32Tray : IDisposable
             Marshal.FreeHGlobal(_className);
         }
 
-        if (_iconOwned && _icon != IntPtr.Zero)
+        if (_iconOwned)
         {
-            NativeMethods.DestroyIcon(_icon);
+            if (_icon != IntPtr.Zero && _icon != _largeIcon)
+            {
+                NativeMethods.DestroyIcon(_icon);
+            }
+
+            if (_largeIcon != IntPtr.Zero)
+            {
+                NativeMethods.DestroyIcon(_largeIcon);
+            }
+
             _icon = IntPtr.Zero;
+            _largeIcon = IntPtr.Zero;
         }
     }
 }

@@ -917,7 +917,7 @@ cellpadding, cellspacing, span, bgcolor, color, face, size, style, class, id`
 - 菜单主题通过 uxtheme `SetPreferredAppMode` + `FlushMenuThemes` 跟随应用明暗设置，而不是固定系统默认。
 - 左键单击：启动 UI 或发 `showMainWindow`。
 - 任务栏重建：`RegisterWindowMessageW("TaskbarCreated")` 后重新 `NIM_ADD`。
-- 通知：`NIF_INFO` 气泡；同一账户 30s 内最多 1 条；点击气泡打开 UI 并定位邮件（通过 `NIN_BALLOONUSERCLICK`）。
+- 通知：`NIF_INFO` 气泡，`NIIF_USER` + `hBalloonIcon` 使用应用大图标（新 logo）；同一账户 30s 内最多 1 条；点击气泡打开 UI 并定位邮件（通过 `NIN_BALLOONUSERCLICK`）。
 - 通知声音：默认 / 邮件 / 提醒 / 提示；非默认铃声用 `PlaySound` 播放系统别名并抑制气泡默认音。
 - 退出时 `NIM_DELETE`、`DestroyWindow`、`PostQuitMessage`。
 

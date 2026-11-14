@@ -22,6 +22,10 @@ internal static class NativeMethods
 
     internal const int NIIF_INFO = 0x00000001;
 
+    internal const int NIIF_USER = 0x00000004;
+
+    internal const int NIIF_LARGE_ICON = 0x00000020;
+
     internal const int NIIF_NOSOUND = 0x00000010;
 
     internal const int MF_STRING = 0x00000000;
