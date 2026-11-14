@@ -185,9 +185,10 @@
           <TextBox x:Name="SearchBox"
                    Grid.Row="1"
                    Height="32"
-                   Margin="16,0,12,8"
+                   Margin="16,0,16,8"
+                   Padding="10,0"
+                   VerticalContentAlignment="Center"
                    VerticalAlignment="Center"
-                   TextAlignment="Center"
                    AutomationProperties.Name="搜索邮件"
                    Text="{Binding SearchText}"
                    PlaceholderText="搜索邮件、发件人…" />
@@ -574,11 +575,11 @@
 
                         <StackPanel Spacing="8">
                           <TextBlock Text="背景颜色" FontSize="13" />
-                          <StackPanel Orientation="Horizontal" Spacing="8">
+                          <StackPanel Orientation="Horizontal">
                             <ItemsControl ItemsSource="{Binding BackgroundPresets}">
                               <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                  <WrapPanel />
+                                  <StackPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                               </ItemsControl.ItemsPanel>
                               <ItemsControl.ItemTemplate>
@@ -602,10 +603,15 @@
                                 </DataTemplate>
                               </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <Button Content="自定义…"
-                                    Margin="0,0,0,2"
-                                    Padding="12,6"
-                                    VerticalAlignment="Top">
+
+                            <Button Width="36"
+                                    Height="36"
+                                    Margin="0,0,8,8"
+                                    Padding="0"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    AutomationProperties.Name="自定义颜色"
+                                    ToolTip.Tip="自定义颜色">
                               <Button.Flyout>
                                 <Flyout Placement="BottomEdgeAlignedLeft">
                                   <ColorView Color="{Binding BackgroundColorValue, Mode=TwoWay}"
@@ -616,9 +622,29 @@
                                              Width="320" />
                                 </Flyout>
                               </Button.Flyout>
+                              <Border Width="30"
+                                      Height="30"
+                                      CornerRadius="7"
+                                      BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                      BorderThickness="1">
+                                <Border.Background>
+                                  <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                                    <GradientStop Offset="0" Color="#F25022" />
+                                    <GradientStop Offset="0.25" Color="#FFB900" />
+                                    <GradientStop Offset="0.5" Color="#7FBA00" />
+                                    <GradientStop Offset="0.75" Color="#00A4EF" />
+                                    <GradientStop Offset="1" Color="#B4009E" />
+                                  </LinearGradientBrush>
+                                </Border.Background>
+                                <ic:FluentIcon Icon="PaintBrush"
+                                               IconSize="Size16"
+                                               Foreground="White"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                              </Border>
                             </Button>
                           </StackPanel>
-                          <TextBlock Text="直接选择颜色块；需要更多颜色时点“自定义…”。"
+                          <TextBlock Text="直接点击颜色块即可应用，最后一个色块可自定义任意颜色。"
                                      Classes="caption"
                                      TextWrapping="Wrap" />
                         </StackPanel>
@@ -689,11 +715,10 @@
                   <Border Grid.Row="1"
                           BorderBrush="{DynamicResource MailDogBrushStroke}"
                           BorderThickness="0,1,0,0"
-                          Padding="32,12">
-                    <Button Content="保存设置"
-                            Command="{Binding SaveSettingsCommand}"
-                            HorizontalAlignment="Stretch"
-                            Padding="16,8" />
+                          Padding="32,10">
+                    <TextBlock Text="{Binding SettingsSaveHint}"
+                               Classes="caption"
+                               VerticalAlignment="Center" />
                   </Border>
                 </Grid>
               </Grid>

@@ -28,6 +28,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _allowRemoteImages;
     private bool _initialized;
     private bool _suppressSelectionHandlers;
+    private bool _suppressAutoSave;
+    private CancellationTokenSource? _autoSaveCts;
     private bool _disposed;
 
     public MainWindowViewModel(EngineClient engine)
@@ -177,6 +179,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _settingsSectionIndex;
 
+    [ObservableProperty]
+    private string _settingsSaveHint = "所有更改会自动保存";
+
     public bool IsAppearanceSection => SettingsSectionIndex == 0;
 
     public bool IsNotificationsSection => SettingsSectionIndex == 1;
@@ -242,6 +247,42 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnBackgroundOpacityChanged(int value)
     {
         OnPropertyChanged(nameof(BackgroundOpacityValue));
+        QueueSettingsSave();
+    }
+
+    partial void OnMaterialIndexChanged(int value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnBackgroundColorHexChanged(string value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnNotificationsEnabledChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnNotificationSoundEnabledChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnSyncIntervalIndexChanged(int value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnMarkReadOnOpenChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnEntraClientIdChanged(string value)
+    {
+        QueueSettingsSave();
     }
 
     public bool HasStatus => !string.IsNullOrEmpty(StatusMessage);
@@ -447,10 +488,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    [RelayCommand]
-    private async Task SaveSettingsAsync()
-    {
-        var settings = new AppSettingsDto
+    private AppSettingsDto BuildSettings()
+        => new()
         {
             Theme = Theme,
             Material = Material,
@@ -465,6 +504,34 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             EntraClientId = string.IsNullOrWhiteSpace(EntraClientId) ? null : EntraClientId.Trim()
         };
 
+    private void QueueSettingsSave()
+    {
+        if (_suppressAutoSave || _disposed)
+        {
+            return;
+        }
+
+        _autoSaveCts?.Cancel();
+        _autoSaveCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _autoSaveCts = cts;
+        SettingsSaveHint = "正在保存…";
+        _ = SaveSettingsDebouncedAsync(cts);
+    }
+
+    private async Task SaveSettingsDebouncedAsync(CancellationTokenSource cts)
+    {
+        try
+        {
+            await Task.Delay(500, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        var settings = BuildSettings();
+
         try
         {
             await _engine.RequestAsync<OkResponse>(
@@ -473,14 +540,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
             _settings = settings;
             _allowRemoteImages = settings.ShowRemoteImages;
-            ApplyTheme();
-            StatusMessage = "设置已保存。";
-            HasError = false;
-            IsSettingsOpen = false;
+            await Dispatcher.UIThread.InvokeAsync(() => SettingsSaveHint = "已自动保存");
         }
         catch (Exception exception)
         {
-            ShowError(exception);
+            var message = GetErrorMessage(exception);
+            await Dispatcher.UIThread.InvokeAsync(() => SettingsSaveHint = $"保存失败：{message}");
         }
     }
 
@@ -600,11 +665,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnThemeChanged(string value)
     {
         ApplyTheme();
+        QueueSettingsSave();
     }
 
     partial void OnShowRemoteImagesChanged(bool value)
     {
         _allowRemoteImages = value;
+        QueueSettingsSave();
     }
 
     partial void OnThemeIndexChanged(int value)
@@ -655,30 +722,40 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             new GetSettingsRequest());
 
         _settings = response.Settings;
-        Theme = _settings.Theme;
-        ThemeIndex = _settings.Theme switch
+
+        _suppressAutoSave = true;
+        try
         {
-            "light" => 1,
-            "dark" => 2,
-            _ => 0
-        };
-        MaterialIndex = _settings.Material switch
+            Theme = _settings.Theme;
+            ThemeIndex = _settings.Theme switch
+            {
+                "light" => 1,
+                "dark" => 2,
+                _ => 0
+            };
+            MaterialIndex = _settings.Material switch
+            {
+                "mica" => 1,
+                "acrylic" => 2,
+                _ => 0
+            };
+            BackgroundColorHex = _settings.BackgroundColor ?? string.Empty;
+            BackgroundOpacity = _settings.BackgroundOpacity;
+            NotificationsEnabled = _settings.NotificationsEnabled;
+            NotificationSoundEnabled = _settings.NotificationSoundEnabled;
+            var intervalIndex = Array.IndexOf(SyncIntervalValues, _settings.SyncIntervalMinutes);
+            SyncIntervalIndex = intervalIndex >= 0 ? intervalIndex : 0;
+            MarkReadOnOpen = _settings.MarkReadOnOpen;
+            ShowRemoteImages = _settings.ShowRemoteImages;
+            _allowRemoteImages = _settings.ShowRemoteImages;
+            EntraClientId = _settings.EntraClientId ?? string.Empty;
+            ApplyTheme();
+            SettingsSaveHint = "所有更改会自动保存";
+        }
+        finally
         {
-            "mica" => 1,
-            "acrylic" => 2,
-            _ => 0
-        };
-        BackgroundColorHex = _settings.BackgroundColor ?? string.Empty;
-        BackgroundOpacity = _settings.BackgroundOpacity;
-        NotificationsEnabled = _settings.NotificationsEnabled;
-        NotificationSoundEnabled = _settings.NotificationSoundEnabled;
-        var intervalIndex = Array.IndexOf(SyncIntervalValues, _settings.SyncIntervalMinutes);
-        SyncIntervalIndex = intervalIndex >= 0 ? intervalIndex : 0;
-        MarkReadOnOpen = _settings.MarkReadOnOpen;
-        ShowRemoteImages = _settings.ShowRemoteImages;
-        _allowRemoteImages = _settings.ShowRemoteImages;
-        EntraClientId = _settings.EntraClientId ?? string.Empty;
-        ApplyTheme();
+            _suppressAutoSave = false;
+        }
     }
 
     private async Task LoadAccountsAsync()
@@ -1137,6 +1214,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         _disposed = true;
+        _autoSaveCts?.Cancel();
+        _autoSaveCts?.Dispose();
         _engine.EventReceived -= OnEngineEvent;
         _engine.Disconnected -= OnEngineDisconnected;
         _engine.EngineStarting -= OnEngineStarting;

@@ -4,7 +4,7 @@
              RequestedThemeVariant="Default">
   <Application.Resources>
     <ResourceDictionary>
-      <CornerRadius x:Key="ControlCornerRadius">4</CornerRadius>
+      <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
       <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://MailDog.UI/Themes/Tokens.axaml" />
