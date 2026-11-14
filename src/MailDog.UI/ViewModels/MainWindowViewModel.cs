@@ -29,6 +29,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _initialized;
     private bool _suppressSelectionHandlers;
     private bool _suppressAutoSave;
+    private bool _addAccountFromSettings;
     private CancellationTokenSource? _autoSaveCts;
     private bool _disposed;
 
@@ -39,10 +40,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _engine.Disconnected += OnEngineDisconnected;
         _engine.EngineStarting += OnEngineStarting;
         Reader.PropertyChanged += OnReaderPropertyChanged;
+        Accounts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAccounts));
         RefreshBackgroundPresets();
     }
 
     public ObservableCollection<AccountViewModel> Accounts { get; } = [];
+
+    public bool HasAccounts => Accounts.Count > 0;
 
     public ObservableCollection<FolderViewModel> Folders { get; } = [];
 
@@ -59,6 +63,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public string[] MaterialOptions { get; } = ["无", "云母", "亚克力"];
 
     public string[] SyncIntervalOptions { get; } = ["1 分钟", "5 分钟", "15 分钟", "30 分钟", "60 分钟"];
+
+    public string[] RenderModeOptions { get; } = ["全量渲染（HTML）", "纯文本"];
 
     public static int[] SyncIntervalValues { get; } = [1, 5, 15, 30, 60];
 
@@ -228,6 +234,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _showRemoteImages;
 
     [ObservableProperty]
+    private int _renderModeIndex;
+
+    [ObservableProperty]
     private string _entraClientId = string.Empty;
 
     public string Material => MaterialIndex switch
@@ -284,6 +293,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnEntraClientIdChanged(string value)
     {
         QueueSettingsSave();
+    }
+
+    partial void OnRenderModeIndexChanged(int value)
+    {
+        QueueSettingsSave();
+        RenderCurrentBody();
     }
 
     public bool HasStatus => !string.IsNullOrEmpty(StatusMessage);
@@ -421,7 +436,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        RenderCurrentBody();
+        RenderCurrentBody(preferPlain: false);
     }
 
     [RelayCommand]
@@ -502,6 +517,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             CacheDays = _settings.CacheDays,
             MarkReadOnOpen = MarkReadOnOpen,
             ShowRemoteImages = ShowRemoteImages,
+            RenderMode = RenderModeIndex == 1 ? "plain" : "html",
             EntraClientId = string.IsNullOrWhiteSpace(EntraClientId) ? null : EntraClientId.Trim()
         };
 
@@ -561,6 +577,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenAddAccount()
     {
+        _addAccountFromSettings = IsSettingsOpen;
         IsSettingsOpen = false;
         IsAboutOpen = false;
         IsAddAccountOpen = true;
@@ -577,9 +594,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void BackFromOverlay()
     {
-        if (IsAboutOpen)
+        if (IsAboutOpen || (IsAddAccountOpen && _addAccountFromSettings))
         {
             IsAboutOpen = false;
+            IsAddAccountOpen = false;
             IsSettingsOpen = true;
             return;
         }
@@ -748,6 +766,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             SyncIntervalIndex = intervalIndex >= 0 ? intervalIndex : 0;
             MarkReadOnOpen = _settings.MarkReadOnOpen;
             ShowRemoteImages = _settings.ShowRemoteImages;
+            RenderModeIndex = _settings.RenderMode == "plain" ? 1 : 0;
             _allowRemoteImages = _settings.ShowRemoteImages;
             EntraClientId = _settings.EntraClientId ?? string.Empty;
             ApplyTheme();
@@ -937,7 +956,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void RenderCurrentBody()
+    private void RenderCurrentBody(bool? preferPlain = null)
     {
         if (_currentBody is null)
         {
@@ -951,7 +970,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _sanitizer,
             _builder,
             _allowRemoteImages,
-            IsDarkTheme());
+            IsDarkTheme(),
+            preferPlain ?? RenderModeIndex == 1);
     }
 
     private async Task MarkReadAsync(MailSummaryViewModel message, bool isRead)
@@ -1060,17 +1080,36 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void HandleSyncState(SyncStateEvent syncState)
     {
+        var account = Accounts.FirstOrDefault(item => item.Id == syncState.AccountId);
+
         if (syncState.State == SyncStateKind.Syncing)
         {
-            StatusMessage = syncState.Message ?? "正在同步…";
+            var message = syncState.Message ?? "正在同步…";
+            if (account is not null)
+            {
+                account.SyncStatus = message;
+            }
+
+            StatusMessage = message;
             return;
         }
 
         if (syncState.State == SyncStateKind.Error)
         {
+            var message = syncState.Message ?? "同步失败。";
+            if (account is not null)
+            {
+                account.SyncStatus = message;
+            }
+
             HasError = true;
-            StatusMessage = syncState.Message ?? "同步失败。";
+            StatusMessage = message;
             return;
+        }
+
+        if (account is not null)
+        {
+            account.SyncStatus = null;
         }
 
         StatusMessage = null;

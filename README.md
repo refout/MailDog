@@ -90,8 +90,8 @@ dist/win-x64/MailDog/MailDog.UI.exe
 dist/win-x64/
 ├── MailDog/
 │   ├── MailDog.Engine.exe   12.48 MiB
-│   └── MailDog.UI.exe       44.21 MiB
-└── MailDog-win-x64.zip      24.12 MiB
+│   └── MailDog.UI.exe       44.22 MiB
+└── MailDog-win-x64.zip      24.13 MiB
 ```
 
 - 两个 exe 均为自包含单文件，无需 .NET 运行时；UI 需与 Engine 位于同一目录，才能自动拉起后台。

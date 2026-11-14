@@ -1,9 +1,10 @@
 using Avalonia.Media;
+using CommunityToolkit.Mvvm.ComponentModel;
 using MailDog.Contracts.Dto;
 
 namespace MailDog.UI.ViewModels;
 
-public sealed class AccountViewModel
+public sealed partial class AccountViewModel : ObservableObject
 {
     public AccountViewModel(AccountDto account)
     {
@@ -42,4 +43,10 @@ public sealed class AccountViewModel
     public IBrush StatusBrush { get; }
 
     public string Initial { get; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSyncStatus))]
+    private string? _syncStatus;
+
+    public bool HasSyncStatus => !string.IsNullOrEmpty(SyncStatus);
 }

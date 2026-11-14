@@ -32,6 +32,7 @@ public sealed class SqliteStoreTests : IDisposable
             CacheDays = 30,
             MarkReadOnOpen = false,
             ShowRemoteImages = true,
+            RenderMode = "plain",
             EntraClientId = "client-id"
         };
 
@@ -48,6 +49,7 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.Equal(30, loaded.CacheDays);
         Assert.False(loaded.MarkReadOnOpen);
         Assert.True(loaded.ShowRemoteImages);
+        Assert.Equal("plain", loaded.RenderMode);
         Assert.Equal("client-id", loaded.EntraClientId);
     }
 

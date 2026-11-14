@@ -52,5 +52,7 @@ public sealed class AppSettingsDto
 
     public bool ShowRemoteImages { get; init; }
 
+    public string RenderMode { get; init; } = "html";
+
     public string? EntraClientId { get; init; }
 }

@@ -38,6 +38,17 @@
     <Style Selector="ListBox.mail-list">
       <Setter Property="Padding" Value="0" />
     </Style>
+    <Style Selector="Button.account-add">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.account-add:pointerover">
+      <Setter Property="Background" Value="{DynamicResource MailDogBrushHover}" />
+    </Style>
     <Style Selector="ListBoxItem">
       <Setter Property="CornerRadius" Value="6" />
       <Setter Property="Margin" Value="4,1" />

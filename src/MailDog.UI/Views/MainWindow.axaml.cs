@@ -15,6 +15,8 @@ public partial class MainWindow : Window
 {
     private const int DwmwaUseImmersiveDarkMode = 20;
     private const int DwmwaUseImmersiveDarkModeLegacy = 19;
+    private const int DwmwaCaptionColor = 35;
+    private const int DwmwaTextColor = 36;
 
     private readonly MainWindowViewModel _viewModel;
     private bool _adapterReady;
@@ -88,7 +90,7 @@ public partial class MainWindow : Window
         var opacity = translucent ? Math.Clamp(_viewModel.BackgroundOpacity, 40, 100) / 100d : 1d;
 
         ApplyPalette(baseColor, opacity, translucent, ActualThemeVariant == ThemeVariant.Dark);
-        ApplyNativeTitleBarTheme(IsDark(baseColor));
+        ApplyNativeTitleBarTheme(IsDark(baseColor), baseColor);
 
         if (translucent)
         {
@@ -179,7 +181,7 @@ public partial class MainWindow : Window
         application.Resources[key] = new SolidColorBrush(color);
     }
 
-    private void ApplyNativeTitleBarTheme(bool dark)
+    private void ApplyNativeTitleBarTheme(bool dark, Color baseColor)
     {
         var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
         if (handle == IntPtr.Zero)
@@ -193,6 +195,17 @@ public partial class MainWindow : Window
             var legacy = dark ? 1 : 0;
             _ = DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkModeLegacy, ref legacy, sizeof(int));
         }
+
+        if (Environment.OSVersion.Version.Build < 22000)
+        {
+            return;
+        }
+
+        // COLORREF 为 0x00BBGGRR，让标题栏与主页面背景保持一致。
+        var caption = baseColor.R | (baseColor.G << 8) | (baseColor.B << 16);
+        var text = dark ? 0xFFFFFF : 0x1B1B1B;
+        _ = DwmSetWindowAttribute(handle, DwmwaCaptionColor, ref caption, sizeof(int));
+        _ = DwmSetWindowAttribute(handle, DwmwaTextColor, ref text, sizeof(int));
     }
 
     private void OnEnvironmentRequested(object? sender, WebViewEnvironmentRequestedEventArgs e)

@@ -740,6 +740,7 @@ public sealed class SqliteStore : IDisposable
             CacheDays = int.TryParse(values.GetValueOrDefault("cacheDays"), out var days) ? days : 90,
             MarkReadOnOpen = !values.TryGetValue("markReadOnOpen", out var markRead) || markRead != "0",
             ShowRemoteImages = values.GetValueOrDefault("showRemoteImages") == "1",
+            RenderMode = values.GetValueOrDefault("renderMode") == "plain" ? "plain" : "html",
             EntraClientId = values.GetValueOrDefault("entraClientId")
         };
     }
@@ -759,6 +760,7 @@ public sealed class SqliteStore : IDisposable
             UpsertSetting(transaction, "cacheDays", settings.CacheDays.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "markReadOnOpen", settings.MarkReadOnOpen ? "1" : "0");
             UpsertSetting(transaction, "showRemoteImages", settings.ShowRemoteImages ? "1" : "0");
+            UpsertSetting(transaction, "renderMode", settings.RenderMode == "plain" ? "plain" : "html");
             UpsertSetting(transaction, "entraClientId", settings.EntraClientId ?? string.Empty);
             transaction.Commit();
         }

@@ -116,7 +116,8 @@ public sealed partial class ReaderViewModel : ObservableObject
         HtmlSanitizer sanitizer,
         HtmlDocumentBuilder builder,
         bool allowRemoteImages,
-        bool darkMode)
+        bool darkMode,
+        bool preferPlainText)
     {
         Subject = body.Subject;
         SenderLine = senderLine;
@@ -127,19 +128,23 @@ public sealed partial class ReaderViewModel : ObservableObject
 
         var sanitized = sanitizer.Sanitize(body.Html, allowRemoteImages);
         ImagesBlocked = sanitized.RemoteImagesBlocked;
+        PlainText = body.PlainText ?? string.Empty;
 
-        if (!string.IsNullOrWhiteSpace(sanitized.Html))
+        var hasHtml = !string.IsNullOrWhiteSpace(sanitized.Html);
+
+        if (hasHtml && (!preferPlainText || string.IsNullOrWhiteSpace(PlainText)))
         {
             HtmlDocument = builder.Build(sanitized.Html, darkMode, allowRemoteImages);
-            PlainText = body.PlainText ?? string.Empty;
             UseHtml = true;
             return;
         }
 
         HtmlDocument = null;
         UseHtml = false;
-        PlainText = string.IsNullOrWhiteSpace(body.PlainText)
-            ? "此邮件没有可显示的正文。"
-            : body.PlainText;
+
+        if (string.IsNullOrWhiteSpace(PlainText))
+        {
+            PlainText = "此邮件没有可显示的正文。";
+        }
     }
 }
