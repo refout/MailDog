@@ -14,6 +14,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Controls.ColorPicker" />
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Angle.Windows.Natives" GeneratePathProperty="true" PrivateAssets="all" />
@@ -26,20 +27,14 @@
     <PackageReference Include="HarfBuzzSharp.NativeAssets.Win32" GeneratePathProperty="true" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' Or ('$(RuntimeIdentifier)' == '' And '$(NETCoreSdkRuntimeIdentifier)' == 'win-x64')">
-    <EmbeddedResource Include="$(PkgSkiaSharp_NativeAssets_Win32)\runtimes\win-x64\native\libSkiaSharp.dll"
-                      LogicalName="MailDog.UI.Native.libSkiaSharp.dll" />
-    <EmbeddedResource Include="$(PkgHarfBuzzSharp_NativeAssets_Win32)\runtimes\win-x64\native\libHarfBuzzSharp.dll"
-                      LogicalName="MailDog.UI.Native.libHarfBuzzSharp.dll" />
-    <EmbeddedResource Include="$(PkgAvalonia_Angle_Windows_Natives)\runtimes\win-x64\native\av_libglesv2.dll"
-                      LogicalName="MailDog.UI.Native.av_libglesv2.dll" />
+    <EmbeddedResource Include="$(PkgSkiaSharp_NativeAssets_Win32)\runtimes\win-x64\native\libSkiaSharp.dll" LogicalName="MailDog.UI.Native.libSkiaSharp.dll" />
+    <EmbeddedResource Include="$(PkgHarfBuzzSharp_NativeAssets_Win32)\runtimes\win-x64\native\libHarfBuzzSharp.dll" LogicalName="MailDog.UI.Native.libHarfBuzzSharp.dll" />
+    <EmbeddedResource Include="$(PkgAvalonia_Angle_Windows_Natives)\runtimes\win-x64\native\av_libglesv2.dll" LogicalName="MailDog.UI.Native.av_libglesv2.dll" />
   </ItemGroup>
   <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-arm64' Or ('$(RuntimeIdentifier)' == '' And '$(NETCoreSdkRuntimeIdentifier)' == 'win-arm64')">
-    <EmbeddedResource Include="$(PkgSkiaSharp_NativeAssets_Win32)\runtimes\win-arm64\native\libSkiaSharp.dll"
-                      LogicalName="MailDog.UI.Native.libSkiaSharp.dll" />
-    <EmbeddedResource Include="$(PkgHarfBuzzSharp_NativeAssets_Win32)\runtimes\win-arm64\native\libHarfBuzzSharp.dll"
-                      LogicalName="MailDog.UI.Native.libHarfBuzzSharp.dll" />
-    <EmbeddedResource Include="$(PkgAvalonia_Angle_Windows_Natives)\runtimes\win-arm64\native\av_libglesv2.dll"
-                      LogicalName="MailDog.UI.Native.av_libglesv2.dll" />
+    <EmbeddedResource Include="$(PkgSkiaSharp_NativeAssets_Win32)\runtimes\win-arm64\native\libSkiaSharp.dll" LogicalName="MailDog.UI.Native.libSkiaSharp.dll" />
+    <EmbeddedResource Include="$(PkgHarfBuzzSharp_NativeAssets_Win32)\runtimes\win-arm64\native\libHarfBuzzSharp.dll" LogicalName="MailDog.UI.Native.libHarfBuzzSharp.dll" />
+    <EmbeddedResource Include="$(PkgAvalonia_Angle_Windows_Natives)\runtimes\win-arm64\native\av_libglesv2.dll" LogicalName="MailDog.UI.Native.av_libglesv2.dll" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MailDog.Contracts\MailDog.Contracts.csproj" />

@@ -18,6 +18,7 @@
         <ColorPaletteResources x:Key="Dark" Accent="#479EF5" />
       </FluentTheme.Palettes>
     </FluentTheme>
+    <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
     <Style Selector="Button.icon">
       <Setter Property="Width" Value="32" />
       <Setter Property="Height" Value="32" />

@@ -161,6 +161,7 @@ Contracts ← UI
 | `SkiaSharp` / `SkiaSharp.NativeAssets.Win32` | 3.119.4 | Avalonia 渲染 | `libSkiaSharp.dll` 需嵌入解压 |
 | `HarfBuzzSharp` / `HarfBuzzSharp.NativeAssets.Win32` | 8.3.1.3 | 文本整形 | `libHarfBuzzSharp.dll` 需嵌入解压 |
 | `Avalonia.Angle.Windows.Natives` | 2.1.27548.20260419 | ANGLE | 嵌入解压，启用云母/亚克力材质 |
+| `Avalonia.Controls.ColorPicker` | 12.1.6 | 设置页取色器 | `ColorView`，AOT 兼容 |
 | `System.Security.Cryptography.ProtectedData` | 11.0.x | Windows DPAPI 令牌加密 | Windows 专用；跨平台后续替换 |
 | xUnit + `Microsoft.NET.Test.Sdk` | 脚手架时锁定 | 单元测试 | 测试项目不 AOT |
 
@@ -1020,7 +1021,7 @@ dotnet publish MailDog.UI/MailDog.UI.csproj `
 | 指标 | 目标 | 实测 |
 |---|---|---|
 | Engine 单文件 | ≤ 35 MiB | **12.42 MiB** |
-| UI 单文件 | ≤ 55 MiB | **43.27 MiB** |
+| UI 单文件 | ≤ 55 MiB | **44.20 MiB** |
 | Engine 启动 | ≤ 1.5s | Stage 0 探针 203 ms；v1 含托盘常驻 |
 | UI 首窗口 | ≤ 2.5s | Stage 0 探针 445 ms |
 | Engine 空闲内存 | ≤ 120 MiB | 待长稳测试 |

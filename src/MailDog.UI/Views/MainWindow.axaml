@@ -486,119 +486,225 @@
         </Border>
 
         <ScrollViewer Grid.Row="1">
-          <Border MaxWidth="560"
-                  Width="560"
+          <Border MaxWidth="780"
+                  Width="780"
                   Margin="24"
-                  Padding="24"
                   VerticalAlignment="Top"
                   HorizontalAlignment="Center"
                   Background="{DynamicResource MailDogBrushBgLayer}"
                   BorderBrush="{DynamicResource MailDogBrushStroke}"
                   BorderThickness="1"
                   CornerRadius="8">
-            <StackPanel Spacing="12">
+            <StackPanel Spacing="0">
               <!-- 设置 -->
-              <StackPanel IsVisible="{Binding IsSettingsOpen}" Spacing="16">
-                <StackPanel Spacing="8">
-                  <TextBlock Text="外观" Classes="section" />
-                  <TextBlock Text="主题" FontSize="13" />
-                  <ComboBox ItemsSource="{Binding ThemeOptions}"
-                            SelectedIndex="{Binding ThemeIndex}"
-                            HorizontalAlignment="Stretch" />
-                  <TextBlock Text="背景材质" FontSize="13" Margin="0,4,0,0" />
-                  <ComboBox ItemsSource="{Binding MaterialOptions}"
-                            SelectedIndex="{Binding MaterialIndex}"
-                            HorizontalAlignment="Stretch" />
-                  <TextBlock Text="云母仅 Windows 11 支持；不可用时自动回退为纯色。"
-                             Classes="caption"
-                             TextWrapping="Wrap" />
-                  <TextBlock Text="背景颜色" FontSize="13" Margin="0,4,0,0" />
-                  <ItemsControl ItemsSource="{Binding BackgroundPresets}">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <WrapPanel />
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="vm:BackgroundPresetViewModel">
-                        <Button Classes="icon"
-                                Margin="0,0,6,6"
-                                AutomationProperties.Name="{Binding Name}"
-                                Command="{Binding SelectCommand}"
-                                ToolTip.Tip="{Binding Name}">
-                          <Border Width="24"
-                                  Height="24"
-                                  CornerRadius="12"
-                                  Background="{Binding Brush}"
-                                  BorderBrush="{DynamicResource MailDogBrushStroke}"
-                                  BorderThickness="1" />
-                        </Button>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                  <TextBox Text="{Binding BackgroundColorHex}"
-                           PlaceholderText="#RRGGBB，留空使用主题默认" />
-                  <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsMaterialEnabled}">
-                    <TextBlock Text="背景不透明度" FontSize="13" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="1" Text="{Binding OpacityText}" Classes="caption" />
+              <Grid IsVisible="{Binding IsSettingsOpen}"
+                    ColumnDefinitions="188,*"
+                    Height="500">
+                <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                        CornerRadius="8,0,0,8">
+                  <Grid RowDefinitions="*,Auto">
+                    <ListBox SelectedIndex="{Binding SettingsSectionIndex}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Padding="8">
+                      <ListBoxItem Padding="10,8">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                          <ic:FluentIcon Icon="Settings" IconSize="Size16" />
+                          <TextBlock Text="外观" FontSize="13" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </ListBoxItem>
+                      <ListBoxItem Padding="10,8">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                          <ic:FluentIcon Icon="Alert" IconSize="Size16" />
+                          <TextBlock Text="通知" FontSize="13" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </ListBoxItem>
+                      <ListBoxItem Padding="10,8">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                          <ic:FluentIcon Icon="DocumentText" IconSize="Size16" />
+                          <TextBlock Text="阅读" FontSize="13" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </ListBoxItem>
+                      <ListBoxItem Padding="10,8">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                          <ic:FluentIcon Icon="ArrowSync" IconSize="Size16" />
+                          <TextBlock Text="同步" FontSize="13" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </ListBoxItem>
+                      <ListBoxItem Padding="10,8">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                          <ic:FluentIcon Icon="Globe" IconSize="Size16" />
+                          <TextBlock Text="Outlook" FontSize="13" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </ListBoxItem>
+                    </ListBox>
+
+                    <Border Grid.Row="1"
+                            BorderBrush="{DynamicResource MailDogBrushStroke}"
+                            BorderThickness="0,1,0,0"
+                            Padding="8">
+                      <Button Command="{Binding OpenAboutCommand}"
+                              HorizontalAlignment="Stretch"
+                              Padding="12,8"
+                              Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                          <ic:FluentIcon Icon="Info" IconSize="Size16" />
+                          <TextBlock Text="关于 MailDog" FontSize="13" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </Button>
+                    </Border>
                   </Grid>
-                  <Slider Minimum="40"
-                          Maximum="100"
-                          Value="{Binding BackgroundOpacityValue}"
-                          AutomationProperties.Name="背景不透明度"
-                          IsVisible="{Binding IsMaterialEnabled}" />
-                </StackPanel>
-
-                <StackPanel Spacing="8">
-                  <TextBlock Text="通知" Classes="section" />
-                  <CheckBox Content="新邮件通知" IsChecked="{Binding NotificationsEnabled}" />
-                  <CheckBox Content="通知声音" IsChecked="{Binding NotificationSoundEnabled}" />
-                </StackPanel>
-
-                <StackPanel Spacing="8">
-                  <TextBlock Text="阅读" Classes="section" />
-                  <CheckBox Content="打开邮件时标记为已读" IsChecked="{Binding MarkReadOnOpen}" />
-                  <CheckBox Content="默认显示远程图片" IsChecked="{Binding ShowRemoteImages}" />
-                </StackPanel>
-
-                <StackPanel Spacing="8">
-                  <TextBlock Text="同步" Classes="section" />
-                  <TextBlock Text="同步间隔" FontSize="13" />
-                  <ComboBox ItemsSource="{Binding SyncIntervalOptions}"
-                            SelectedIndex="{Binding SyncIntervalIndex}"
-                            HorizontalAlignment="Stretch" />
-                </StackPanel>
-
-                <StackPanel Spacing="8">
-                  <TextBlock Text="Outlook" Classes="section" />
-                  <TextBox Text="{Binding EntraClientId}"
-                           PlaceholderText="Entra client id" />
-                  <TextBlock Text="在 Azure Portal 注册公共客户端应用，重定向 URI 填 http://localhost 与 http://127.0.0.1。"
-                             Classes="caption"
-                             TextWrapping="Wrap" />
-                </StackPanel>
-
-                <Button Content="保存设置"
-                        Command="{Binding SaveSettingsCommand}"
-                        HorizontalAlignment="Stretch"
-                        Padding="16,8" />
-
-                <Border BorderBrush="{DynamicResource MailDogBrushStroke}"
-                        BorderThickness="0,1,0,0"
-                        Padding="0,12,0,0">
-                  <Button Command="{Binding OpenAboutCommand}"
-                          HorizontalAlignment="Stretch"
-                          Padding="12,8">
-                    <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Text="关于 MailDog" FontSize="13" VerticalAlignment="Center" />
-                      <ic:FluentIcon Grid.Column="1" Icon="ChevronRight" IconSize="Size16" />
-                    </Grid>
-                  </Button>
                 </Border>
-              </StackPanel>
+
+                <Grid Grid.Column="1" RowDefinitions="*,Auto">
+                  <ScrollViewer Grid.Row="0">
+                    <StackPanel Margin="24,24,24,8" Spacing="20">
+                      <StackPanel IsVisible="{Binding IsAppearanceSection}" Spacing="16">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="外观" FontSize="20" FontWeight="SemiBold" />
+                          <TextBlock Text="主题、窗口材质与背景" Classes="caption" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="主题" FontSize="13" />
+                          <ComboBox ItemsSource="{Binding ThemeOptions}"
+                                    SelectedIndex="{Binding ThemeIndex}"
+                                    HorizontalAlignment="Stretch" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="背景材质" FontSize="13" />
+                          <ComboBox ItemsSource="{Binding MaterialOptions}"
+                                    SelectedIndex="{Binding MaterialIndex}"
+                                    HorizontalAlignment="Stretch" />
+                          <TextBlock Text="云母仅 Windows 11 支持；不可用时自动回退为纯色。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="背景颜色" FontSize="13" />
+                          <ItemsControl ItemsSource="{Binding BackgroundPresets}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate>
+                                <WrapPanel />
+                              </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:BackgroundPresetViewModel">
+                                <Button Classes="icon"
+                                        Margin="0,0,8,8"
+                                        AutomationProperties.Name="{Binding Name}"
+                                        Command="{Binding SelectCommand}"
+                                        ToolTip.Tip="{Binding Name}">
+                                  <Border Width="26"
+                                          Height="26"
+                                          CornerRadius="13"
+                                          Background="{Binding Brush}"
+                                          BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                          BorderThickness="1" />
+                                </Button>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Text="{Binding BackgroundColorHex, Mode=TwoWay}"
+                                     PlaceholderText="#RRGGBB" />
+                            <Button Grid.Column="1"
+                                    Content="取色"
+                                    Margin="8,0,0,0"
+                                    Padding="14,6">
+                              <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight">
+                                  <ColorView Color="{Binding BackgroundColorValue, Mode=TwoWay}"
+                                             IsAlphaEnabled="False"
+                                             Width="320" />
+                                </Flyout>
+                              </Button.Flyout>
+                            </Button>
+                          </Grid>
+                          <TextBlock Text="可直接输入 #RRGGBB 或 #AARRGGBB；留空使用主题默认。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="背景不透明度" FontSize="13" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding OpacityText}" Classes="caption" />
+                          </Grid>
+                          <Slider Minimum="40"
+                                  Maximum="100"
+                                  Value="{Binding BackgroundOpacityValue}"
+                                  AutomationProperties.Name="背景不透明度" />
+                          <TextBlock Text="低于 100% 时窗口背景透出桌面；启用材质时控制材质强度。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+                      </StackPanel>
+
+                      <StackPanel IsVisible="{Binding IsNotificationsSection}" Spacing="16">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="通知" FontSize="20" FontWeight="SemiBold" />
+                          <TextBlock Text="新邮件到达时显示系统通知。" Classes="caption" />
+                        </StackPanel>
+                        <CheckBox Content="新邮件通知" IsChecked="{Binding NotificationsEnabled}" />
+                        <CheckBox Content="通知声音" IsChecked="{Binding NotificationSoundEnabled}" />
+                      </StackPanel>
+
+                      <StackPanel IsVisible="{Binding IsReadingSection}" Spacing="16">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="阅读" FontSize="20" FontWeight="SemiBold" />
+                          <TextBlock Text="打开邮件时的默认行为。" Classes="caption" />
+                        </StackPanel>
+                        <CheckBox Content="打开邮件时标记为已读" IsChecked="{Binding MarkReadOnOpen}" />
+                        <CheckBox Content="默认显示远程图片" IsChecked="{Binding ShowRemoteImages}" />
+                      </StackPanel>
+
+                      <StackPanel IsVisible="{Binding IsSyncSection}" Spacing="16">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="同步" FontSize="20" FontWeight="SemiBold" />
+                          <TextBlock Text="控制后台检查新邮件的频率。" Classes="caption" />
+                        </StackPanel>
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="同步间隔" FontSize="13" />
+                          <ComboBox ItemsSource="{Binding SyncIntervalOptions}"
+                                    SelectedIndex="{Binding SyncIntervalIndex}"
+                                    HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                      </StackPanel>
+
+                      <StackPanel IsVisible="{Binding IsOutlookSection}" Spacing="16">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="Outlook" FontSize="20" FontWeight="SemiBold" />
+                          <TextBlock Text="OAuth2 公共客户端应用配置。" Classes="caption" />
+                        </StackPanel>
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="Entra client id" FontSize="13" />
+                          <TextBox Text="{Binding EntraClientId}"
+                                   PlaceholderText="Entra client id" />
+                          <TextBlock Text="在 Azure Portal 注册公共客户端应用，重定向 URI 填 http://localhost 与 http://127.0.0.1。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+                      </StackPanel>
+                    </StackPanel>
+                  </ScrollViewer>
+
+                  <Border Grid.Row="1"
+                          BorderBrush="{DynamicResource MailDogBrushStroke}"
+                          BorderThickness="0,1,0,0"
+                          Padding="24,12">
+                    <Button Content="保存设置"
+                            Command="{Binding SaveSettingsCommand}"
+                            HorizontalAlignment="Stretch"
+                            Padding="16,8" />
+                  </Border>
+                </Grid>
+              </Grid>
 
               <!-- 添加账户 -->
-              <StackPanel IsVisible="{Binding IsAddAccountOpen}" Spacing="12">
+              <StackPanel IsVisible="{Binding IsAddAccountOpen}" Margin="24" Spacing="12">
                 <ComboBox ItemsSource="{Binding ProviderOptions}"
                           SelectedIndex="{Binding SelectedProviderIndex}"
                           HorizontalAlignment="Stretch" />
@@ -638,7 +744,7 @@
               </StackPanel>
 
               <!-- 关于 -->
-              <StackPanel IsVisible="{Binding IsAboutOpen}" Spacing="16">
+              <StackPanel IsVisible="{Binding IsAboutOpen}" Margin="24" Spacing="16">
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <Border Width="48"
                           Height="48"

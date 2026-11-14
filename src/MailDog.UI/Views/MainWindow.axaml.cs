@@ -74,15 +74,15 @@ public partial class MainWindow : Window
     {
         var supportsMaterial = Environment.OSVersion.Version.Build >= 22000;
         var material = supportsMaterial ? _viewModel.Material : "none";
+        var translucent = material != "none" || _viewModel.BackgroundOpacity < 100;
 
         TransparencyLevelHint = material switch
         {
             "mica" => [WindowTransparencyLevel.Mica, WindowTransparencyLevel.Blur],
             "acrylic" => [WindowTransparencyLevel.AcrylicBlur, WindowTransparencyLevel.Blur],
-            _ => [WindowTransparencyLevel.None]
+            _ => translucent ? [WindowTransparencyLevel.Transparent] : [WindowTransparencyLevel.None]
         };
 
-        var translucent = material != "none";
         var baseColor = ParseColor(_viewModel.BackgroundColorHex) ?? GetThemeBaseColor();
         var opacity = translucent ? Math.Clamp(_viewModel.BackgroundOpacity, 40, 100) / 100d : 1d;
 

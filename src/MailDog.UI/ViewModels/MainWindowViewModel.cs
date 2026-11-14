@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using Avalonia;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -157,15 +158,47 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Material))]
-    [NotifyPropertyChangedFor(nameof(IsMaterialEnabled))]
     private int _materialIndex;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BackgroundColorValue))]
     private string _backgroundColorHex = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OpacityText))]
     private int _backgroundOpacity = 85;
+
+    [ObservableProperty]
+    private int _settingsSectionIndex;
+
+    public bool IsAppearanceSection => SettingsSectionIndex == 0;
+
+    public bool IsNotificationsSection => SettingsSectionIndex == 1;
+
+    public bool IsReadingSection => SettingsSectionIndex == 2;
+
+    public bool IsSyncSection => SettingsSectionIndex == 3;
+
+    public bool IsOutlookSection => SettingsSectionIndex == 4;
+
+    partial void OnSettingsSectionIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsAppearanceSection));
+        OnPropertyChanged(nameof(IsNotificationsSection));
+        OnPropertyChanged(nameof(IsReadingSection));
+        OnPropertyChanged(nameof(IsSyncSection));
+        OnPropertyChanged(nameof(IsOutlookSection));
+    }
+
+    public Color BackgroundColorValue
+    {
+        get => Color.TryParse(BackgroundColorHex, out var color)
+            ? color
+            : Theme == "light" || (Theme != "dark" && Application.Current?.ActualThemeVariant != ThemeVariant.Dark)
+                ? Color.Parse("#F3F3F3")
+                : Color.Parse("#202020");
+        set => BackgroundColorHex = $"#{value.R:X2}{value.G:X2}{value.B:X2}";
+    }
 
     [ObservableProperty]
     private bool _notificationsEnabled = true;
@@ -191,8 +224,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         2 => "acrylic",
         _ => "none"
     };
-
-    public bool IsMaterialEnabled => MaterialIndex != 0;
 
     public string OpacityText => $"{BackgroundOpacity}%";
 
@@ -1055,17 +1086,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ? [
                 ("默认", string.Empty),
                 ("石墨", "#26282B"),
+                ("藏青", "#1B2430"),
                 ("深蓝", "#1D2833"),
                 ("深褐", "#2A2420"),
                 ("墨绿", "#1E2A24"),
-                ("深紫", "#251F2C")
+                ("深紫", "#251F2C"),
+                ("炭黑", "#181818")
             ]
             : [
                 ("默认", string.Empty),
                 ("冷灰", "#EDF1F5"),
                 ("雾蓝", "#E8F1FA"),
+                ("米白", "#FAF7F2"),
                 ("暖沙", "#F7F1E6"),
                 ("浅绿", "#EDF4ED"),
+                ("浅青", "#E9F4F3"),
                 ("淡紫", "#F1EDF7")
             ];
 
