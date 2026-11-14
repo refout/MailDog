@@ -211,14 +211,9 @@ public sealed class EngineClient : IAsyncDisposable
 
     private void StartEngine()
     {
-        var path = Environment.GetEnvironmentVariable("MAILDOG_ENGINE_PATH");
+        var path = ResolveEnginePath();
 
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-        {
-            path = Path.Combine(AppContext.BaseDirectory, "MailDog.Engine.exe");
-        }
-
-        if (!File.Exists(path))
+        if (path is null)
         {
             return;
         }
@@ -230,13 +225,56 @@ public sealed class EngineClient : IAsyncDisposable
             Process.Start(new ProcessStartInfo(path)
             {
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                WorkingDirectory = Path.GetDirectoryName(path) ?? string.Empty
             });
         }
         catch
         {
             // 由后续连接超时给出用户可见错误。
         }
+    }
+
+    private static string? ResolveEnginePath()
+    {
+        var path = Environment.GetEnvironmentVariable("MAILDOG_ENGINE_PATH");
+
+        if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+        {
+            return path;
+        }
+
+        path = Path.Combine(AppContext.BaseDirectory, "MailDog.Engine.exe");
+
+        if (File.Exists(path))
+        {
+            return path;
+        }
+
+        // 开发时 UI 与 Engine 分属不同输出目录，向上查找同仓库的 Engine 构建产物。
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        for (var depth = 0; depth < 6 && directory is not null; depth++, directory = directory.Parent)
+        {
+            var binRoot = Path.Combine(directory.FullName, "MailDog.Engine", "bin");
+
+            if (!Directory.Exists(binRoot))
+            {
+                continue;
+            }
+
+            foreach (var configuration in new[] { "Release", "Debug" })
+            {
+                var candidate = Path.Combine(binRoot, configuration, "net11.0", "MailDog.Engine.exe");
+
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
     }
 
     public async ValueTask DisposeAsync()

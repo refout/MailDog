@@ -20,11 +20,11 @@
 | 产物 | 大小 | 说明 |
 |---|---|---|
 | `MailDog.Engine.exe`（v1） | 12.42 MiB | 含 MailKit、SQLite、OAuth、Win32 托盘 |
-| `MailDog.UI.exe`（v1） | 44.20 MiB | 含 Avalonia、WebView、净化器、Skia/HarfBuzz/ANGLE、ColorPicker |
+| `MailDog.UI.exe`（v1） | 44.21 MiB | 含 Avalonia、WebView、净化器、Skia/HarfBuzz/ANGLE、ColorPicker |
 | Stage 0 Engine 探针 | 6.00 MiB | 203 ms 执行到退出 |
 | Stage 0 UI 探针 | 35.54 MiB | 445 ms 到首窗口 |
 
-- 两个 exe 均为自包含单文件，无需 .NET 运行时；UI 需与 Engine 同目录才能自动拉起后台。
+- 两个 exe 均为自包含单文件，无需 .NET 运行时；UI 优先拉起同目录的 Engine，开发构建下回退到同仓库 `MailDog.Engine/bin` 的构建产物。
 - PDB 不进入 `dist`；`av_libglesv2.dll` 与 Skia/HarfBuzz 一样作为嵌入资源，不留在发布目录。
 - UI 优先 ANGLE（用于云母/亚克力材质），加载失败自动回退 Skia 软件渲染；WebView2 自身仍使用其 GPU 进程。
 
