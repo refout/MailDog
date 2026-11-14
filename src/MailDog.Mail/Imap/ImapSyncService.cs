@@ -153,7 +153,7 @@ public sealed class ImapSyncService : IAsyncDisposable
             try
             {
                 using var stream = await folder.GetStreamAsync(
-                    new UniqueId((uint)message.Uid),
+                    ToUniqueId(message.Uid),
                     "BODY.PEEK[]",
                     cancellationToken).ConfigureAwait(false);
 
@@ -216,6 +216,11 @@ public sealed class ImapSyncService : IAsyncDisposable
         await client.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
     }
 
+    private static UniqueId ToUniqueId(long uid)
+        => uid is > 0 and <= uint.MaxValue
+            ? new UniqueId((uint)uid)
+            : throw new InvalidOperationException("邮件同步数据不完整，请点击“立即同步”后重试。");
+
     private async Task StoreFlagAsync(long messageId, MessageFlags flag, bool value, CancellationToken cancellationToken)
     {
         var message = _store.GetMessage(messageId);
@@ -244,7 +249,7 @@ public sealed class ImapSyncService : IAsyncDisposable
             try
             {
                 await folder.StoreAsync(
-                    new UniqueId((uint)message.Uid),
+                    ToUniqueId(message.Uid),
                     new StoreFlagsRequest(value ? StoreAction.Add : StoreAction.Remove, flag) { Silent = true },
                     cancellationToken).ConfigureAwait(false);
             }
@@ -384,14 +389,15 @@ public sealed class ImapSyncService : IAsyncDisposable
                 folderRecord = folderRecord with { UidValidity = uidValidity, LastSeenUid = 0 };
             }
 
-            var items = MessageSummaryItems.Envelope
+            var items = MessageSummaryItems.UniqueId
+                        | MessageSummaryItems.Envelope
                         | MessageSummaryItems.Flags
                         | MessageSummaryItems.InternalDate
                         | MessageSummaryItems.Size
                         | MessageSummaryItems.BodyStructure;
 
             IList<IMessageSummary> summaries;
-            if (folderRecord.LastSeenUid > 0)
+            if (folderRecord.LastSeenUid is > 0 and < uint.MaxValue)
             {
                 var range = new UniqueIdRange(
                     new UniqueId((uint)(folderRecord.LastSeenUid + 1)),

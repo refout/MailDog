@@ -122,6 +122,38 @@ public sealed class SqliteStoreTests : IDisposable
     }
 
     [Fact]
+    public void UpsertMessagesDropsLegacyInvalidUidRows()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+
+        _store.UpsertFolders(account.Id,
+        [
+            new FolderRecord(0, account.Id, "INBOX", "收件箱", FolderRole.Inbox, 7, 0, 0, 0)
+        ]);
+
+        var folder = Assert.Single(_store.GetFolders(account.Id));
+        var now = DateTimeOffset.UtcNow;
+
+        _store.UpsertMessages(account.Id, folder.Id,
+        [
+            new MessageRecord(0, account.Id, folder.Id, 0, null, "旧数据", string.Empty, string.Empty,
+                string.Empty, string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        Assert.Single(_store.QueryMessages(folder.Id, null, null, 10).Items);
+
+        _store.UpsertMessages(account.Id, folder.Id,
+        [
+            new MessageRecord(0, account.Id, folder.Id, 42, null, "新数据", string.Empty, string.Empty,
+                string.Empty, string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        var message = Assert.Single(_store.QueryMessages(folder.Id, null, null, 10).Items);
+        Assert.Equal("新数据", message.Subject);
+    }
+
+    [Fact]
     public void SecretStoreRoundTripsOnWindows()
     {
         if (!OperatingSystem.IsWindows())

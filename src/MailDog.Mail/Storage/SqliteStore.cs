@@ -366,6 +366,15 @@ public sealed class SqliteStore : IDisposable
 
             using (var transaction = _connection.BeginTransaction())
             {
+                // 早期版本未请求 UID，遗留 uid=0 的无效行，重新同步时清理。
+                using (var cleanup = _connection.CreateCommand())
+                {
+                    cleanup.Transaction = transaction;
+                    cleanup.CommandText = "DELETE FROM messages WHERE folder_id = $folderId AND uid <= 0;";
+                    cleanup.Parameters.AddWithValue("$folderId", folderId);
+                    cleanup.ExecuteNonQuery();
+                }
+
                 foreach (var message in messages)
                 {
                     using var command = _connection.CreateCommand();
