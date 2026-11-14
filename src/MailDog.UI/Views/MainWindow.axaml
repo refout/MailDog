@@ -19,7 +19,7 @@
               Background="{DynamicResource MailDogBrushBgSubtle}"
               BorderBrush="{DynamicResource MailDogBrushStroke}"
               BorderThickness="0,0,1,0">
-        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="8,12">
+        <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="8,12">
           <StackPanel Grid.Row="0">
             <Button Classes="account-add"
                     Command="{Binding OpenAddAccountCommand}"
@@ -99,39 +99,12 @@
           </ListBox>
           </StackPanel>
 
-          <Border Grid.Row="1"
-                  IsVisible="{Binding HasStatus}"
-                  Background="{DynamicResource MailDogBrushWarningTint}"
-                  BorderBrush="{DynamicResource MailDogBrushStroke}"
-                  BorderThickness="1"
-                  CornerRadius="6"
-                  Padding="8,6"
-                  Margin="4,4,4,0">
-            <StackPanel Spacing="4">
-              <Grid ColumnDefinitions="Auto,*">
-                <ic:FluentIcon Icon="Info"
-                               IconSize="Size16"
-                               Margin="0,2,0,0"
-                               VerticalAlignment="Top"
-                               Foreground="{DynamicResource MailDogBrushWarning}" />
-                <TextBlock Grid.Column="1"
-                           Text="{Binding StatusMessage}"
-                           FontSize="11"
-                           Margin="6,0,0,0"
-                           TextWrapping="Wrap" />
-              </Grid>
-              <ProgressBar Height="2"
-                           IsIndeterminate="True"
-                           IsVisible="{Binding IsBusy}" />
-            </StackPanel>
-          </Border>
-
-          <TextBlock Grid.Row="2"
+          <TextBlock Grid.Row="1"
                      Classes="section"
                      Text="文件夹"
                      Margin="8,12,8,8" />
 
-          <ListBox Grid.Row="3"
+          <ListBox Grid.Row="2"
                    Background="Transparent"
                    ItemsSource="{Binding Folders}"
                    SelectedItem="{Binding SelectedFolder}">
@@ -177,7 +150,7 @@
             </ListBox.ItemTemplate>
           </ListBox>
 
-          <StackPanel Grid.Row="4"
+          <StackPanel Grid.Row="3"
                       Orientation="Horizontal"
                       Spacing="4"
                       Margin="4,8,0,0"

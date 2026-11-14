@@ -121,7 +121,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private int _filterIndex;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasStatus))]
     private string? _statusMessage;
 
     [ObservableProperty]
@@ -324,8 +323,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         QueueSettingsSave();
         RenderCurrentBody();
     }
-
-    public bool HasStatus => !string.IsNullOrEmpty(StatusMessage);
 
     public bool IsQqProvider => SelectedProviderIndex == 1;
 
