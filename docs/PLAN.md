@@ -1030,7 +1030,7 @@ dotnet publish MailDog.UI/MailDog.UI.csproj `
 | 指标 | 目标 | 实测 |
 |---|---|---|
 | Engine 单文件 | ≤ 35 MiB | **13.46 MiB** |
-| UI 单文件 | ≤ 55 MiB | **44.81 MiB** |
+| UI 单文件 | ≤ 55 MiB | **44.80 MiB** |
 | Engine 启动 | ≤ 1.5s | Stage 0 探针 203 ms；v1 含托盘常驻 |
 | UI 首窗口 | ≤ 2.5s | Stage 0 探针 445 ms |
 | Engine 空闲内存 | ≤ 120 MiB | 待长稳测试 |

@@ -78,25 +78,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsWelcomeVisible))]
     private bool _isSettingsOpen;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
-    [NotifyPropertyChangedFor(nameof(OverlayTitle))]
-    [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
-    [NotifyPropertyChangedFor(nameof(IsWelcomeVisible))]
-    private bool _isAddAccountOpen;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
-    [NotifyPropertyChangedFor(nameof(OverlayTitle))]
-    [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
-    [NotifyPropertyChangedFor(nameof(IsWelcomeVisible))]
-    private bool _isAboutOpen;
-
-    public bool IsOverlayOpen => IsSettingsOpen || IsAddAccountOpen || IsAboutOpen;
+    public bool IsOverlayOpen => IsSettingsOpen;
 
     public bool IsWelcomeVisible => ShowWelcome && !IsSettingsOpen;
 
-    public string OverlayTitle => IsSettingsOpen ? "设置" : IsAboutOpen ? "关于" : "添加账户";
+    public string OverlayTitle => "设置";
 
     public bool IsReaderHtmlVisible => Reader.UseHtml && !IsOverlayOpen;
 
@@ -192,12 +178,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsSyncSection => SettingsSectionIndex == 3;
 
+    public bool IsAddAccountSection => SettingsSectionIndex == 4;
+
+    public bool IsAboutSection => SettingsSectionIndex == 5;
+
     partial void OnSettingsSectionIndexChanged(int value)
     {
         OnPropertyChanged(nameof(IsAppearanceSection));
         OnPropertyChanged(nameof(IsNotificationsSection));
         OnPropertyChanged(nameof(IsReadingSection));
         OnPropertyChanged(nameof(IsSyncSection));
+        OnPropertyChanged(nameof(IsAddAccountSection));
+        OnPropertyChanged(nameof(IsAboutSection));
     }
 
     public Color BackgroundColorValue
@@ -882,7 +874,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             AddAccountSecret = string.Empty;
 
             await LoadAccountsAsync();
-            IsAddAccountOpen = false;
+            CloseOverlay();
         }
         catch (Exception exception)
         {
@@ -983,36 +975,26 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenSettings()
     {
-        IsAddAccountOpen = false;
-        IsAboutOpen = false;
         IsSettingsOpen = true;
     }
 
     [RelayCommand]
     private void OpenAddAccount()
     {
-        // 在当前窗口内以模态卡片显示，保留背后的设置页或邮件列表。
-        IsAboutOpen = false;
-        IsAddAccountOpen = true;
+        SettingsSectionIndex = 4;
+        IsSettingsOpen = true;
     }
 
     [RelayCommand]
     private void OpenAbout()
     {
-        IsAddAccountOpen = false;
-        IsAboutOpen = true;
+        SettingsSectionIndex = 5;
+        IsSettingsOpen = true;
     }
 
     [RelayCommand]
     private void BackFromOverlay()
     {
-        if (IsAboutOpen || IsAddAccountOpen)
-        {
-            IsAboutOpen = false;
-            IsAddAccountOpen = false;
-            return;
-        }
-
         CloseOverlay();
     }
 
@@ -1020,8 +1002,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void CloseOverlay()
     {
         IsSettingsOpen = false;
-        IsAddAccountOpen = false;
-        IsAboutOpen = false;
         RefreshReaderAppearance();
     }
 
@@ -1692,7 +1672,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 IsAddingAccount = false;
                 AddAccountStatus = "登录成功。";
                 await LoadAccountsAsync();
-                IsAddAccountOpen = false;
+                CloseOverlay();
                 break;
 
             case AuthStateKind.Failed:

@@ -20,7 +20,7 @@
 | 产物 | 大小 | 说明 |
 |---|---|---|
 | `MailDog.Engine.exe`（v1） | 13.46 MiB | 含 MailKit、SQLite、OAuth、Win32 托盘、GB2312/GBK 代码页 |
-| `MailDog.UI.exe`（v1） | 44.81 MiB | 含 Avalonia、WebView、净化器、Skia/HarfBuzz/ANGLE、ColorPicker |
+| `MailDog.UI.exe`（v1） | 44.80 MiB | 含 Avalonia、WebView、净化器、Skia/HarfBuzz/ANGLE、ColorPicker |
 | Stage 0 Engine 探针 | 6.00 MiB | 203 ms 执行到退出 |
 | Stage 0 UI 探针 | 35.54 MiB | 445 ms 到首窗口 |
 

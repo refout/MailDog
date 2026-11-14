@@ -90,7 +90,7 @@ dist/win-x64/MailDog/MailDog.UI.exe
 dist/win-x64/
 ├── MailDog/
 │   ├── MailDog.Engine.exe   13.46 MiB
-│   └── MailDog.UI.exe       44.81 MiB
+│   └── MailDog.UI.exe       44.80 MiB
 └── MailDog-win-x64.zip      26.18 MiB
 ```
 
