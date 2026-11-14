@@ -869,11 +869,27 @@ public sealed class SqliteStore : IDisposable
     private void Migrate()
     {
         var version = GetUserVersion();
-        if (version >= 1)
+
+        if (version < 1)
         {
-            return;
+            CreateSchemaV1();
+            version = 1;
         }
 
+        if (version < 2)
+        {
+            // v1 缓存的正文/主题可能因缺少 GB2312/GBK 代码页而乱码，清空后按需重新抓取。
+            Execute("""
+                DELETE FROM bodies;
+                UPDATE messages SET body_state = 0, preview = '';
+                UPDATE folders SET last_seen_uid = 0;
+                PRAGMA user_version = 2;
+                """);
+        }
+    }
+
+    private void CreateSchemaV1()
+    {
         using var transaction = _connection.BeginTransaction();
 
         using (var command = _connection.CreateCommand())

@@ -16,6 +16,7 @@ public sealed class HtmlSanitizer
 {
     private const int MaxInputChars = 2 * 1024 * 1024;
     private const int MaxOutputChars = 2 * 1024 * 1024;
+    private const int MaxCssChars = 256 * 1024;
     private const int MaxDepth = 64;
 
     private static readonly HashSet<string> AllowedTags = new(StringComparer.OrdinalIgnoreCase)
@@ -24,13 +25,16 @@ public sealed class HtmlSanitizer
         "b", "strong", "i", "em", "u", "s", "sub", "sup",
         "h1", "h2", "h3", "h4", "h5", "h6",
         "ul", "ol", "li",
-        "table", "thead", "tbody", "tfoot", "tr", "td", "th",
-        "a", "img"
+        "table", "thead", "tbody", "tfoot", "tr", "td", "th", "caption", "colgroup", "col",
+        "a", "img",
+        "font", "center", "big", "small", "strike",
+        "dl", "dt", "dd",
+        "article", "section", "header", "footer", "address"
     };
 
     private static readonly HashSet<string> VoidTags = new(StringComparer.OrdinalIgnoreCase)
     {
-        "br", "hr", "img"
+        "br", "hr", "img", "col"
     };
 
     private static readonly HashSet<string> VoidDangerousTags = new(StringComparer.OrdinalIgnoreCase)
@@ -40,9 +44,9 @@ public sealed class HtmlSanitizer
 
     private static readonly HashSet<string> DangerousTags = new(StringComparer.OrdinalIgnoreCase)
     {
-        "script", "style", "iframe", "frame", "frameset", "object", "embed", "applet",
+        "script", "iframe", "frame", "frameset", "object", "embed", "applet",
         "form", "input", "button", "select", "textarea", "option",
-        "link", "base", "meta", "svg", "math", "video", "audio", "canvas",
+        "link", "base", "meta", "title", "svg", "math", "video", "audio", "canvas",
         "template", "noscript", "plaintext", "xmp", "listing", "marquee"
     };
 
@@ -206,6 +210,11 @@ public sealed class HtmlSanitizer
 
             var name = input[nameStart..nameEnd].ToLowerInvariant();
 
+            if (name == "style")
+            {
+                return ParseStyleElement(input, nameEnd);
+            }
+
             if (DangerousTags.Contains(name))
             {
                 var dangerousEnd = FindTagEnd(input, nameEnd);
@@ -285,6 +294,135 @@ public sealed class HtmlSanitizer
             _openTags.Add(name);
 
             return next;
+        }
+
+        private int ParseStyleElement(string input, int nameEnd)
+        {
+            var tagEnd = FindTagEnd(input, nameEnd);
+            if (tagEnd < 0)
+            {
+                return input.Length;
+            }
+
+            var contentStart = tagEnd + 1;
+            var closing = input.IndexOf("</style", contentStart, StringComparison.OrdinalIgnoreCase);
+            var contentEnd = closing < 0 ? input.Length : closing;
+            var css = SanitizeCss(input[contentStart..contentEnd]);
+
+            if (css.Length > 0)
+            {
+                AppendRaw("<style>" + css + "</style>");
+            }
+
+            if (closing < 0)
+            {
+                return input.Length;
+            }
+
+            var closeEnd = FindTagEnd(input, closing + 7);
+            return closeEnd < 0 ? input.Length : closeEnd + 1;
+        }
+
+        private static string SanitizeCss(string css)
+        {
+            if (css.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            if (css.Length > MaxCssChars)
+            {
+                css = css[..MaxCssChars];
+            }
+
+            var builder = new StringBuilder(css.Length);
+            var index = 0;
+
+            while (index < css.Length)
+            {
+                if (MatchesAt(css, index, "@import"))
+                {
+                    // 整条 @import 规则移除（不含块结构，直接跳到分号）。
+                    var end = css.IndexOf(';', index);
+                    index = end < 0 ? css.Length : end + 1;
+                    continue;
+                }
+
+                if (MatchesAt(css, index, "url("))
+                {
+                    index = SkipFunction(css, index + 4);
+                    builder.Append("none");
+                    continue;
+                }
+
+                if (MatchesAt(css, index, "expression("))
+                {
+                    index = SkipFunction(css, index + 11);
+                    builder.Append("none");
+                    continue;
+                }
+
+                var character = css[index];
+                if (character is '<' or '>' or '\\')
+                {
+                    index++;
+                    continue;
+                }
+
+                builder.Append(character);
+                index++;
+            }
+
+            return builder.ToString()
+                .Replace("javascript:", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace("vbscript:", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Trim();
+        }
+
+        private static bool MatchesAt(string input, int index, string value)
+            => index + value.Length <= input.Length
+               && input.AsSpan(index, value.Length).Equals(value, StringComparison.OrdinalIgnoreCase);
+
+        private static int SkipFunction(string input, int index)
+        {
+            var depth = 1;
+            var quote = '\0';
+
+            while (index < input.Length)
+            {
+                var character = input[index++];
+
+                if (quote != '\0')
+                {
+                    if (character == quote)
+                    {
+                        quote = '\0';
+                    }
+
+                    continue;
+                }
+
+                if (character is '"' or '\'')
+                {
+                    quote = character;
+                    continue;
+                }
+
+                if (character == '(')
+                {
+                    depth++;
+                }
+                else if (character == ')')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        return index;
+                    }
+                }
+            }
+
+            return input.Length;
         }
 
         private List<(string Name, string Value)> ParseAttributes(
@@ -379,6 +517,9 @@ public sealed class HtmlSanitizer
                     }
                 }
 
+                // 邮件常用 HTML 实体包裹样式与链接（例如 &quot;、&amp;），先还原再统一清洗与转义。
+                value = WebUtility.HtmlDecode(value);
+
                 if (!IsAllowedAttribute(tagName, name) || value.Length == 0)
                 {
                     continue;
@@ -401,7 +542,13 @@ public sealed class HtmlSanitizer
                 return false;
             }
 
-            if (name is "style" or "class" or "id" or "srcset" or "formaction" or "xmlns" or "xlink:href")
+            if (name is "style" or "class" or "id")
+            {
+                // 允许邮件自带的样式描述，但值会经过安全过滤。
+                return true;
+            }
+
+            if (name is "srcset" or "formaction" or "xmlns" or "xlink:href")
             {
                 return false;
             }
@@ -409,16 +556,51 @@ public sealed class HtmlSanitizer
             return tagName switch
             {
                 "a" => name is "href" or "title",
-                "img" => name is "src" or "alt" or "width" or "height" or "title",
-                _ => name is "title" or "width" or "height" or "colspan" or "rowspan" or "align" or "valign"
+                "img" => name is "src" or "alt" or "width" or "height" or "title" or "align" or "border",
+                "font" => name is "color" or "face" or "size",
+                "table" => name is "width" or "height" or "border" or "cellpadding" or "cellspacing" or "bgcolor" or "align",
+                "td" or "th" or "tr" => name is "width" or "height" or "colspan" or "rowspan" or "align" or "valign" or "bgcolor",
+                "col" or "colgroup" => name is "width" or "span",
+                _ => name is "title" or "width" or "height" or "colspan" or "rowspan" or "align" or "valign" or "bgcolor"
             };
         }
 
         private static string? NormalizeAttributeValue(string tagName, string name, string value)
         {
+            if (name == "style")
+            {
+                var css = SanitizeCss(value);
+                return css.Length == 0 ? null : css;
+            }
+
+            if (name is "class" or "id")
+            {
+                return IsSafeToken(value) ? value.Trim() : null;
+            }
+
             if (name is "href" or "src")
             {
                 return NormalizeUrl(value, isImage: tagName == "img");
+            }
+
+            if (name is "bgcolor" or "color")
+            {
+                return IsSafeColor(value) ? value.Trim() : null;
+            }
+
+            if (name == "face")
+            {
+                return IsSafeFontFace(value) ? value.Trim() : null;
+            }
+
+            if (name == "size")
+            {
+                return IsSafeFontSize(value) ? value.Trim() : null;
+            }
+
+            if (name is "border" or "cellpadding" or "cellspacing" or "span")
+            {
+                return int.TryParse(value, out var number) && number is >= 0 and <= 100 ? value.Trim() : null;
             }
 
             if (name is "width" or "height")
@@ -440,6 +622,98 @@ public sealed class HtmlSanitizer
             }
 
             return value;
+        }
+
+        private static bool IsSafeToken(string value)
+        {
+            var trimmed = value.Trim();
+            if (trimmed.Length is 0 or > 128)
+            {
+                return false;
+            }
+
+            foreach (var character in trimmed)
+            {
+                if (!char.IsLetterOrDigit(character) && character is not '-' and not '_' and not ' ')
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsSafeColor(string value)
+        {
+            var trimmed = value.Trim();
+            if (trimmed.Length is 0 or > 24)
+            {
+                return false;
+            }
+
+            if (trimmed[0] == '#')
+            {
+                if (trimmed.Length is not (4 or 7 or 9))
+                {
+                    return false;
+                }
+
+                foreach (var character in trimmed.AsSpan(1))
+                {
+                    if (!Uri.IsHexDigit(character))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            foreach (var character in trimmed)
+            {
+                if (!char.IsLetter(character))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsSafeFontFace(string value)
+        {
+            var trimmed = value.Trim();
+            if (trimmed.Length is 0 or > 128)
+            {
+                return false;
+            }
+
+            foreach (var character in trimmed)
+            {
+                if (!char.IsLetterOrDigit(character)
+                    && character is not ' ' and not ',' and not '-' and not '_' and not '\'' and not '"')
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsSafeFontSize(string value)
+        {
+            var trimmed = value.Trim();
+            if (trimmed.Length == 0)
+            {
+                return false;
+            }
+
+            if (trimmed[0] is '+' or '-')
+            {
+                trimmed = trimmed[1..];
+            }
+
+            return trimmed.Length == 1 && trimmed[0] is >= '1' and <= '7';
         }
 
         private static bool IsSafeDimension(string value)

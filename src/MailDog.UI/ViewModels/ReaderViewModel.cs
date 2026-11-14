@@ -132,7 +132,7 @@ public sealed partial class ReaderViewModel : ObservableObject
 
         var hasHtml = !string.IsNullOrWhiteSpace(sanitized.Html);
 
-        if (hasHtml && (!preferPlainText || string.IsNullOrWhiteSpace(PlainText)))
+        if (hasHtml && !preferPlainText)
         {
             HtmlDocument = builder.Build(sanitized.Html, darkMode, allowRemoteImages);
             UseHtml = true;
@@ -141,6 +141,12 @@ public sealed partial class ReaderViewModel : ObservableObject
 
         HtmlDocument = null;
         UseHtml = false;
+
+        if (string.IsNullOrWhiteSpace(PlainText) && hasHtml)
+        {
+            // 纯文本模式下邮件没有 text/plain 段时，从 HTML 提取文本，而不是回退去渲染 HTML。
+            PlainText = HtmlTextConverter.ToPlainText(sanitized.Html);
+        }
 
         if (string.IsNullOrWhiteSpace(PlainText))
         {

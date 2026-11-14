@@ -25,6 +25,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private MailBodyDto? _currentBody;
     private DateTimeOffset? _nextDate;
     private long? _nextId;
+    private long? _activeFolderId;
     private bool _allowRemoteImages;
     private bool _initialized;
     private bool _suppressSelectionHandlers;
@@ -324,6 +325,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         RenderCurrentBody();
     }
 
+    partial void OnIsBusyChanged(bool value)
+    {
+        IsEmpty = Messages.Count == 0 && !value && SelectedFolder is not null;
+    }
+
     public bool IsQqProvider => SelectedProviderIndex == 1;
 
     public bool IsOutlookProvider => SelectedProviderIndex == 0;
@@ -453,7 +459,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (Reader.UseHtml)
         {
-            Reader.UseHtml = false;
+            // 通过 Apply 重新生成纯文本，保证没有 text/plain 段时也能从 HTML 提取。
+            RenderCurrentBody(preferPlain: true);
             return;
         }
 
@@ -683,9 +690,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // 列表刷新、筛选或标记已读都可能让列表暂时取消选中，此时不应清空阅读区。
         if (value is null)
         {
-            Reader.Reset();
+            return;
+        }
+
+        if (_currentBody is not null && _currentBody.MessageId == value.Id)
+        {
             return;
         }
 
@@ -899,15 +911,35 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var sameFolder = _activeFolderId == folder.Id;
+        var previousId = sameFolder ? SelectedMessage?.Id : null;
+
         try
         {
             IsBusy = true;
             HasError = false;
             FolderTitle = folder.Name;
             StatusMessage = "正在加载邮件…";
-            _allMessages.Clear();
-            Messages.Clear();
-            SelectedMessage = null;
+
+            _suppressSelectionHandlers = true;
+            try
+            {
+                SelectedMessage = null;
+                Messages.Clear();
+                _allMessages.Clear();
+
+                if (!sameFolder)
+                {
+                    _currentBody = null;
+                    Reader.Reset();
+                }
+            }
+            finally
+            {
+                _suppressSelectionHandlers = false;
+            }
+
+            _activeFolderId = folder.Id;
 
             var response = await _engine.RequestAsync<MessagesPageResponse>(
                 IpcMessageTypes.GetMessages,
@@ -917,7 +949,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             HasMore = response.HasMore;
             _nextDate = response.NextDate;
             _nextId = response.NextId;
-            ApplyFilter();
+            ApplyFilter(previousId);
 
             if (Messages.Count == 0)
             {
@@ -926,7 +958,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             else
             {
                 StatusMessage = null;
-                SelectedMessage ??= Messages[0];
+
+                if (SelectedMessage is null)
+                {
+                    SelectedMessage = Messages[0];
+                }
+                else if (_currentBody?.MessageId != SelectedMessage.Id)
+                {
+                    _ = LoadBodyAsync(SelectedMessage);
+                }
             }
         }
         catch (Exception exception)
@@ -1012,7 +1052,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                     SelectedFolder.UnreadCount + (isRead ? -1 : 1));
             }
 
-            ApplyFilter();
+            // 只有“未读”筛选依赖已读状态，其它筛选不需要重建列表。
+            if (FilterIndex == 1)
+            {
+                ApplyFilter();
+            }
         }
         catch (Exception exception)
         {
@@ -1031,7 +1075,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void ApplyFilter()
+    private void ApplyFilter(long? preserveId = null)
     {
         var query = _allMessages.AsEnumerable();
 
@@ -1053,10 +1097,35 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _ => query
         };
 
-        Messages.Clear();
-        foreach (var message in query)
+        var filtered = query.ToList();
+
+        // 集合没有变化时保持原样，避免列表与选中项被重建导致阅读区闪烁。
+        if (filtered.Count == Messages.Count && filtered.SequenceEqual(Messages))
         {
-            Messages.Add(message);
+            IsEmpty = Messages.Count == 0 && !IsBusy && SelectedFolder is not null;
+            return;
+        }
+
+        var keepId = preserveId ?? SelectedMessage?.Id;
+
+        _suppressSelectionHandlers = true;
+        try
+        {
+            SelectedMessage = null;
+            Messages.Clear();
+
+            foreach (var message in filtered)
+            {
+                Messages.Add(message);
+            }
+
+            SelectedMessage = keepId is null
+                ? null
+                : Messages.FirstOrDefault(message => message.Id == keepId);
+        }
+        finally
+        {
+            _suppressSelectionHandlers = false;
         }
 
         IsEmpty = Messages.Count == 0 && !IsBusy && SelectedFolder is not null;

@@ -99,10 +99,18 @@
           </ListBox>
           </StackPanel>
 
-          <TextBlock Grid.Row="1"
-                     Classes="section"
-                     Text="文件夹"
-                     Margin="8,12,8,8" />
+          <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="8,12,8,8">
+            <TextBlock Classes="section"
+                       Text="文件夹"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="1"
+                    Classes="icon"
+                    Command="{Binding RefreshCommand}"
+                    AutomationProperties.Name="立即同步"
+                    ToolTip.Tip="立即同步">
+              <ic:FluentIcon Icon="ArrowSync" IconSize="Size16" />
+            </Button>
+          </Grid>
 
           <ListBox Grid.Row="2"
                    Background="Transparent"
@@ -150,27 +158,15 @@
             </ListBox.ItemTemplate>
           </ListBox>
 
-          <StackPanel Grid.Row="3"
-                      Orientation="Horizontal"
-                      Spacing="4"
-                      Margin="4,8,0,0"
-                      HorizontalAlignment="Left">
-            <Button Command="{Binding OpenSettingsCommand}"
-                    AutomationProperties.Name="设置"
-                    ToolTip.Tip="设置"
-                    Padding="8,4">
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <ic:FluentIcon Icon="Settings" IconSize="Size16" />
-                <TextBlock Text="设置" FontSize="12" VerticalAlignment="Center" />
-              </StackPanel>
-            </Button>
-            <Button Classes="icon"
-                    Command="{Binding RefreshCommand}"
-                    AutomationProperties.Name="立即同步"
-                    ToolTip.Tip="立即同步">
-              <ic:FluentIcon Icon="ArrowSync" IconSize="Size16" />
-            </Button>
-          </StackPanel>
+          <Button Grid.Row="3"
+                  Classes="icon"
+                  Command="{Binding OpenSettingsCommand}"
+                  AutomationProperties.Name="设置"
+                  ToolTip.Tip="设置"
+                  HorizontalAlignment="Left"
+                  Margin="4,8,0,0">
+            <ic:FluentIcon Icon="Settings" IconSize="Size16" />
+          </Button>
         </Grid>
       </Border>
 
@@ -702,7 +698,7 @@
                           <TextBlock Text="渲染方式" FontSize="13" />
                           <CheckBox Content="全量渲染（HTML）" IsChecked="{Binding IsHtmlRenderMode}" />
                           <CheckBox Content="纯文本" IsChecked="{Binding IsPlainRenderMode}" />
-                          <TextBlock Text="纯文本模式只显示文本内容；邮件没有纯文本时自动回退到 HTML。"
+                          <TextBlock Text="纯文本模式只显示文本内容；邮件没有纯文本段时会从 HTML 提取文本。"
                                      Classes="caption"
                                      TextWrapping="Wrap" />
                         </StackPanel>

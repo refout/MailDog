@@ -25,12 +25,52 @@ public sealed class HtmlSanitizerTests
     }
 
     [Fact]
-    public void RemovesEventHandlersAndStyleAttributes()
+    public void KeepsSafeInlineStylesAndRemovesEventHandlers()
     {
         var result = _sanitizer.Sanitize(
             "<p onclick=\"alert(1)\" style=\"color:red\" class=\"x\">Hi</p>");
 
-        Assert.Equal("<p>Hi</p>", result.Html);
+        Assert.Equal("<p style=\"color:red\" class=\"x\">Hi</p>", result.Html);
+    }
+
+    [Fact]
+    public void DropsUnsafeCssDeclarations()
+    {
+        var result = _sanitizer.Sanitize(
+            "<div style=\"color:red;background:url(https://evil/x)\">Hi</div>");
+
+        Assert.Equal("<div style=\"color:red;background:none\">Hi</div>", result.Html);
+        Assert.DoesNotContain("url(", result.Html);
+    }
+
+    [Fact]
+    public void KeepsStyleBlocksWithoutImports()
+    {
+        var result = _sanitizer.Sanitize(
+            "<style>@import url(\"https://evil/x.css\"); .a { color: red; }</style><p class=\"a\">Hi</p>");
+
+        Assert.Contains("<style>", result.Html);
+        Assert.DoesNotContain("@import", result.Html);
+        Assert.Contains("color: red", result.Html);
+        Assert.Contains("class=\"a\"", result.Html);
+    }
+
+    [Fact]
+    public void KeepsStyleRuleStructureWhenNeutralizingUrls()
+    {
+        var result = _sanitizer.Sanitize(
+            "<style>.a { background: url(https://evil/x.png) no-repeat; color: red; }</style>");
+
+        Assert.Contains(".a { background: none no-repeat; color: red; }", result.Html);
+    }
+
+    [Fact]
+    public void KeepsLegacyFormattingTags()
+    {
+        var result = _sanitizer.Sanitize(
+            "<center><font color=\"#FF0000\" size=\"4\">Hi</font></center>");
+
+        Assert.Equal("<center><font color=\"#FF0000\" size=\"4\">Hi</font></center>", result.Html);
     }
 
     [Fact]

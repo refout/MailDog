@@ -737,7 +737,7 @@ UI                Engine                         Browser              Entra
 |---|---|
 | 邮件 HTML 注入脚本/事件处理器 | 白名单净化、剥离 `script/on*/javascript:`、CSP、默认禁用 JS |
 | 远程图片跟踪像素 | 默认 `img-src 'none'`；用户点击“显示图片”后仅允许 https |
-| CSS 覆盖 UI / 固定定位钓鱼层 | 剥离 `<style>` 与 `style` 属性；只注入应用自带 CSS |
+| CSS 覆盖 UI / 固定定位钓鱼层 | 清洗 `<style>` 与 `style` 属性：只保留安全声明，剥离 `url()`、`@import`、`expression()`、`javascript:`、`behavior` 等；CSP 禁止脚本与外部资源 |
 | 恶意链接诱导 | `NavigationStarting` 取消站内导航，交系统浏览器打开，且仅允许 http/https/mailto |
 | 本地进程伪造 IPC 客户端 | `PipeOptions.CurrentUserOnly`；握手校验；可选校验客户端 exe 路径 |
 | 回环回调被本机恶意进程抢先 | PKCE + `state` 常量时间校验 + 单次有效监听 + 5 分钟超时 |
@@ -787,18 +787,23 @@ NativeWebView.NavigateToString(document)
 **允许的标签**
 
 `p, div, span, br, hr, blockquote, pre, code, b, strong, i, em, u, s, sub, sup,
-h1..h6, ul, ol, li, table, thead, tbody, tfoot, tr, td, th, a, img`
+h1..h6, ul, ol, li, table, thead, tbody, tfoot, tr, td, th, caption, colgroup, col, a, img,
+font, center, big, small, strike, dl, dt, dd, article, section, header, footer, address`
 
 **一律移除的标签（含内容）**
 
-`script, style, iframe, frame, frameset, object, embed, applet, form, input, button,
-select, textarea, link, base, meta, svg, math, video, audio, canvas, template`
+`script, iframe, frame, frameset, object, embed, applet, form, input, button,
+select, textarea, link, base, meta, title, svg, math, video, audio, canvas, template`
 
 **允许的属性**
 
-`href, title, alt, width, height, colspan, rowspan, align, valign, src`
+`href, title, alt, width, height, colspan, rowspan, align, valign, src, border,
+cellpadding, cellspacing, span, bgcolor, color, face, size, style, class, id`
 
-- 除 `src` 外不接受任何 `on*`、`style`、`class`、`id`、`data-*`。
+- 不接受任何 `on*`、`data-*`。
+- `style` 与 `<style>` 清洗：`@import` 整条移除；`url(...)` / `expression(...)` 替换为 `none`；剥离 `javascript:`、`vbscript:`、反斜杠与尖括号，保持其余规则结构完整。
+- `class` / `id` 仅接受字母、数字、`-`、`_`、空格。
+- `bgcolor` / `color` 仅接受 `#rgb`/`#rrggbb`/`#rrggbbaa` 或颜色名；`face` 仅接受字体名；`size` 仅接受 1–7。
 - `src` 仅在“允许图片”模式下接受 `https:`；`http:` 升级为 `https:` 或丢弃。
 - `href` 仅接受 `http:`, `https:`, `mailto:`；拒绝 `javascript:`, `data:`, `vbscript:`, `file:`, 协议相对 `//`，以及含控制字符/反斜杠的变体。
 
@@ -832,7 +837,7 @@ select, textarea, link, base, meta, svg, math, video, audio, canvas, template`
 ```
 
 - 默认模式：`img-src 'none'`；用户点击“显示图片”后切换为 `img-src https: data:`。
-- 基础 CSS 由应用注入（字体、行高、表格、引用、代码块、暗色模式），不使用邮件自带样式。
+- 基础 CSS 由应用注入（字体、行高、表格、引用、代码块、暗色模式）作为兜底；保留邮件自带的安全内联样式与 `<style>` 以还原原始排版。
 - 暗色模式：`prefers-color-scheme` + 应用传入的 `data-theme` 双保险。
 
 ### 10.4 WebView 生命周期
@@ -1020,8 +1025,8 @@ dotnet publish MailDog.UI/MailDog.UI.csproj `
 
 | 指标 | 目标 | 实测 |
 |---|---|---|
-| Engine 单文件 | ≤ 35 MiB | **12.48 MiB** |
-| UI 单文件 | ≤ 55 MiB | **44.22 MiB** |
+| Engine 单文件 | ≤ 35 MiB | **13.19 MiB** |
+| UI 单文件 | ≤ 55 MiB | **44.23 MiB** |
 | Engine 启动 | ≤ 1.5s | Stage 0 探针 203 ms；v1 含托盘常驻 |
 | UI 首窗口 | ≤ 2.5s | Stage 0 探针 445 ms |
 | Engine 空闲内存 | ≤ 120 MiB | 待长稳测试 |

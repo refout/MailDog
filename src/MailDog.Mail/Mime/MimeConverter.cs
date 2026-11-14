@@ -1,9 +1,23 @@
+using System.Runtime.CompilerServices;
+using System.Text;
 using MailDog.Contracts.Dto;
 using MailDog.Mail.Storage;
 using MailKit;
 using MimeKit;
 
 namespace MailDog.Mail.Mime;
+
+internal static class CharsetBootstrap
+{
+    // 在读取任何邮件之前注册代码页，否则 GB2312/GBK 等中文邮件会按 Latin-1 解码成乱码。
+#pragma warning disable CA2255 // MailDog.Mail 只由 Engine 与测试加载，需要随程序集初始化注册代码页。
+    [ModuleInitializer]
+#pragma warning restore CA2255
+    internal static void Initialize()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
+}
 
 public static class MimeConverter
 {
