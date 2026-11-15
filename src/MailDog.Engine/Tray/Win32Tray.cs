@@ -15,10 +15,12 @@ public sealed class Win32Tray : IDisposable
     private const uint SndNoDefault = 0x0002;
 
     private readonly Action _openUi;
+    private readonly Action _notificationClicked;
     private readonly Action _syncAll;
     private readonly Action _exit;
     private readonly Func<bool> _isDarkTheme;
     private readonly NativeMethods.WndProcDelegate _wndProc;
+    private readonly AvatarIconFactory _avatars = new();
     private readonly IntPtr _className;
 
     private IntPtr _window;
@@ -30,9 +32,15 @@ public sealed class Win32Tray : IDisposable
     private string _tooltip = "MailDog";
     private bool _disposed;
 
-    public Win32Tray(Action openUi, Action syncAll, Action exit, Func<bool> isDarkTheme)
+    public Win32Tray(
+        Action openUi,
+        Action notificationClicked,
+        Action syncAll,
+        Action exit,
+        Func<bool> isDarkTheme)
     {
         _openUi = openUi;
+        _notificationClicked = notificationClicked;
         _syncAll = syncAll;
         _exit = exit;
         _isDarkTheme = isDarkTheme;
@@ -67,7 +75,7 @@ public sealed class Win32Tray : IDisposable
         _window = NativeMethods.CreateWindowEx(
             0,
             "MailDog.Tray",
-            string.Empty,
+            "MailDog",
             0,
             0,
             0,
@@ -119,7 +127,13 @@ public sealed class Win32Tray : IDisposable
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
     }
 
-    public void ShowNotification(string title, string message, bool playSound = true, string? sound = null)
+    public void ShowNotification(
+        string title,
+        string message,
+        bool playSound = true,
+        string? sound = null,
+        string? senderName = null,
+        string? senderAddress = null)
     {
         if (!_iconAdded)
         {
@@ -127,6 +141,7 @@ public sealed class Win32Tray : IDisposable
         }
 
         var customSound = playSound ? GetSoundAlias(sound) : null;
+        var avatar = _avatars.GetIcon(senderName, senderAddress);
 
         var data = CreateData();
         data.uFlags = NativeMethods.NIF_INFO;
@@ -135,7 +150,9 @@ public sealed class Win32Tray : IDisposable
         data.dwInfoFlags = playSound && customSound is null
             ? (uint)(NativeMethods.NIIF_USER | NativeMethods.NIIF_LARGE_ICON)
             : (uint)(NativeMethods.NIIF_USER | NativeMethods.NIIF_LARGE_ICON | NativeMethods.NIIF_NOSOUND);
-        data.hBalloonIcon = _largeIcon != IntPtr.Zero ? _largeIcon : _icon;
+        data.hBalloonIcon = avatar != IntPtr.Zero
+            ? avatar
+            : _largeIcon != IntPtr.Zero ? _largeIcon : _icon;
         data.uTimeoutOrVersion = 5000;
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
 
@@ -158,6 +175,10 @@ public sealed class Win32Tray : IDisposable
             "mail" => "SystemMailBeep",
             "reminder" => "SystemExclamation",
             "asterisk" => "SystemAsterisk",
+            "warning" => "SystemHand",
+            "beep" => "SystemBeep",
+            "question" => "SystemQuestion",
+            "start" => "SystemStart",
             _ => null
         };
 
@@ -216,7 +237,12 @@ public sealed class Win32Tray : IDisposable
             case WM_TRAYICON:
             {
                 var mouseMessage = (uint)(lParam.ToInt64() & 0xFFFF);
-                if (mouseMessage == NativeMethods.WM_LBUTTONUP || mouseMessage == NIN_BALLOONUSERCLICK)
+                if (mouseMessage == NIN_BALLOONUSERCLICK)
+                {
+                    _notificationClicked();
+                    _openUi();
+                }
+                else if (mouseMessage == NativeMethods.WM_LBUTTONUP)
                 {
                     _openUi();
                 }
@@ -310,8 +336,10 @@ public sealed class Win32Tray : IDisposable
         {
             try
             {
-                var count = NativeMethods.ExtractIconEx(executable, 0, out var large, out var small, 1);
-                if (count > 0)
+                var small = ExtractIcon(executable, 48);
+                var large = ExtractIcon(executable, 256);
+
+                if (small != IntPtr.Zero || large != IntPtr.Zero)
                 {
                     if (small == IntPtr.Zero)
                     {
@@ -323,7 +351,7 @@ public sealed class Win32Tray : IDisposable
                         large = small;
                     }
 
-                    return (small, large, small != IntPtr.Zero);
+                    return (small, large, true);
                 }
             }
             catch
@@ -333,6 +361,21 @@ public sealed class Win32Tray : IDisposable
         }
 
         return (NativeMethods.LoadIcon(IntPtr.Zero, NativeMethods.IdiApplication), IntPtr.Zero, false);
+    }
+
+    private static IntPtr ExtractIcon(string executable, int size)
+    {
+        return NativeMethods.PrivateExtractIcons(
+            executable,
+            0,
+            size,
+            size,
+            out var icon,
+            out _,
+            1,
+            0) > 0
+            ? icon
+            : IntPtr.Zero;
     }
 
     private static string Truncate(string value, int length)
@@ -353,6 +396,8 @@ public sealed class Win32Tray : IDisposable
             NativeMethods.DestroyWindow(_window);
             _window = IntPtr.Zero;
         }
+
+        _avatars.Dispose();
 
         if (_className != IntPtr.Zero)
         {

@@ -33,6 +33,8 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.MessagesPage, IpcJsonContext.Default.MessagesPageResponse);
         Register(IpcMessageTypes.GetMessageBody, IpcJsonContext.Default.GetMessageBodyRequest);
         Register(IpcMessageTypes.MessageBody, IpcJsonContext.Default.MessageBodyResponse);
+        Register(IpcMessageTypes.DownloadAttachment, IpcJsonContext.Default.DownloadAttachmentRequest);
+        Register(IpcMessageTypes.AttachmentSaved, IpcJsonContext.Default.AttachmentSavedResponse);
         Register(IpcMessageTypes.MarkRead, IpcJsonContext.Default.MarkReadRequest);
         Register(IpcMessageTypes.MarkReadBatch, IpcJsonContext.Default.MarkReadBatchRequest);
         Register(IpcMessageTypes.SetFlag, IpcJsonContext.Default.SetFlagRequest);
@@ -48,6 +50,8 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.SyncState, IpcJsonContext.Default.SyncStateEvent);
         Register(IpcMessageTypes.AuthState, IpcJsonContext.Default.AuthStateEvent);
         Register(IpcMessageTypes.ShowMainWindow, IpcJsonContext.Default.ShowMainWindowEvent);
+        Register(IpcMessageTypes.TakePendingNavigation, IpcJsonContext.Default.TakePendingNavigationRequest);
+        Register(IpcMessageTypes.PendingNavigation, IpcJsonContext.Default.PendingNavigationResponse);
         Register(IpcMessageTypes.AccountChanged, IpcJsonContext.Default.AccountChangedEvent);
 
         Register(IpcMessageTypes.Error, IpcJsonContext.Default.ErrorResponse);

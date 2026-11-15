@@ -37,6 +37,8 @@ public static class IpcMessageTypes
     public const string MarkReadBatch = "markReadBatch";
     public const string SetFlag = "setFlag";
     public const string SetFlagBatch = "setFlagBatch";
+    public const string DownloadAttachment = "downloadAttachment";
+    public const string AttachmentSaved = "attachmentSaved";
     public const string SyncAccount = "syncAccount";
     public const string Ok = "ok";
 
@@ -48,6 +50,8 @@ public static class IpcMessageTypes
     public const string SyncState = "syncState";
     public const string AuthState = "authState";
     public const string ShowMainWindow = "showMainWindow";
+    public const string TakePendingNavigation = "takePendingNavigation";
+    public const string PendingNavigation = "pendingNavigation";
     public const string AccountChanged = "accountChanged";
 
     public const string Error = "error";

@@ -1,23 +1,36 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using MailDog.Contracts.Dto;
 using MailDog.Html;
 
 namespace MailDog.UI.ViewModels;
 
-public sealed class AttachmentViewModel
+public sealed partial class AttachmentViewModel : ObservableObject
 {
-    public AttachmentViewModel(AttachmentDto attachment)
+    private readonly Func<AttachmentViewModel, Task> _download;
+
+    public AttachmentViewModel(long messageId, int index, AttachmentDto attachment, Func<AttachmentViewModel, Task> download)
     {
+        MessageId = messageId;
+        Index = index;
         FileName = attachment.FileName;
         SizeText = FormatSize(attachment.Size);
         IsInline = attachment.IsInline;
+        _download = download;
     }
+
+    public long MessageId { get; }
+
+    public int Index { get; }
 
     public string FileName { get; }
 
     public string SizeText { get; }
 
     public bool IsInline { get; }
+
+    [RelayCommand]
+    private Task DownloadAsync() => _download(this);
 
     private static string FormatSize(long bytes)
     {
@@ -85,6 +98,9 @@ public sealed partial class ReaderViewModel : ObservableObject
 
     public bool HasNotice => !string.IsNullOrEmpty(Notice);
 
+    /// <summary>由主视图模型注入：保存附件到用户选择的路径。</summary>
+    public Func<AttachmentViewModel, Task>? DownloadAttachment { get; set; }
+
     public bool HasError => !string.IsNullOrEmpty(Error);
 
     public bool HasAttachments => Attachments.Length > 0;
@@ -123,7 +139,13 @@ public sealed partial class ReaderViewModel : ObservableObject
         Subject = body.Subject;
         SenderLine = senderLine;
         DateText = dateText;
-        Attachments = body.Attachments.Select(attachment => new AttachmentViewModel(attachment)).ToArray();
+        Attachments = body.Attachments
+            .Select((attachment, index) => new AttachmentViewModel(
+                body.MessageId,
+                index,
+                attachment,
+                DownloadAttachment ?? (_ => Task.CompletedTask)))
+            .ToArray();
         Notice = body.Truncated ? "邮件内容较大，已截断。" : null;
         Error = null;
 

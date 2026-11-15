@@ -2,7 +2,10 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -41,6 +44,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _engine.Disconnected += OnEngineDisconnected;
         _engine.EngineStarting += OnEngineStarting;
         Reader.PropertyChanged += OnReaderPropertyChanged;
+        Reader.DownloadAttachment = DownloadAttachmentAsync;
         Accounts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAccounts));
         RefreshBackgroundPresets();
     }
@@ -49,13 +53,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool HasAccounts => Accounts.Count > 0;
 
+    /// <summary>请求窗口置前并激活（用于点击系统通知后跳转）。</summary>
+    public event Action? ShowRequested;
+
     public ObservableCollection<FolderViewModel> Folders { get; } = [];
 
     public ObservableCollection<MailSummaryViewModel> Messages { get; } = [];
 
     public ReaderViewModel Reader { get; } = new();
-
-    public string[] FilterOptions { get; } = ["全部", "未读", "已标记", "有附件"];
 
     public string[] ProviderOptions { get; } = ["Outlook", "QQ 邮箱"];
 
@@ -100,6 +105,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private int _filterIndex;
+
+    [ObservableProperty]
+    private int _sortFieldIndex;
+
+    [ObservableProperty]
+    private bool _sortDescending = true;
+
+    [ObservableProperty]
+    private int _jumpRangeIndex;
+
+    [ObservableProperty]
+    private DateTimeOffset? _customRangeStart;
+
+    [ObservableProperty]
+    private DateTimeOffset? _customRangeEnd;
+
 
     [ObservableProperty]
     private string? _statusMessage;
@@ -178,17 +199,37 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsSyncSection => SettingsSectionIndex == 3;
 
-    public bool IsAddAccountSection => SettingsSectionIndex == 4;
+    public bool IsAccountSection => SettingsSectionIndex == 4;
+
+    public bool IsAccountListVisible => IsAccountSection && !ShowAddAccountForm;
+
+    public bool IsAddAccountFormVisible => IsAccountSection && ShowAddAccountForm;
 
     public bool IsAboutSection => SettingsSectionIndex == 5;
 
+    [ObservableProperty]
+    private bool _showAddAccountForm;
+
+    partial void OnShowAddAccountFormChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAccountListVisible));
+        OnPropertyChanged(nameof(IsAddAccountFormVisible));
+    }
+
     partial void OnSettingsSectionIndexChanged(int value)
     {
+        if (value != 4)
+        {
+            ShowAddAccountForm = false;
+        }
+
         OnPropertyChanged(nameof(IsAppearanceSection));
         OnPropertyChanged(nameof(IsNotificationsSection));
         OnPropertyChanged(nameof(IsReadingSection));
         OnPropertyChanged(nameof(IsSyncSection));
-        OnPropertyChanged(nameof(IsAddAccountSection));
+        OnPropertyChanged(nameof(IsAccountSection));
+        OnPropertyChanged(nameof(IsAccountListVisible));
+        OnPropertyChanged(nameof(IsAddAccountFormVisible));
         OnPropertyChanged(nameof(IsAboutSection));
     }
 
@@ -276,6 +317,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsSoundMail));
         OnPropertyChanged(nameof(IsSoundReminder));
         OnPropertyChanged(nameof(IsSoundAsterisk));
+        OnPropertyChanged(nameof(IsSoundWarning));
+        OnPropertyChanged(nameof(IsSoundBeep));
+        OnPropertyChanged(nameof(IsSoundQuestion));
+        OnPropertyChanged(nameof(IsSoundStart));
         QueueSettingsSave();
     }
 
@@ -511,12 +556,81 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    public bool IsSoundWarning
+    {
+        get => NotificationSound == "warning";
+        set
+        {
+            if (value)
+            {
+                NotificationSound = "warning";
+            }
+        }
+    }
+
+    public bool IsSoundBeep
+    {
+        get => NotificationSound == "beep";
+        set
+        {
+            if (value)
+            {
+                NotificationSound = "beep";
+            }
+        }
+    }
+
+    public bool IsSoundQuestion
+    {
+        get => NotificationSound == "question";
+        set
+        {
+            if (value)
+            {
+                NotificationSound = "question";
+            }
+        }
+    }
+
+    public bool IsSoundStart
+    {
+        get => NotificationSound == "start";
+        set
+        {
+            if (value)
+            {
+                NotificationSound = "start";
+            }
+        }
+    }
+
     public bool IsQqProvider => SelectedProviderIndex == 1;
 
     public bool IsOutlookProvider => SelectedProviderIndex == 0;
 
     [ObservableProperty]
     private bool _isBatchBusy;
+
+    [ObservableProperty]
+    private bool _isSelectionMode;
+
+    partial void OnIsSelectionModeChanged(bool value)
+    {
+        foreach (var message in _allMessages)
+        {
+            message.ShowSelection = value;
+
+            if (!value)
+            {
+                message.IsSelected = false;
+            }
+        }
+
+        NotifySelectionState();
+    }
+
+    [RelayCommand]
+    private void ToggleSelectionMode() => IsSelectionMode = !IsSelectionMode;
 
     public int CheckedCount => Messages.Count(message => message.IsSelected);
 
@@ -546,6 +660,311 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsAllChecked));
     }
 
+    public bool IsFilterAll
+    {
+        get => FilterIndex == 0;
+        set
+        {
+            if (value)
+            {
+                FilterIndex = 0;
+            }
+        }
+    }
+
+    public bool IsFilterUnread
+    {
+        get => FilterIndex == 1;
+        set
+        {
+            if (value)
+            {
+                FilterIndex = 1;
+            }
+        }
+    }
+
+    public bool IsFilterFlagged
+    {
+        get => FilterIndex == 2;
+        set
+        {
+            if (value)
+            {
+                FilterIndex = 2;
+            }
+        }
+    }
+
+    public bool IsFilterAttachments
+    {
+        get => FilterIndex == 3;
+        set
+        {
+            if (value)
+            {
+                FilterIndex = 3;
+            }
+        }
+    }
+
+    partial void OnFilterIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsFilterAll));
+        OnPropertyChanged(nameof(IsFilterUnread));
+        OnPropertyChanged(nameof(IsFilterFlagged));
+        OnPropertyChanged(nameof(IsFilterAttachments));
+        ApplyFilter();
+    }
+
+    public bool IsSortByDate
+    {
+        get => SortFieldIndex == 0;
+        set
+        {
+            if (value)
+            {
+                SortFieldIndex = 0;
+            }
+        }
+    }
+
+    public bool IsSortBySender
+    {
+        get => SortFieldIndex == 1;
+        set
+        {
+            if (value)
+            {
+                SortFieldIndex = 1;
+            }
+        }
+    }
+
+    public bool IsSortByCategory
+    {
+        get => SortFieldIndex == 2;
+        set
+        {
+            if (value)
+            {
+                SortFieldIndex = 2;
+            }
+        }
+    }
+
+    public bool IsSortBySize
+    {
+        get => SortFieldIndex == 3;
+        set
+        {
+            if (value)
+            {
+                SortFieldIndex = 3;
+            }
+        }
+    }
+
+    public bool IsSortByImportance
+    {
+        get => SortFieldIndex == 4;
+        set
+        {
+            if (value)
+            {
+                SortFieldIndex = 4;
+            }
+        }
+    }
+
+    public bool IsSortBySubject
+    {
+        get => SortFieldIndex == 5;
+        set
+        {
+            if (value)
+            {
+                SortFieldIndex = 5;
+            }
+        }
+    }
+
+    public bool IsSortByType
+    {
+        get => SortFieldIndex == 6;
+        set
+        {
+            if (value)
+            {
+                SortFieldIndex = 6;
+            }
+        }
+    }
+
+    public bool IsSortNewestFirst
+    {
+        get => SortDescending;
+        set
+        {
+            if (value)
+            {
+                SortDescending = true;
+            }
+        }
+    }
+
+    public bool IsSortOldestFirst
+    {
+        get => !SortDescending;
+        set
+        {
+            if (value)
+            {
+                SortDescending = false;
+            }
+        }
+    }
+
+    partial void OnSortFieldIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsSortByDate));
+        OnPropertyChanged(nameof(IsSortBySender));
+        OnPropertyChanged(nameof(IsSortByCategory));
+        OnPropertyChanged(nameof(IsSortBySize));
+        OnPropertyChanged(nameof(IsSortByImportance));
+        OnPropertyChanged(nameof(IsSortBySubject));
+        OnPropertyChanged(nameof(IsSortByType));
+        ApplyFilter();
+    }
+
+    partial void OnSortDescendingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsSortNewestFirst));
+        OnPropertyChanged(nameof(IsSortOldestFirst));
+        ApplyFilter();
+    }
+
+    public string JumpLabel => JumpRangeIndex switch
+    {
+        1 => "今天",
+        2 => "昨天",
+        3 => "上周",
+        4 => "上月",
+        5 => GetCustomRange() is { } range
+            ? $"{range.Start:M/d}–{range.End.AddDays(-1):M/d}"
+            : "自定义",
+        _ => "跳转"
+    };
+
+    public bool IsJumpAll
+    {
+        get => JumpRangeIndex == 0;
+        set
+        {
+            if (value)
+            {
+                JumpRangeIndex = 0;
+            }
+        }
+    }
+
+    public bool IsJumpToday
+    {
+        get => JumpRangeIndex == 1;
+        set
+        {
+            if (value)
+            {
+                JumpRangeIndex = 1;
+            }
+        }
+    }
+
+    public bool IsJumpYesterday
+    {
+        get => JumpRangeIndex == 2;
+        set
+        {
+            if (value)
+            {
+                JumpRangeIndex = 2;
+            }
+        }
+    }
+
+    public bool IsJumpLastWeek
+    {
+        get => JumpRangeIndex == 3;
+        set
+        {
+            if (value)
+            {
+                JumpRangeIndex = 3;
+            }
+        }
+    }
+
+    public bool IsJumpLastMonth
+    {
+        get => JumpRangeIndex == 4;
+        set
+        {
+            if (value)
+            {
+                JumpRangeIndex = 4;
+            }
+        }
+    }
+
+    public bool IsJumpCustom
+    {
+        get => JumpRangeIndex == 5;
+        set
+        {
+            if (value)
+            {
+                JumpRangeIndex = 5;
+            }
+        }
+    }
+
+    partial void OnJumpRangeIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(JumpLabel));
+        OnPropertyChanged(nameof(IsJumpAll));
+        OnPropertyChanged(nameof(IsJumpToday));
+        OnPropertyChanged(nameof(IsJumpYesterday));
+        OnPropertyChanged(nameof(IsJumpLastWeek));
+        OnPropertyChanged(nameof(IsJumpLastMonth));
+        OnPropertyChanged(nameof(IsJumpCustom));
+        ApplyFilter();
+    }
+
+    partial void OnCustomRangeStartChanged(DateTimeOffset? value)
+    {
+        OnPropertyChanged(nameof(JumpLabel));
+        ApplyFilter();
+    }
+
+    partial void OnCustomRangeEndChanged(DateTimeOffset? value)
+    {
+        OnPropertyChanged(nameof(JumpLabel));
+        ApplyFilter();
+    }
+
+    [RelayCommand]
+    private void ApplyCustomRange()
+    {
+        if (CustomRangeStart is null && CustomRangeEnd is null)
+        {
+            return;
+        }
+
+        JumpRangeIndex = 5;
+        ApplyFilter();
+    }
+
+
     private void OnMessagePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MailSummaryViewModel.IsSelected))
@@ -564,6 +983,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         _initialized = true;
         await ConnectAsync();
+        await TakePendingNavigationAsync();
     }
 
     [RelayCommand]
@@ -683,12 +1103,67 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         RenderCurrentBody();
     }
 
+    private async Task DownloadAttachmentAsync(AttachmentViewModel attachment)
+    {
+        if (!IsConnected)
+        {
+            return;
+        }
+
+        try
+        {
+            var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+                ?.MainWindow;
+
+            if (window is null)
+            {
+                return;
+            }
+
+            var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "保存附件",
+                SuggestedFileName = attachment.FileName,
+                DefaultExtension = Path.GetExtension(attachment.FileName).TrimStart('.'),
+                ShowOverwritePrompt = true
+            });
+
+            var path = file?.TryGetLocalPath();
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            var response = await _engine.RequestAsync<AttachmentSavedResponse>(
+                IpcMessageTypes.DownloadAttachment,
+                new DownloadAttachmentRequest
+                {
+                    MessageId = attachment.MessageId,
+                    Index = attachment.Index,
+                    DestinationPath = path
+                },
+                TimeSpan.FromSeconds(120));
+
+            HasError = false;
+            StatusMessage = $"附件已保存：{response.Path}";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
     [RelayCommand]
     private void SelectAllMessages()
     {
         if (Messages.Count == 0)
         {
             return;
+        }
+
+        if (!IsSelectionMode)
+        {
+            IsSelectionMode = true;
         }
 
         var select = !IsAllChecked;
@@ -981,8 +1456,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenAddAccount()
     {
+        ShowAddAccountForm = true;
         SettingsSectionIndex = 4;
         IsSettingsOpen = true;
+    }
+
+    [RelayCommand]
+    private void BeginAddAccount() => ShowAddAccountForm = true;
+
+    [RelayCommand]
+    private void ShowAccountList()
+    {
+        ShowAddAccountForm = false;
+        AddAccountStatus = null;
     }
 
     [RelayCommand]
@@ -1084,11 +1570,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         ApplyFilter();
     }
 
-    partial void OnFilterIndexChanged(int value)
-    {
-        ApplyFilter();
-    }
-
     partial void OnThemeChanged(string value)
     {
         ApplyTheme();
@@ -1175,6 +1656,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             NotificationsEnabled = _settings.NotificationsEnabled;
             NotificationSoundEnabled = _settings.NotificationSoundEnabled;
             NotificationSound = _settings.NotificationSound is "mail" or "reminder" or "asterisk"
+                or "warning" or "beep" or "question" or "start"
                 ? _settings.NotificationSound
                 : "default";
             var intervalIndex = Array.IndexOf(SyncIntervalValues, _settings.SyncIntervalMinutes);
@@ -1487,6 +1969,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             if (_allMessages.All(existing => existing.Id != message.Id))
             {
                 var viewModel = new MailSummaryViewModel(message);
+                viewModel.ShowSelection = IsSelectionMode;
                 viewModel.PropertyChanged += OnMessagePropertyChanged;
                 _allMessages.Add(viewModel);
             }
@@ -1517,7 +2000,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _ => query
         };
 
+        if (GetJumpRange() is { } range)
+        {
+            query = query.Where(message =>
+            {
+                var local = message.Date.ToLocalTime();
+                return local >= range.Start && local < range.End;
+            });
+        }
+
         var filtered = query.ToList();
+        filtered.Sort(CompareMessages);
 
         // 集合没有变化时保持原样，避免列表与选中项被重建导致阅读区闪烁。
         if (filtered.Count == Messages.Count && filtered.SequenceEqual(Messages))
@@ -1579,6 +2072,95 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         NotifySelectionState();
     }
 
+    /// <summary>返回当前“跳转”设定的本地时间区间；未选择时返回 null。</summary>
+    private (DateTimeOffset Start, DateTimeOffset End)? GetJumpRange()
+    {
+        var today = DateTimeOffset.Now.Date;
+
+        return JumpRangeIndex switch
+        {
+            1 => (new DateTimeOffset(today), new DateTimeOffset(today.AddDays(1))),
+            2 => (new DateTimeOffset(today.AddDays(-1)), new DateTimeOffset(today)),
+            3 => (new DateTimeOffset(LastWeekStart(today)), new DateTimeOffset(today)),
+            4 => (new DateTimeOffset(LastMonthStart(today)), new DateTimeOffset(today)),
+            5 => GetCustomRange(),
+            _ => null
+        };
+    }
+
+    private (DateTimeOffset Start, DateTimeOffset End)? GetCustomRange()
+    {
+        if (CustomRangeStart is null && CustomRangeEnd is null)
+        {
+            return null;
+        }
+
+        var start = (CustomRangeStart ?? CustomRangeEnd ?? DateTimeOffset.Now).Date;
+        var end = (CustomRangeEnd ?? CustomRangeStart ?? DateTimeOffset.Now).Date;
+
+        if (end < start)
+        {
+            (start, end) = (end, start);
+        }
+
+        return (new DateTimeOffset(start), new DateTimeOffset(end.AddDays(1)));
+    }
+
+    private static DateTime LastWeekStart(DateTime today)
+    {
+        // 本周一往前推 7 天，得到上一周的周一。
+        var daysSinceMonday = ((int)today.DayOfWeek + 6) % 7;
+        return today.AddDays(-daysSinceMonday - 7);
+    }
+
+    private static DateTime LastMonthStart(DateTime today)
+        => new DateTime(today.Year, today.Month, 1).AddMonths(-1);
+
+    private int CompareMessages(MailSummaryViewModel left, MailSummaryViewModel right)
+    {
+        var result = SortFieldIndex switch
+        {
+            1 => string.Compare(left.Sender, right.Sender, StringComparison.CurrentCulture),
+            2 => CategoryRank(left).CompareTo(CategoryRank(right)),
+            3 => left.Size.CompareTo(right.Size),
+            4 => ImportanceRank(left).CompareTo(ImportanceRank(right)),
+            5 => string.Compare(left.Subject, right.Subject, StringComparison.CurrentCulture),
+            6 => TypeRank(left).CompareTo(TypeRank(right)),
+            _ => left.Date.CompareTo(right.Date)
+        };
+
+        // 主键相同时按日期倒序，保持稳定的视觉顺序。
+        if (result == 0)
+        {
+            result = right.Date.CompareTo(left.Date);
+        }
+
+        return SortDescending ? -result : result;
+    }
+
+    private static int CategoryRank(MailSummaryViewModel message)
+    {
+        if (message.IsFlagged)
+        {
+            return 0;
+        }
+
+        return message.IsUnread ? 1 : message.HasAttachments ? 2 : 3;
+    }
+
+    private static int ImportanceRank(MailSummaryViewModel message)
+    {
+        if (message.IsFlagged)
+        {
+            return 0;
+        }
+
+        return message.IsUnread ? 1 : 2;
+    }
+
+    private static int TypeRank(MailSummaryViewModel message)
+        => message.HasAttachments ? 0 : 1;
+
     private void OnReaderPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ReaderViewModel.UseHtml))
@@ -1601,6 +2183,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
                     break;
 
+                case ShowMainWindowEvent show:
+                    await HandleShowRequestAsync(show);
+                    break;
+
                 case SyncStateEvent syncState:
                     HandleSyncState(syncState);
                     break;
@@ -1614,6 +2200,117 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                     break;
             }
         });
+    }
+
+    private async Task TakePendingNavigationAsync()
+    {
+        if (!IsConnected)
+        {
+            return;
+        }
+
+        try
+        {
+            var pending = await _engine.RequestAsync<PendingNavigationResponse>(
+                IpcMessageTypes.TakePendingNavigation,
+                new TakePendingNavigationRequest());
+
+            if (pending.HasTarget && pending.MessageId is { } messageId)
+            {
+                await NavigateToMessageAsync(messageId, pending.AccountId, pending.FolderId);
+            }
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    private async Task HandleShowRequestAsync(ShowMainWindowEvent show)
+    {
+        ShowRequested?.Invoke();
+
+        if (show.MessageId is { } messageId)
+        {
+            await NavigateToMessageAsync(messageId, show.AccountId, show.FolderId);
+        }
+    }
+
+    private async Task NavigateToMessageAsync(long messageId, string? accountId, long? folderId)
+    {
+        if (!IsConnected)
+        {
+            return;
+        }
+
+        if (IsSettingsOpen)
+        {
+            CloseOverlay();
+        }
+
+        if (!string.IsNullOrEmpty(accountId) && SelectedAccount?.Id != accountId)
+        {
+            var account = Accounts.FirstOrDefault(item => item.Id == accountId);
+
+            if (account is not null)
+            {
+                _suppressSelectionHandlers = true;
+                try
+                {
+                    SelectedAccount = account;
+                }
+                finally
+                {
+                    _suppressSelectionHandlers = false;
+                }
+
+                await LoadFoldersAsync(account);
+            }
+        }
+
+        if (folderId is { } targetFolderId && SelectedFolder?.Id != targetFolderId)
+        {
+            var folder = Folders.FirstOrDefault(item => item.Id == targetFolderId);
+
+            if (folder is not null)
+            {
+                _suppressSelectionHandlers = true;
+                try
+                {
+                    SelectedFolder = folder;
+                }
+                finally
+                {
+                    _suppressSelectionHandlers = false;
+                }
+
+                await LoadMessagesAsync(folder);
+            }
+        }
+
+        // 清掉可能遮挡目标邮件的搜索与筛选条件。
+        if (!string.IsNullOrEmpty(SearchText))
+        {
+            SearchText = string.Empty;
+        }
+
+        if (FilterIndex != 0)
+        {
+            FilterIndex = 0;
+        }
+
+        if (JumpRangeIndex != 0)
+        {
+            JumpRangeIndex = 0;
+        }
+
+        var message = Messages.FirstOrDefault(item => item.Id == messageId)
+                      ?? _allMessages.FirstOrDefault(item => item.Id == messageId);
+
+        if (message is not null)
+        {
+            SelectedMessage = message;
+        }
     }
 
     private void HandleSyncState(SyncStateEvent syncState)

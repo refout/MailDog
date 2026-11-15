@@ -67,21 +67,35 @@ public static class MimeConverter
             truncated = true;
         }
 
-        var attachments = message.BodyParts
-            .OfType<MimePart>()
-            .Where(part => part.FileName is not null
-                           || part.ContentDisposition?.IsAttachment == true
-                           || string.Equals(part.ContentDisposition?.Disposition, "inline", StringComparison.OrdinalIgnoreCase))
+        var attachments = GetAttachmentParts(message)
             .Select(part => new AttachmentRecord(
                 FileName: part.FileName ?? "attachment",
                 MimeType: part.ContentType.MimeType,
                 Size: part.Content?.Stream is { CanSeek: true } stream ? stream.Length : 0,
                 ContentId: part.ContentId,
-                IsInline: string.Equals(part.ContentDisposition?.Disposition, "inline", StringComparison.OrdinalIgnoreCase) || part.ContentId is not null))
+                IsInline: IsInline(part)))
             .ToArray();
 
         return (html, plain, truncated, attachments);
     }
+
+    /// <summary>按与 <see cref="ExtractBody"/> 相同的顺序返回指定附件，供下载使用。</summary>
+    public static MimePart? FindAttachment(MimeMessage message, int index)
+    {
+        var parts = GetAttachmentParts(message).ToArray();
+        return index >= 0 && index < parts.Length ? parts[index] : null;
+    }
+
+    private static IEnumerable<MimePart> GetAttachmentParts(MimeMessage message)
+        => message.BodyParts
+            .OfType<MimePart>()
+            .Where(part => part.FileName is not null
+                           || part.ContentDisposition?.IsAttachment == true
+                           || IsInline(part));
+
+    private static bool IsInline(MimePart part)
+        => string.Equals(part.ContentDisposition?.Disposition, "inline", StringComparison.OrdinalIgnoreCase)
+           || part.ContentId is not null;
 
     public static MailBodyDto ToDto(
         long messageId,

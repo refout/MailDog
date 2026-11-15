@@ -111,6 +111,24 @@ public sealed class MessageBodyResponse : Ipc.IIpcMessage
     public MailBodyDto Body { get; init; } = new();
 }
 
+public sealed class DownloadAttachmentRequest : Ipc.IIpcMessage
+{
+    public long MessageId { get; init; }
+
+    public int Index { get; init; }
+
+    public string DestinationPath { get; init; } = string.Empty;
+}
+
+public sealed class AttachmentSavedResponse : Ipc.IIpcMessage
+{
+    public string Path { get; init; } = string.Empty;
+
+    public string FileName { get; init; } = string.Empty;
+
+    public long Size { get; init; }
+}
+
 public sealed class MarkReadRequest : Ipc.IIpcMessage
 {
     public long MessageId { get; init; }
@@ -203,6 +221,25 @@ public sealed class AuthStateEvent : Ipc.IIpcMessage
 public sealed class ShowMainWindowEvent : Ipc.IIpcMessage
 {
     public long? MessageId { get; init; }
+
+    public string? AccountId { get; init; }
+
+    public long? FolderId { get; init; }
+}
+
+public sealed class TakePendingNavigationRequest : Ipc.IIpcMessage
+{
+}
+
+public sealed class PendingNavigationResponse : Ipc.IIpcMessage
+{
+    public bool HasTarget { get; init; }
+
+    public long? MessageId { get; init; }
+
+    public string? AccountId { get; init; }
+
+    public long? FolderId { get; init; }
 }
 
 public sealed class AccountChangedEvent : Ipc.IIpcMessage

@@ -44,6 +44,7 @@ public partial class MainWindow : Window
         WebView.NavigationCompleted += OnNavigationCompleted;
         viewModel.Reader.PropertyChanged += OnReaderPropertyChanged;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        viewModel.ShowRequested += OnShowRequested;
         MailList.AddHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
         Opened += OnOpened;
@@ -62,6 +63,38 @@ public partial class MainWindow : Window
     {
         ApplyAppearance();
         _viewModel.RefreshBackgroundPresets();
+    }
+
+    private void OnShowRequested()
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsVisible)
+            {
+                Show();
+            }
+
+            if (WindowState == WindowState.Minimized)
+            {
+                WindowState = WindowState.Normal;
+            }
+
+            Activate();
+            Topmost = true;
+            Topmost = false;
+            Focus();
+        });
+    }
+
+    private void OnJumpRangeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        JumpButton.Flyout?.Hide();
+    }
+
+    private void OnApplyCustomRangeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel.ApplyCustomRangeCommand.Execute(null);
+        JumpButton.Flyout?.Hide();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -354,6 +387,7 @@ public partial class MainWindow : Window
         MailList.RemoveHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
         ActualThemeVariantChanged -= OnActualThemeVariantChanged;
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        _viewModel.ShowRequested -= OnShowRequested;
         WebView.EnvironmentRequested -= OnEnvironmentRequested;
         WebView.AdapterCreated -= OnAdapterCreated;
         WebView.NavigationStarted -= OnNavigationStarted;

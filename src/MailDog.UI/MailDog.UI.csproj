@@ -4,6 +4,10 @@
     <TargetFramework>net11.0</TargetFramework>
     <AssemblyName>MailDog.UI</AssemblyName>
     <RootNamespace>MailDog.UI</RootNamespace>
+    <AssemblyTitle>MailDog</AssemblyTitle>
+    <Product>MailDog</Product>
+    <Description>MailDog 邮件客户端</Description>
+    <Company>MailDog</Company>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/maildog.ico</ApplicationIcon>
     <PublishAot>true</PublishAot>

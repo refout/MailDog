@@ -27,6 +27,7 @@ public sealed partial class MailSummaryViewModel : ObservableObject
         Preview = mail.Preview;
         Date = mail.Date;
         HasAttachments = mail.HasAttachments;
+        Size = mail.Size;
         _isRead = (mail.Flags & MailFlags.Seen) != 0;
         _isFlagged = (mail.Flags & MailFlags.Flagged) != 0;
         AvatarBrush = CreateAvatarBrush(mail.FromAddress);
@@ -50,6 +51,8 @@ public sealed partial class MailSummaryViewModel : ObservableObject
     public DateTimeOffset Date { get; }
 
     public bool HasAttachments { get; }
+
+    public int Size { get; }
 
     public IBrush AvatarBrush { get; }
 
@@ -76,6 +79,9 @@ public sealed partial class MailSummaryViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isSelected;
+
+    [ObservableProperty]
+    private bool _showSelection;
 
     private static string FormatTime(DateTimeOffset date)
     {

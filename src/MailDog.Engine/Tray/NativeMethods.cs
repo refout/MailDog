@@ -146,8 +146,16 @@ internal static class NativeMethods
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     internal static extern bool Shell_NotifyIcon(uint message, ref NOTIFYICONDATA data);
 
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-    internal static extern int ExtractIconEx(string file, int index, out IntPtr large, out IntPtr small, int icons);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    internal static extern uint PrivateExtractIcons(
+        string file,
+        int index,
+        int cx,
+        int cy,
+        out IntPtr icon,
+        out uint iconId,
+        uint icons,
+        uint flags);
 
     [DllImport("user32.dll")]
     internal static extern bool DestroyIcon(IntPtr icon);

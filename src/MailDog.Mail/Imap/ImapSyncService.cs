@@ -187,6 +187,67 @@ public sealed class ImapSyncService : IAsyncDisposable
         }
     }
 
+    public async Task<(string FileName, long Size)> SaveAttachmentAsync(
+        long messageId,
+        int attachmentIndex,
+        string destinationPath,
+        CancellationToken cancellationToken)
+    {
+        var message = _store.GetMessage(messageId)
+            ?? throw new KeyNotFoundException("邮件不存在。");
+
+        var account = _accounts.GetRecord(message.AccountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var folderRecord = _store.GetFolder(message.FolderId)
+            ?? throw new KeyNotFoundException("文件夹不存在。");
+
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var folder = session.Client!.GetFolder(folderRecord.FullName);
+            await folder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                var mime = await folder.GetMessageAsync(
+                    ToUniqueId(message.Uid),
+                    cancellationToken).ConfigureAwait(false);
+
+                var part = MimeConverter.FindAttachment(mime, attachmentIndex)
+                    ?? throw new InvalidOperationException("附件不存在，请刷新邮件后重试。");
+
+                if (part.Content is null)
+                {
+                    throw new InvalidOperationException("附件内容为空。");
+                }
+
+                var directory = Path.GetDirectoryName(destinationPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                await using var stream = File.Create(destinationPath);
+                await part.Content.DecodeToAsync(stream, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+
+                return (part.FileName ?? "attachment", stream.Length);
+            }
+            finally
+            {
+                await folder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
     public async Task SetSeenAsync(long messageId, bool isRead, CancellationToken cancellationToken)
     {
         _store.UpdateSeen(messageId, isRead);

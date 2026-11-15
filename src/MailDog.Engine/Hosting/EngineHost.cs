@@ -26,6 +26,8 @@ public sealed class EngineHost : IAsyncDisposable
     private readonly bool _hideConsole;
     private Task? _scheduler;
     private Win32Tray? _tray;
+    private (long MessageId, string AccountId, long FolderId)? _lastNotification;
+    private (long MessageId, string AccountId, long FolderId)? _pendingNavigation;
 
     public EngineHost(string databasePath, bool hideConsole = true)
     {
@@ -41,6 +43,7 @@ public sealed class EngineHost : IAsyncDisposable
         _ipc = new IpcServer(_router, message => _log.Warn(message));
 
         _router.Diagnostic += message => _log.Warn(message);
+        _router.TakePendingNavigation = TakePendingNavigation;
         _sync.Diagnostic += message => _log.Warn(message);
         _sync.NewMail += message =>
         {
@@ -52,11 +55,14 @@ public sealed class EngineHost : IAsyncDisposable
 
                 if (settings.NotificationsEnabled)
                 {
+                    _lastNotification = (message.Latest.Id, message.AccountId, message.FolderId);
                     _tray?.ShowNotification(
                         "新邮件",
                         $"{message.Latest.FromName}: {message.Latest.Subject}",
                         settings.NotificationSoundEnabled,
-                        settings.NotificationSound);
+                        settings.NotificationSound,
+                        message.Latest.FromName,
+                        message.Latest.FromAddress);
                 }
             }
         };
@@ -76,6 +82,7 @@ public sealed class EngineHost : IAsyncDisposable
 
         _tray = new Win32Tray(
             OpenUi,
+            HandleNotificationClicked,
             () => _ = SyncAllAsync(_cts.Token),
             () => _cts.Cancel(),
             IsDarkTheme);
@@ -127,11 +134,42 @@ public sealed class EngineHost : IAsyncDisposable
         }
     }
 
+    private void HandleNotificationClicked()
+    {
+        _pendingNavigation = _lastNotification;
+    }
+
+    private PendingNavigationResponse TakePendingNavigation()
+    {
+        var target = _pendingNavigation;
+        _pendingNavigation = null;
+
+        return target is { } value
+            ? new PendingNavigationResponse
+            {
+                HasTarget = true,
+                MessageId = value.MessageId,
+                AccountId = value.AccountId,
+                FolderId = value.FolderId
+            }
+            : new PendingNavigationResponse();
+    }
+
     private void OpenUi()
     {
+        var navigation = _pendingNavigation is { } target
+            ? new ShowMainWindowEvent
+            {
+                MessageId = target.MessageId,
+                AccountId = target.AccountId,
+                FolderId = target.FolderId
+            }
+            : new ShowMainWindowEvent();
+
         if (_ipc.HasConnections)
         {
-            _ipc.Broadcast(IpcMessageTypes.ShowMainWindow, new ShowMainWindowEvent());
+            _pendingNavigation = null;
+            _ipc.Broadcast(IpcMessageTypes.ShowMainWindow, navigation);
             return;
         }
 

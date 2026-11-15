@@ -23,6 +23,10 @@ internal static class SystemSoundPlayer
             "mail" => "SystemMailBeep",
             "reminder" => "SystemExclamation",
             "asterisk" => "SystemAsterisk",
+            "warning" => "SystemHand",
+            "beep" => "SystemBeep",
+            "question" => "SystemQuestion",
+            "start" => "SystemStart",
             _ => "SystemNotification"
         };
 }

@@ -30,6 +30,9 @@ public sealed class RequestRouter
 
     public event Action<string>? Diagnostic;
 
+    /// <summary>由 EngineHost 注入：取出并清除待跳转的通知目标。</summary>
+    public Func<PendingNavigationResponse>? TakePendingNavigation { get; set; }
+
     public HelloAck CreateHelloAck()
         => new()
         {
@@ -82,6 +85,22 @@ public sealed class RequestRouter
                     Body = await _sync.GetBodyAsync(request.MessageId, cancellationToken).ConfigureAwait(false)
                 };
 
+            case DownloadAttachmentRequest request:
+            {
+                var (fileName, size) = await _sync.SaveAttachmentAsync(
+                    request.MessageId,
+                    request.Index,
+                    request.DestinationPath,
+                    cancellationToken).ConfigureAwait(false);
+
+                return new AttachmentSavedResponse
+                {
+                    Path = request.DestinationPath,
+                    FileName = fileName,
+                    Size = size
+                };
+            }
+
             case MarkReadRequest request:
                 await _sync.SetSeenAsync(request.MessageId, request.IsRead, cancellationToken).ConfigureAwait(false);
                 return new OkResponse { Affected = 1 };
@@ -121,6 +140,9 @@ public sealed class RequestRouter
 
             case GetSettingsRequest:
                 return new SettingsResponse { Settings = _store.GetSettings() };
+
+            case TakePendingNavigationRequest:
+                return TakePendingNavigation?.Invoke() ?? new PendingNavigationResponse();
 
             case UpdateSettingsRequest request:
                 _store.SaveSettings(request.Settings);

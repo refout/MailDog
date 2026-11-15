@@ -185,11 +185,117 @@
                        FontSize="20"
                        FontWeight="SemiBold"
                        VerticalAlignment="Center" />
-            <ComboBox Grid.Column="1"
-                      Width="96"
-                      Height="28"
-                      ItemsSource="{Binding FilterOptions}"
-                      SelectedIndex="{Binding FilterIndex}" />
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        Spacing="2"
+                        VerticalAlignment="Center">
+              <Button x:Name="JumpButton" Padding="10,4" FontSize="12" Content="{Binding JumpLabel}">
+                <Button.Flyout>
+                  <Flyout Placement="BottomEdgeAlignedRight">
+                    <StackPanel Width="240" Spacing="4">
+                      <TextBlock Text="按时间跳转" Classes="section" Margin="4,0,0,4" />
+                      <RadioButton GroupName="jumpRange"
+                                   Content="全部时间"
+                                   IsChecked="{Binding IsJumpAll}"
+                                   Click="OnJumpRangeClick" />
+                      <RadioButton GroupName="jumpRange"
+                                   Content="今天"
+                                   IsChecked="{Binding IsJumpToday}"
+                                   Click="OnJumpRangeClick" />
+                      <RadioButton GroupName="jumpRange"
+                                   Content="昨天"
+                                   IsChecked="{Binding IsJumpYesterday}"
+                                   Click="OnJumpRangeClick" />
+                      <RadioButton GroupName="jumpRange"
+                                   Content="上周"
+                                   IsChecked="{Binding IsJumpLastWeek}"
+                                   Click="OnJumpRangeClick" />
+                      <RadioButton GroupName="jumpRange"
+                                   Content="上月"
+                                   IsChecked="{Binding IsJumpLastMonth}"
+                                   Click="OnJumpRangeClick" />
+                      <RadioButton GroupName="jumpRange"
+                                   Content="自定义日期"
+                                   IsChecked="{Binding IsJumpCustom}" />
+                      <StackPanel Spacing="4" IsVisible="{Binding IsJumpCustom}">
+                        <Border Height="1"
+                                Margin="0,4"
+                                Background="{DynamicResource MailDogBrushStroke}" />
+                        <DatePicker SelectedDate="{Binding CustomRangeStart}"
+                                    HorizontalAlignment="Stretch" />
+                        <DatePicker SelectedDate="{Binding CustomRangeEnd}"
+                                    HorizontalAlignment="Stretch" />
+                        <Button Content="应用自定义日期"
+                                Command="{Binding ApplyCustomRangeCommand}"
+                                Click="OnApplyCustomRangeClick"
+                                Margin="0,4,0,0"
+                                HorizontalAlignment="Stretch" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Flyout>
+                </Button.Flyout>
+              </Button>
+
+              <Button Padding="10,4" FontSize="12" Content="筛选">
+                <Button.Flyout>
+                  <MenuFlyout Placement="BottomEdgeAlignedRight">
+                    <MenuItem Header="全部" ToggleType="Radio" GroupName="filter" IsChecked="{Binding IsFilterAll, Mode=TwoWay}" />
+                    <MenuItem Header="未读" ToggleType="Radio" GroupName="filter" IsChecked="{Binding IsFilterUnread, Mode=TwoWay}" />
+                    <MenuItem Header="已标记" ToggleType="Radio" GroupName="filter" IsChecked="{Binding IsFilterFlagged, Mode=TwoWay}" />
+                    <MenuItem Header="有附件" ToggleType="Radio" GroupName="filter" IsChecked="{Binding IsFilterAttachments, Mode=TwoWay}" />
+                  </MenuFlyout>
+                </Button.Flyout>
+              </Button>
+
+              <Button Padding="10,4" FontSize="12" Content="排序">
+                <Button.Flyout>
+                  <MenuFlyout Placement="BottomEdgeAlignedRight">
+                    <MenuItem Header="排序依据">
+                      <MenuItem Header="日期" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByDate, Mode=TwoWay}" />
+                      <MenuItem Header="发件人" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortBySender, Mode=TwoWay}" />
+                      <MenuItem Header="类别" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByCategory, Mode=TwoWay}" />
+                      <MenuItem Header="大小" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortBySize, Mode=TwoWay}" />
+                      <MenuItem Header="重要性" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByImportance, Mode=TwoWay}" />
+                      <MenuItem Header="主题" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortBySubject, Mode=TwoWay}" />
+                      <MenuItem Header="类型" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByType, Mode=TwoWay}" />
+                    </MenuItem>
+                    <MenuItem Header="排序顺序">
+                      <MenuItem Header="由新到旧" ToggleType="Radio" GroupName="sortOrder" IsChecked="{Binding IsSortNewestFirst, Mode=TwoWay}" />
+                      <MenuItem Header="由旧到新" ToggleType="Radio" GroupName="sortOrder" IsChecked="{Binding IsSortOldestFirst, Mode=TwoWay}" />
+                    </MenuItem>
+                  </MenuFlyout>
+                </Button.Flyout>
+              </Button>
+
+              <Button Padding="10,4" FontSize="12" Content="操作">
+                <Button.Flyout>
+                  <MenuFlyout Placement="BottomEdgeAlignedRight">
+                    <MenuItem Header="选择"
+                              ToggleType="CheckBox"
+                              IsChecked="{Binding IsSelectionMode, Mode=TwoWay}" />
+                    <Separator />
+                    <MenuItem Header="{Binding CheckedText}"
+                              IsEnabled="False"
+                              IsVisible="{Binding IsSelectionMode}" />
+                    <MenuItem Header="标记为已读"
+                              Command="{Binding MarkCheckedReadCommand}"
+                              IsEnabled="{Binding HasCheckedMessages}" />
+                    <MenuItem Header="标记为未读"
+                              Command="{Binding MarkCheckedUnreadCommand}"
+                              IsEnabled="{Binding HasCheckedMessages}" />
+                    <MenuItem Header="添加旗标"
+                              Command="{Binding FlagCheckedCommand}"
+                              IsEnabled="{Binding HasCheckedMessages}" />
+                    <MenuItem Header="取消旗标"
+                              Command="{Binding UnflagCheckedCommand}"
+                              IsEnabled="{Binding HasCheckedMessages}" />
+                    <MenuItem Header="清除选择"
+                              Command="{Binding ClearCheckedMessagesCommand}"
+                              IsEnabled="{Binding HasCheckedMessages}" />
+                  </MenuFlyout>
+                </Button.Flyout>
+              </Button>
+            </StackPanel>
           </Grid>
 
           <TextBox x:Name="SearchBox"
@@ -206,48 +312,25 @@
           <Border Grid.Row="2"
                   BorderBrush="{DynamicResource MailDogBrushStroke}"
                   BorderThickness="0,0,0,1"
-                  Padding="16,0,12,8"
+                  IsVisible="{Binding IsSelectionMode}"
                   IsEnabled="{Binding !IsBatchBusy}">
-            <StackPanel Spacing="6">
-              <Grid ColumnDefinitions="Auto,*,Auto">
-                <CheckBox Content="全选"
-                          FontSize="12"
-                          IsChecked="{Binding IsAllChecked}" />
-                <TextBlock Grid.Column="1"
-                           Text="{Binding CheckedText}"
-                           Classes="caption"
-                           Margin="12,0"
-                           VerticalAlignment="Center" />
-                <Button Grid.Column="2"
-                        Content="清除"
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="32,0,12,8">
+              <CheckBox Content="全选"
                         FontSize="12"
-                        Padding="8,2"
-                        Command="{Binding ClearCheckedMessagesCommand}"
-                        IsVisible="{Binding HasCheckedMessages}" />
-              </Grid>
-              <WrapPanel IsVisible="{Binding HasCheckedMessages}">
-                <Button Content="标记已读"
-                        FontSize="12"
-                        Padding="10,4"
-                        Margin="0,0,6,4"
-                        Command="{Binding MarkCheckedReadCommand}" />
-                <Button Content="标记未读"
-                        FontSize="12"
-                        Padding="10,4"
-                        Margin="0,0,6,4"
-                        Command="{Binding MarkCheckedUnreadCommand}" />
-                <Button Content="添加旗标"
-                        FontSize="12"
-                        Padding="10,4"
-                        Margin="0,0,6,4"
-                        Command="{Binding FlagCheckedCommand}" />
-                <Button Content="取消旗标"
-                        FontSize="12"
-                        Padding="10,4"
-                        Margin="0,0,6,4"
-                        Command="{Binding UnflagCheckedCommand}" />
-              </WrapPanel>
-            </StackPanel>
+                        VerticalAlignment="Center"
+                        IsChecked="{Binding IsAllChecked}" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding CheckedText}"
+                         Classes="caption"
+                         Margin="12,0"
+                         VerticalAlignment="Center" />
+              <Button Grid.Column="2"
+                      Content="清除"
+                      FontSize="12"
+                      Padding="8,2"
+                      Command="{Binding ClearCheckedMessagesCommand}"
+                      IsVisible="{Binding HasCheckedMessages}" />
+            </Grid>
           </Border>
 
           <Grid Grid.Row="3">
@@ -269,6 +352,7 @@
                             HorizontalAlignment="Left" />
                     <CheckBox Grid.Column="1"
                               IsChecked="{Binding IsSelected}"
+                              IsVisible="{Binding ShowSelection}"
                               VerticalAlignment="Center"
                               Margin="0,0,6,0"
                               AutomationProperties.Name="选择邮件" />
@@ -355,86 +439,89 @@
 
       <!-- 阅读区 -->
       <Grid Grid.Column="2"
-            RowDefinitions="Auto,Auto,*,Auto"
+            RowDefinitions="Auto,*,Auto"
             Background="{DynamicResource MailDogBrushBgLayer}">
-        <Border Grid.Row="0"
-                Height="48"
-                BorderBrush="{DynamicResource MailDogBrushStroke}"
-                BorderThickness="0,0,0,1">
-          <StackPanel Orientation="Horizontal"
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="24,16,24,0">
+          <StackPanel Spacing="4">
+            <TextBlock Text="{Binding Reader.Subject}"
+                       FontSize="20"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Reader.SenderLine}"
+                       FontSize="14"
+                       Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+            <TextBlock Text="{Binding Reader.DateText}"
+                       FontSize="12"
+                       Foreground="{DynamicResource MailDogBrushTextTertiary}" />
+            <ItemsControl ItemsSource="{Binding Reader.Attachments}"
+                          IsVisible="{Binding Reader.HasAttachments}"
+                          Margin="0,8,0,0">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:AttachmentViewModel">
+                  <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                          BorderBrush="{DynamicResource MailDogBrushStroke}"
+                          BorderThickness="1"
+                          CornerRadius="8"
+                          Padding="10,6"
+                          Margin="0,0,8,8">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <ic:FluentIcon Icon="Attach"
+                                     IconSize="Size16"
+                                     VerticalAlignment="Center" />
+                      <TextBlock Text="{Binding FileName}"
+                                 FontSize="12"
+                                 MaxWidth="220"
+                                 TextTrimming="CharacterEllipsis"
+                                 VerticalAlignment="Center" />
+                      <TextBlock Text="{Binding SizeText}"
+                                 Classes="caption"
+                                 VerticalAlignment="Center" />
+                      <Button Content="下载"
+                              FontSize="11"
+                              Padding="8,2"
+                              Margin="4,0,0,0"
+                              Command="{Binding DownloadCommand}"
+                              AutomationProperties.Name="下载附件" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <StackPanel Grid.Column="1"
+                      Orientation="Horizontal"
                       Spacing="4"
-                      Margin="12,0"
-                      VerticalAlignment="Center">
-            <Button Command="{Binding ToggleReadCommand}" Padding="8,4">
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <ic:FluentIcon Icon="Mail" IconSize="Size16" />
-                <TextBlock Text="已读/未读" FontSize="12" VerticalAlignment="Center" />
-              </StackPanel>
+                      VerticalAlignment="Top"
+                      Margin="12,0,0,0">
+            <Button Command="{Binding ToggleReadCommand}"
+                    Padding="8,4"
+                    ToolTip.Tip="标记为已读/未读"
+                    AutomationProperties.Name="标记为已读或未读">
+              <ic:FluentIcon Icon="Mail" IconSize="Size16" />
             </Button>
-            <Button Command="{Binding ToggleFlagCommand}" Padding="8,4">
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <ic:FluentIcon Icon="Flag" IconSize="Size16" />
-                <TextBlock Text="旗标" FontSize="12" VerticalAlignment="Center" />
-              </StackPanel>
+            <Button Command="{Binding ToggleFlagCommand}"
+                    Padding="8,4"
+                    ToolTip.Tip="旗标"
+                    AutomationProperties.Name="旗标">
+              <ic:FluentIcon Icon="Flag" IconSize="Size16" />
             </Button>
             <Button Command="{Binding ShowImagesCommand}"
                     IsVisible="{Binding Reader.ImagesBlocked}"
-                    Padding="8,4">
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <ic:FluentIcon Icon="Image" IconSize="Size16" />
-                <TextBlock Text="显示图片" FontSize="12" VerticalAlignment="Center" />
-              </StackPanel>
+                    Padding="8,4"
+                    ToolTip.Tip="显示图片"
+                    AutomationProperties.Name="显示图片">
+              <ic:FluentIcon Icon="Image" IconSize="Size16" />
             </Button>
           </StackPanel>
-        </Border>
+        </Grid>
 
-        <StackPanel Grid.Row="1" Margin="24,16,24,0" Spacing="4">
-          <TextBlock Text="{Binding Reader.Subject}"
-                     FontSize="20"
-                     FontWeight="SemiBold"
-                     TextWrapping="Wrap" />
-          <TextBlock Text="{Binding Reader.SenderLine}"
-                     FontSize="14"
-                     Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-          <TextBlock Text="{Binding Reader.DateText}"
-                     FontSize="12"
-                     Foreground="{DynamicResource MailDogBrushTextTertiary}" />
-          <ItemsControl ItemsSource="{Binding Reader.Attachments}"
-                        IsVisible="{Binding Reader.HasAttachments}"
-                        Margin="0,8,0,0">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel />
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:AttachmentViewModel">
-                <Border Background="{DynamicResource MailDogBrushBgSubtle}"
-                        BorderBrush="{DynamicResource MailDogBrushStroke}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="10,8"
-                        Margin="0,0,8,8">
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <ic:FluentIcon Icon="Attach"
-                                   IconSize="Size16"
-                                   VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding FileName}"
-                               FontSize="12"
-                               MaxWidth="220"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding SizeText}"
-                               Classes="caption"
-                               VerticalAlignment="Center" />
-                  </StackPanel>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
-
-        <Grid Grid.Row="2" Margin="0,8,0,0">
+        <Grid Grid.Row="1" Margin="0,8,0,0">
           <ScrollViewer IsVisible="{Binding Reader.IsPlainText}">
             <SelectableTextBlock Text="{Binding Reader.PlainText}"
                                  Margin="24,8,24,24"
@@ -468,7 +555,7 @@
                        IsVisible="{Binding Reader.IsLoading}" />
         </Grid>
 
-        <StackPanel Grid.Row="3" Margin="24,0,24,16" Spacing="8">
+        <StackPanel Grid.Row="2" Margin="24,0,24,16" Spacing="8">
           <Border IsVisible="{Binding Reader.HasNotice}"
                   Background="{DynamicResource MailDogBrushWarningTint}"
                   CornerRadius="6"
@@ -582,8 +669,8 @@
                 </ListBoxItem>
                 <ListBoxItem Padding="10,8">
                   <StackPanel Orientation="Horizontal" Spacing="12">
-                    <ic:FluentIcon Icon="Add" IconSize="Size16" />
-                    <TextBlock Text="添加账户" FontSize="13" VerticalAlignment="Center" />
+                    <ic:FluentIcon Icon="Mail" IconSize="Size16" />
+                    <TextBlock Text="账户管理" FontSize="13" VerticalAlignment="Center" />
                   </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Padding="10,8">
@@ -745,7 +832,7 @@
                                     Margin="12,0,0,0"
                                     FontSize="12" />
                           </Grid>
-                          <StackPanel Orientation="Horizontal" Spacing="16">
+                          <WrapPanel ItemWidth="96" ItemHeight="32">
                             <RadioButton GroupName="sound"
                                          Content="默认"
                                          IsChecked="{Binding IsSoundDefault}" />
@@ -758,7 +845,19 @@
                             <RadioButton GroupName="sound"
                                          Content="提示"
                                          IsChecked="{Binding IsSoundAsterisk}" />
-                          </StackPanel>
+                            <RadioButton GroupName="sound"
+                                         Content="警告"
+                                         IsChecked="{Binding IsSoundWarning}" />
+                            <RadioButton GroupName="sound"
+                                         Content="蜂鸣"
+                                         IsChecked="{Binding IsSoundBeep}" />
+                            <RadioButton GroupName="sound"
+                                         Content="询问"
+                                         IsChecked="{Binding IsSoundQuestion}" />
+                            <RadioButton GroupName="sound"
+                                         Content="启动"
+                                         IsChecked="{Binding IsSoundStart}" />
+                          </WrapPanel>
                           <TextBlock Text="选择新邮件通知使用的系统提示音。"
                                      Classes="caption"
                                      TextWrapping="Wrap" />
@@ -814,11 +913,79 @@
                         </StackPanel>
                       </StackPanel>
 
-                      <StackPanel IsVisible="{Binding IsAddAccountSection}" Spacing="16">
+                      <StackPanel IsVisible="{Binding IsAccountListVisible}" Spacing="16">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="账户管理" FontSize="20" FontWeight="SemiBold" />
+                          <TextBlock Text="查看已添加的邮箱账户，或继续添加新账户。" Classes="caption" />
+                        </StackPanel>
+
+                        <ItemsControl ItemsSource="{Binding Accounts}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AccountViewModel">
+                              <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                                      BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                      BorderThickness="1"
+                                      CornerRadius="8"
+                                      Padding="14,12"
+                                      Margin="0,0,0,8">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                  <Border Width="40"
+                                          Height="40"
+                                          CornerRadius="20"
+                                          Background="{DynamicResource MailDogBrushAccent}">
+                                    <TextBlock Text="{Binding Initial}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource MailDogBrushTextOnAccent}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                  </Border>
+                                  <StackPanel Grid.Column="1"
+                                              Margin="12,0"
+                                              VerticalAlignment="Center"
+                                              Spacing="2">
+                                    <TextBlock Text="{Binding Email}"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding ProviderText}" Classes="caption" />
+                                    <TextBlock Text="{Binding SyncStatus}"
+                                               Classes="caption"
+                                               TextTrimming="CharacterEllipsis"
+                                               IsVisible="{Binding HasSyncStatus}" />
+                                  </StackPanel>
+                                  <TextBlock Grid.Column="2"
+                                             Text="{Binding StatusText}"
+                                             FontSize="12"
+                                             VerticalAlignment="Center"
+                                             Foreground="{Binding StatusBrush}" />
+                                </Grid>
+                              </Border>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="还没有添加任何账户。"
+                                   Classes="caption"
+                                   IsVisible="{Binding !HasAccounts}" />
+
+                        <Button Content="添加账户"
+                                Command="{Binding BeginAddAccountCommand}"
+                                HorizontalAlignment="Left"
+                                Padding="16,8" />
+                      </StackPanel>
+
+                      <StackPanel IsVisible="{Binding IsAddAccountFormVisible}" Spacing="16">
                         <StackPanel Spacing="4">
                           <TextBlock Text="添加账户" FontSize="20" FontWeight="SemiBold" />
                           <TextBlock Text="连接 Outlook 或 QQ 邮箱。" Classes="caption" />
                         </StackPanel>
+
+                        <Button Content="返回账户列表"
+                                Command="{Binding ShowAccountListCommand}"
+                                HorizontalAlignment="Left"
+                                Padding="10,4"
+                                FontSize="12" />
 
                         <ComboBox ItemsSource="{Binding ProviderOptions}"
                                   SelectedIndex="{Binding SelectedProviderIndex}"
