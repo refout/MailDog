@@ -853,10 +853,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         1 => "今天",
         2 => "昨天",
         3 => "上周",
-        4 => "上月",
+        4 => "上个月",
         5 => GetCustomRange() is { } range
             ? $"{range.Start:M/d}–{range.End.AddDays(-1):M/d}"
             : "自定义",
+        6 => "去年",
         _ => "跳转"
     };
 
@@ -932,6 +933,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    public bool IsJumpLastYear
+    {
+        get => JumpRangeIndex == 6;
+        set
+        {
+            if (value)
+            {
+                JumpRangeIndex = 6;
+            }
+        }
+    }
+
     partial void OnJumpRangeIndexChanged(int value)
     {
         OnPropertyChanged(nameof(JumpLabel));
@@ -941,6 +954,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsJumpLastWeek));
         OnPropertyChanged(nameof(IsJumpLastMonth));
         OnPropertyChanged(nameof(IsJumpCustom));
+        OnPropertyChanged(nameof(IsJumpLastYear));
         ApplyFilter();
     }
 
@@ -2088,6 +2102,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             3 => (new DateTimeOffset(LastWeekStart(today)), new DateTimeOffset(today)),
             4 => (new DateTimeOffset(LastMonthStart(today)), new DateTimeOffset(today)),
             5 => GetCustomRange(),
+            6 => (
+                new DateTimeOffset(new DateTime(today.Year - 1, 1, 1)),
+                new DateTimeOffset(new DateTime(today.Year, 1, 1))),
             _ => null
         };
     }

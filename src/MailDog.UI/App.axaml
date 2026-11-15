@@ -65,6 +65,7 @@
     </Style>
     <Style Selector="MenuFlyoutPresenter MenuItem">
       <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinHeight" Value="32" />
     </Style>
     <Style Selector="CalendarDatePicker">
       <Setter Property="Background" Value="{DynamicResource MailDogBrushBgSubtle}" />

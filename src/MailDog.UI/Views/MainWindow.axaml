@@ -215,8 +215,12 @@
                                    IsChecked="{Binding IsJumpLastWeek}"
                                    Click="OnJumpRangeClick" />
                       <RadioButton GroupName="jumpRange"
-                                   Content="上月"
+                                   Content="上个月"
                                    IsChecked="{Binding IsJumpLastMonth}"
+                                   Click="OnJumpRangeClick" />
+                      <RadioButton GroupName="jumpRange"
+                                   Content="去年"
+                                   IsChecked="{Binding IsJumpLastYear}"
                                    Click="OnJumpRangeClick" />
                       <RadioButton GroupName="jumpRange"
                                    Content="自定义日期"
@@ -255,10 +259,38 @@
                 <ic:FluentIcon Icon="Filter" IconSize="Size16" />
                 <Button.Flyout>
                   <MenuFlyout Placement="BottomEdgeAlignedRight">
-                    <MenuItem Header="全部" ToggleType="Radio" GroupName="filter" IsChecked="{Binding IsFilterAll, Mode=TwoWay}" />
-                    <MenuItem Header="未读" ToggleType="Radio" GroupName="filter" IsChecked="{Binding IsFilterUnread, Mode=TwoWay}" />
-                    <MenuItem Header="已标记" ToggleType="Radio" GroupName="filter" IsChecked="{Binding IsFilterFlagged, Mode=TwoWay}" />
-                    <MenuItem Header="有附件" ToggleType="Radio" GroupName="filter" IsChecked="{Binding IsFilterAttachments, Mode=TwoWay}" />
+                    <MenuItem Header="全部"
+                              ToggleType="Radio"
+                              GroupName="filter"
+                              IsChecked="{Binding IsFilterAll, Mode=TwoWay}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="MailInbox" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="未读"
+                              ToggleType="Radio"
+                              GroupName="filter"
+                              IsChecked="{Binding IsFilterUnread, Mode=TwoWay}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="MailUnread" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="已标记"
+                              ToggleType="Radio"
+                              GroupName="filter"
+                              IsChecked="{Binding IsFilterFlagged, Mode=TwoWay}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="Flag" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="带附件"
+                              ToggleType="Radio"
+                              GroupName="filter"
+                              IsChecked="{Binding IsFilterAttachments, Mode=TwoWay}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="Attach" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
                   </MenuFlyout>
                 </Button.Flyout>
               </Button>
@@ -269,6 +301,13 @@
                 <ic:FluentIcon Icon="ArrowSort" IconSize="Size16" />
                 <Button.Flyout>
                   <MenuFlyout Placement="BottomEdgeAlignedRight">
+                    <MenuItem IsHitTestVisible="False" Focusable="False">
+                      <MenuItem.Header>
+                        <TextBlock Text="排序依据"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource MailDogBrushTextTertiary}" />
+                      </MenuItem.Header>
+                    </MenuItem>
                     <MenuItem Header="日期" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByDate, Mode=TwoWay}" />
                     <MenuItem Header="发件人" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortBySender, Mode=TwoWay}" />
                     <MenuItem Header="类别" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByCategory, Mode=TwoWay}" />
@@ -276,9 +315,16 @@
                     <MenuItem Header="重要性" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByImportance, Mode=TwoWay}" />
                     <MenuItem Header="主题" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortBySubject, Mode=TwoWay}" />
                     <MenuItem Header="类型" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByType, Mode=TwoWay}" />
-                    <Separator />
-                    <MenuItem Header="由新到旧" ToggleType="Radio" GroupName="sortOrder" IsChecked="{Binding IsSortNewestFirst, Mode=TwoWay}" />
+                    <MenuItem IsHitTestVisible="False" Focusable="False">
+                      <MenuItem.Header>
+                        <TextBlock Text="排序顺序"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource MailDogBrushTextTertiary}"
+                                   Margin="0,10,0,0" />
+                      </MenuItem.Header>
+                    </MenuItem>
                     <MenuItem Header="由旧到新" ToggleType="Radio" GroupName="sortOrder" IsChecked="{Binding IsSortOldestFirst, Mode=TwoWay}" />
+                    <MenuItem Header="由新到旧" ToggleType="Radio" GroupName="sortOrder" IsChecked="{Binding IsSortNewestFirst, Mode=TwoWay}" />
                   </MenuFlyout>
                 </Button.Flyout>
               </Button>
@@ -291,26 +337,50 @@
                   <MenuFlyout Placement="BottomEdgeAlignedRight">
                     <MenuItem Header="选择"
                               ToggleType="CheckBox"
-                              IsChecked="{Binding IsSelectionMode, Mode=TwoWay}" />
+                              IsChecked="{Binding IsSelectionMode, Mode=TwoWay}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="Checkmark" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
                     <Separator />
                     <MenuItem Header="{Binding CheckedText}"
                               IsEnabled="False"
                               IsVisible="{Binding IsSelectionMode}" />
                     <MenuItem Header="标记为已读"
                               Command="{Binding MarkCheckedReadCommand}"
-                              IsEnabled="{Binding HasCheckedMessages}" />
+                              IsEnabled="{Binding HasCheckedMessages}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="MailRead" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
                     <MenuItem Header="标记为未读"
                               Command="{Binding MarkCheckedUnreadCommand}"
-                              IsEnabled="{Binding HasCheckedMessages}" />
+                              IsEnabled="{Binding HasCheckedMessages}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="MailUnread" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
                     <MenuItem Header="添加旗标"
                               Command="{Binding FlagCheckedCommand}"
-                              IsEnabled="{Binding HasCheckedMessages}" />
+                              IsEnabled="{Binding HasCheckedMessages}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="Flag" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
                     <MenuItem Header="取消旗标"
                               Command="{Binding UnflagCheckedCommand}"
-                              IsEnabled="{Binding HasCheckedMessages}" />
+                              IsEnabled="{Binding HasCheckedMessages}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="Flag" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
                     <MenuItem Header="清除选择"
                               Command="{Binding ClearCheckedMessagesCommand}"
-                              IsEnabled="{Binding HasCheckedMessages}" />
+                              IsEnabled="{Binding HasCheckedMessages}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="Dismiss" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
                   </MenuFlyout>
                 </Button.Flyout>
               </Button>
