@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Logging;
 using Avalonia.Win32;
@@ -11,6 +12,11 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // 界面为中文，固定区域设置，避免日期控件与排序出现英文或异形占位。
+        var culture = CultureInfo.GetCultureInfo("zh-CN");
+        CultureInfo.DefaultThreadCurrentCulture = culture;
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
+
         using var mutex = new Mutex(true, "Local\\MailDog.UI.Singleton", out var createdNew);
         if (!createdNew)
         {

@@ -121,6 +121,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private DateTimeOffset? _customRangeEnd;
 
+    /// <summary>日期弹层默认显示当月，避免控件回落到陈旧月份。</summary>
+    [ObservableProperty]
+    private DateTime _customRangeDisplayDate = DateTime.Today;
+
 
     [ObservableProperty]
     private string? _statusMessage;
