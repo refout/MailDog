@@ -189,7 +189,11 @@
                         Orientation="Horizontal"
                         Spacing="2"
                         VerticalAlignment="Center">
-              <Button x:Name="JumpButton" Padding="10,4" FontSize="12" Content="{Binding JumpLabel}">
+              <Button x:Name="JumpButton"
+                      Classes="icon"
+                      AutomationProperties.Name="跳转"
+                      ToolTip.Tip="{Binding JumpLabel}">
+                <ic:FluentIcon Icon="Calendar" IconSize="Size16" />
                 <Button.Flyout>
                   <Flyout Placement="BottomEdgeAlignedRight">
                     <StackPanel Width="240" Spacing="4">
@@ -236,7 +240,10 @@
                 </Button.Flyout>
               </Button>
 
-              <Button Padding="10,4" FontSize="12" Content="筛选">
+              <Button Classes="icon"
+                      AutomationProperties.Name="筛选"
+                      ToolTip.Tip="筛选">
+                <ic:FluentIcon Icon="Filter" IconSize="Size16" />
                 <Button.Flyout>
                   <MenuFlyout Placement="BottomEdgeAlignedRight">
                     <MenuItem Header="全部" ToggleType="Radio" GroupName="filter" IsChecked="{Binding IsFilterAll, Mode=TwoWay}" />
@@ -247,27 +254,30 @@
                 </Button.Flyout>
               </Button>
 
-              <Button Padding="10,4" FontSize="12" Content="排序">
+              <Button Classes="icon"
+                      AutomationProperties.Name="排序"
+                      ToolTip.Tip="排序">
+                <ic:FluentIcon Icon="ArrowSort" IconSize="Size16" />
                 <Button.Flyout>
                   <MenuFlyout Placement="BottomEdgeAlignedRight">
-                    <MenuItem Header="排序依据">
-                      <MenuItem Header="日期" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByDate, Mode=TwoWay}" />
-                      <MenuItem Header="发件人" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortBySender, Mode=TwoWay}" />
-                      <MenuItem Header="类别" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByCategory, Mode=TwoWay}" />
-                      <MenuItem Header="大小" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortBySize, Mode=TwoWay}" />
-                      <MenuItem Header="重要性" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByImportance, Mode=TwoWay}" />
-                      <MenuItem Header="主题" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortBySubject, Mode=TwoWay}" />
-                      <MenuItem Header="类型" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByType, Mode=TwoWay}" />
-                    </MenuItem>
-                    <MenuItem Header="排序顺序">
-                      <MenuItem Header="由新到旧" ToggleType="Radio" GroupName="sortOrder" IsChecked="{Binding IsSortNewestFirst, Mode=TwoWay}" />
-                      <MenuItem Header="由旧到新" ToggleType="Radio" GroupName="sortOrder" IsChecked="{Binding IsSortOldestFirst, Mode=TwoWay}" />
-                    </MenuItem>
+                    <MenuItem Header="日期" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByDate, Mode=TwoWay}" />
+                    <MenuItem Header="发件人" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortBySender, Mode=TwoWay}" />
+                    <MenuItem Header="类别" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByCategory, Mode=TwoWay}" />
+                    <MenuItem Header="大小" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortBySize, Mode=TwoWay}" />
+                    <MenuItem Header="重要性" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByImportance, Mode=TwoWay}" />
+                    <MenuItem Header="主题" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortBySubject, Mode=TwoWay}" />
+                    <MenuItem Header="类型" ToggleType="Radio" GroupName="sortField" IsChecked="{Binding IsSortByType, Mode=TwoWay}" />
+                    <Separator />
+                    <MenuItem Header="由新到旧" ToggleType="Radio" GroupName="sortOrder" IsChecked="{Binding IsSortNewestFirst, Mode=TwoWay}" />
+                    <MenuItem Header="由旧到新" ToggleType="Radio" GroupName="sortOrder" IsChecked="{Binding IsSortOldestFirst, Mode=TwoWay}" />
                   </MenuFlyout>
                 </Button.Flyout>
               </Button>
 
-              <Button Padding="10,4" FontSize="12" Content="操作">
+              <Button Classes="icon"
+                      AutomationProperties.Name="操作"
+                      ToolTip.Tip="操作">
+                <ic:FluentIcon Icon="MoreHorizontal" IconSize="Size16" />
                 <Button.Flyout>
                   <MenuFlyout Placement="BottomEdgeAlignedRight">
                     <MenuItem Header="选择"

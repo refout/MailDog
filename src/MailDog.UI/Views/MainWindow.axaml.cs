@@ -153,6 +153,8 @@ public partial class MainWindow : Window
         SetBrush("MailDogBrushBgBase", WithAlpha(baseColor, baseAlpha));
         SetBrush("MailDogBrushBgSubtle", WithAlpha(subtleColor, subtleAlpha));
         SetBrush("MailDogBrushBgLayer", WithAlpha(layerColor, layerAlpha));
+        // 弹出菜单/浮层使用不透明版本，避免透出下方邮件内容。
+        SetBrush("MailDogBrushPopup", Color.FromRgb(layerColor.R, layerColor.G, layerColor.B));
         SetBrush("MailDogBrushHover", dark ? Color.Parse("#0FFFFFFF") : Color.Parse("#0A000000"));
         SetBrush("MailDogBrushStroke", dark ? Color.Parse("#3D3D3D") : Color.Parse("#E0E0E0"));
         SetBrush("MailDogBrushStrokeSubtle", dark ? Color.Parse("#333333") : Color.Parse("#EBEBEB"));
