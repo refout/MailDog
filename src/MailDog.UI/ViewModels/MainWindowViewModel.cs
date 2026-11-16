@@ -116,10 +116,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private int _jumpRangeIndex;
 
     [ObservableProperty]
-    private DateTimeOffset? _customRangeStart;
-
-    [ObservableProperty]
-    private DateTimeOffset? _customRangeEnd;
+    private DateTimeOffset? _customDate;
 
     /// <summary>日期弹层默认显示当月，避免控件回落到陈旧月份。</summary>
     [ObservableProperty]
@@ -854,8 +851,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         2 => "昨天",
         3 => "上周",
         4 => "上个月",
-        5 => GetCustomRange() is { } range
-            ? $"{range.Start:M/d}–{range.End.AddDays(-1):M/d}"
+        5 => CustomDate is { } date
+            ? $"{date:M/d}"
             : "自定义",
         6 => "去年",
         _ => "跳转"
@@ -958,13 +955,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         ApplyFilter();
     }
 
-    partial void OnCustomRangeStartChanged(DateTimeOffset? value)
-    {
-        OnPropertyChanged(nameof(JumpLabel));
-        ApplyFilter();
-    }
-
-    partial void OnCustomRangeEndChanged(DateTimeOffset? value)
+    partial void OnCustomDateChanged(DateTimeOffset? value)
     {
         OnPropertyChanged(nameof(JumpLabel));
         ApplyFilter();
@@ -973,7 +964,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void ApplyCustomRange()
     {
-        if (CustomRangeStart is null && CustomRangeEnd is null)
+        if (CustomDate is null)
         {
             return;
         }
@@ -2111,20 +2102,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private (DateTimeOffset Start, DateTimeOffset End)? GetCustomRange()
     {
-        if (CustomRangeStart is null && CustomRangeEnd is null)
+        if (CustomDate is null)
         {
             return null;
         }
 
-        var start = (CustomRangeStart ?? CustomRangeEnd ?? DateTimeOffset.Now).Date;
-        var end = (CustomRangeEnd ?? CustomRangeStart ?? DateTimeOffset.Now).Date;
-
-        if (end < start)
-        {
-            (start, end) = (end, start);
-        }
-
-        return (new DateTimeOffset(start), new DateTimeOffset(end.AddDays(1)));
+        // 单日选择：只显示该日期当天的邮件。
+        var day = CustomDate.Value.Date;
+        return (new DateTimeOffset(day), new DateTimeOffset(day.AddDays(1)));
     }
 
     private static DateTime LastWeekStart(DateTime today)

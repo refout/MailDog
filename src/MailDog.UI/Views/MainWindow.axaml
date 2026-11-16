@@ -228,21 +228,10 @@
                       <Border Height="1"
                               Margin="0,4"
                               Background="{DynamicResource MailDogBrushStroke}" />
-                      <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="6">
-                        <CalendarDatePicker SelectedDate="{Binding CustomRangeStart}"
-                                            DisplayDate="{Binding CustomRangeDisplayDate}"
-                                            Watermark="开始日期"
-                                            HorizontalAlignment="Stretch" />
-                        <TextBlock Grid.Column="1"
-                                   Text="–"
-                                   Classes="caption"
-                                   VerticalAlignment="Center" />
-                        <CalendarDatePicker Grid.Column="2"
-                                            SelectedDate="{Binding CustomRangeEnd}"
-                                            DisplayDate="{Binding CustomRangeDisplayDate}"
-                                            Watermark="结束日期"
-                                            HorizontalAlignment="Stretch" />
-                      </Grid>
+                      <CalendarDatePicker SelectedDate="{Binding CustomDate}"
+                                          DisplayDate="{Binding CustomRangeDisplayDate}"
+                                          Watermark="选择日期"
+                                          HorizontalAlignment="Stretch" />
                       <Button Content="应用"
                               Command="{Binding ApplyCustomRangeCommand}"
                               Click="OnApplyCustomRangeClick"
