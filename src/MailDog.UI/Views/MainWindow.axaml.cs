@@ -86,15 +86,44 @@ public partial class MainWindow : Window
         });
     }
 
-    private void OnJumpRangeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private void OnJumpRangeItemClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        if (sender is Button { Tag: string tag } && int.TryParse(tag, out var index))
+        {
+            _viewModel.JumpRangeIndex = index;
+        }
+
         JumpButton.Flyout?.Hide();
+    }
+
+    private void OnJumpFlyoutOpened(object? sender, EventArgs e)
+    {
+        _viewModel.IsDatePanelOpen = false;
+    }
+
+    private void OnToggleDatePanelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel.IsDatePanelOpen = !_viewModel.IsDatePanelOpen;
     }
 
     private void OnApplyCustomRangeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _viewModel.ApplyCustomRangeCommand.Execute(null);
         JumpButton.Flyout?.Hide();
+    }
+
+    private void OnCalendarDayClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: CalendarDayViewModel day })
+        {
+            _viewModel.CustomDate = day.Date;
+
+            var month = new DateTime(day.Date.Year, day.Date.Month, 1);
+            if (_viewModel.CalendarMonth != month)
+            {
+                _viewModel.CalendarMonth = month;
+            }
+        }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

@@ -47,6 +47,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         Reader.DownloadAttachment = DownloadAttachmentAsync;
         Accounts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAccounts));
         RefreshBackgroundPresets();
+        BuildCalendar();
     }
 
     public ObservableCollection<AccountViewModel> Accounts { get; } = [];
@@ -118,9 +119,58 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private DateTime? _customDate = DateTime.Today;
 
-    /// <summary>日期弹层默认显示当月，避免控件回落到陈旧月份。</summary>
+    /// <summary>日期选择面板是否展开。</summary>
     [ObservableProperty]
-    private DateTime _customRangeDisplayDate = DateTime.Today;
+    private bool _isDatePanelOpen;
+
+    public string CustomDateText => CustomDate is { } date ? $"{date:yyyy/M/d}" : "选择日期";
+
+    /// <summary>日历面板当前显示的月份（每月 1 日）。</summary>
+    [ObservableProperty]
+    private DateTime _calendarMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    public ObservableCollection<CalendarDayViewModel> CalendarDays { get; } = [];
+
+    public string CalendarMonthText => $"{CalendarMonth:yyyy年M月}";
+
+    partial void OnCalendarMonthChanged(DateTime value)
+    {
+        OnPropertyChanged(nameof(CalendarMonthText));
+        BuildCalendar();
+    }
+
+    [RelayCommand]
+    private void PreviousMonth()
+    {
+        CalendarMonth = CalendarMonth.AddMonths(-1);
+    }
+
+    [RelayCommand]
+    private void NextMonth()
+    {
+        CalendarMonth = CalendarMonth.AddMonths(1);
+    }
+
+    /// <summary>生成 6 行 × 7 列的日期网格，周日开头。</summary>
+    private void BuildCalendar()
+    {
+        CalendarDays.Clear();
+
+        var first = new DateTime(CalendarMonth.Year, CalendarMonth.Month, 1);
+        var start = first.AddDays(-(int)first.DayOfWeek);
+        var selected = CustomDate?.Date;
+        var today = DateTime.Today;
+
+        for (var offset = 0; offset < 42; offset++)
+        {
+            var date = start.AddDays(offset);
+            CalendarDays.Add(new CalendarDayViewModel(
+                date,
+                date.Month == first.Month,
+                selected is not null && date == selected,
+                date == today));
+        }
+    }
 
 
     [ObservableProperty]
@@ -918,18 +968,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public bool IsJumpCustom
-    {
-        get => JumpRangeIndex == 5;
-        set
-        {
-            if (value)
-            {
-                JumpRangeIndex = 5;
-            }
-        }
-    }
-
     public bool IsJumpLastYear
     {
         get => JumpRangeIndex == 6;
@@ -950,7 +988,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsJumpYesterday));
         OnPropertyChanged(nameof(IsJumpLastWeek));
         OnPropertyChanged(nameof(IsJumpLastMonth));
-        OnPropertyChanged(nameof(IsJumpCustom));
         OnPropertyChanged(nameof(IsJumpLastYear));
         ApplyFilter();
     }
@@ -958,6 +995,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnCustomDateChanged(DateTime? value)
     {
         OnPropertyChanged(nameof(JumpLabel));
+        OnPropertyChanged(nameof(CustomDateText));
+        BuildCalendar();
         ApplyFilter();
     }
 

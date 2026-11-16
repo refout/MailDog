@@ -67,9 +67,72 @@
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="MinHeight" Value="32" />
     </Style>
-    <Style Selector="Calendar">
-      <Setter Property="Background" Value="{DynamicResource MailDogBrushPopup}" />
+    <Style Selector="TextBlock.calendar-weekday">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextTertiary}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,0,0,2" />
+    </Style>
+    <Style Selector="Button.calendar-day">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.calendar-day:pointerover">
+      <Setter Property="Background" Value="{DynamicResource MailDogBrushHover}" />
+    </Style>
+    <Style Selector="Button.calendar-day.outside">
+      <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextTertiary}" />
+    </Style>
+    <Style Selector="Button.calendar-day.today">
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushAccent}" />
+    </Style>
+    <Style Selector="Button.calendar-day.selected">
+      <Setter Property="Background" Value="{DynamicResource MailDogBrushAccent}" />
+      <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextOnAccent}" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.calendar-day.selected:pointerover">
+      <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentHover}" />
+    </Style>
+    <Style Selector="Button.jump-item">
+      <Setter Property="Height" Value="32" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="Button.jump-item:pointerover">
+      <Setter Property="Background" Value="{DynamicResource MailDogBrushHover}" />
+    </Style>
+    <Style Selector="Button.jump-item.active">
+      <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentTint}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.date-field">
+      <Setter Property="Height" Value="32" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Background" Value="{DynamicResource MailDogBrushBgSubtle}" />
       <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushStroke}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.date-field:pointerover">
+      <Setter Property="Background" Value="{DynamicResource MailDogBrushHover}" />
     </Style>
   </Application.Styles>
 </Application>
