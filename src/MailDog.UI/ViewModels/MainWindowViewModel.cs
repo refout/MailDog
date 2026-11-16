@@ -116,7 +116,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private int _jumpRangeIndex;
 
     [ObservableProperty]
-    private DateTimeOffset? _customDate;
+    private DateTime? _customDate = DateTime.Today;
 
     /// <summary>日期弹层默认显示当月，避免控件回落到陈旧月份。</summary>
     [ObservableProperty]
@@ -955,7 +955,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         ApplyFilter();
     }
 
-    partial void OnCustomDateChanged(DateTimeOffset? value)
+    partial void OnCustomDateChanged(DateTime? value)
     {
         OnPropertyChanged(nameof(JumpLabel));
         ApplyFilter();

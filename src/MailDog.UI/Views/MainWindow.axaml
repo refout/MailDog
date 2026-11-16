@@ -196,7 +196,7 @@
                 <ic:FluentIcon Icon="Calendar" IconSize="Size16" />
                 <Button.Flyout>
                   <Flyout Placement="BottomEdgeAlignedRight">
-                    <StackPanel Width="240" Spacing="4">
+                    <StackPanel Width="292" Spacing="2">
                       <TextBlock Text="按时间跳转" Classes="section" Margin="4,0,0,4" />
                       <RadioButton GroupName="jumpRange"
                                    Content="全部时间"
@@ -228,10 +228,11 @@
                       <Border Height="1"
                               Margin="0,4"
                               Background="{DynamicResource MailDogBrushStroke}" />
-                      <CalendarDatePicker SelectedDate="{Binding CustomDate}"
-                                          DisplayDate="{Binding CustomRangeDisplayDate}"
-                                          Watermark="选择日期"
-                                          HorizontalAlignment="Stretch" />
+                      <Calendar SelectedDate="{Binding CustomDate, Mode=TwoWay}"
+                                DisplayDate="{Binding CustomRangeDisplayDate}"
+                                SelectionMode="SingleDate"
+                                HorizontalAlignment="Center"
+                                Margin="0,4,0,0" />
                       <Button Content="应用"
                               Command="{Binding ApplyCustomRangeCommand}"
                               Click="OnApplyCustomRangeClick"

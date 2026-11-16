@@ -363,7 +363,7 @@ MailDog
 
 - 标题：当前文件夹名称，Title/20；右侧为图标按钮 32×32（从左到右：跳转 `Calendar` / 筛选 `Filter` / 排序 `ArrowSort` / 操作 `MoreHorizontal`），悬停显示 ToolTip。
 - 搜索框：位于标题下方，宽度随列表自适应，高 32，占位文字居中；`Ctrl+F` 聚焦。
-- 跳转：`Flyout`，按时间范围过滤——全部时间 / 今天 / 昨天 / 上周 / 上个月 / 去年 / 自定义日期；自定义日期默认展开为一个 `CalendarDatePicker`（选择日期，中文占位），只显示所选日期的邮件，选择后 ToolTip 显示该日期。
+- 跳转：`Flyout`，按时间范围过滤——全部时间 / 今天 / 昨天 / 上周 / 上个月 / 去年 / 自定义日期；自定义日期默认展开一个内联 `Calendar`（中文月份与星期，选中日高亮），只显示所选日期的邮件，选择后 ToolTip 显示该日期。
 - 筛选：`MenuFlyout` 单选项，参考 Outlook 的图标 + 文案布局——全部（`MailInbox`）/ 未读（`MailUnread`）/ 已标记（`Flag`）/ 带附件（`Attach`）。
 - 排序：单层 `MenuFlyout`，参考 Outlook 用分组标题而非二级菜单——“排序依据”（日期 / 发件人 / 类别 / 大小 / 重要性 / 主题 / 类型）与“排序顺序”（由旧到新 / 由新到旧）。
 - 操作：`MenuFlyout`，带图标——“选择”（切换选择模式，`Checkmark`）与批量操作（`MailRead` / `MailUnread` / `Flag` / `Dismiss`）。
