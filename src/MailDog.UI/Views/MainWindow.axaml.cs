@@ -90,7 +90,8 @@ public partial class MainWindow : Window
     {
         if (sender is Button { Tag: string tag } && int.TryParse(tag, out var index))
         {
-            _viewModel.JumpRangeIndex = index;
+            // 再次点击当前范围可取消筛选，回到全部邮件。
+            _viewModel.JumpRangeIndex = _viewModel.JumpRangeIndex == index ? 0 : index;
         }
 
         JumpButton.Flyout?.Hide();

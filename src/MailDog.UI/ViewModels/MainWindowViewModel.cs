@@ -908,18 +908,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _ => "跳转"
     };
 
-    public bool IsJumpAll
-    {
-        get => JumpRangeIndex == 0;
-        set
-        {
-            if (value)
-            {
-                JumpRangeIndex = 0;
-            }
-        }
-    }
-
     public bool IsJumpToday
     {
         get => JumpRangeIndex == 1;
@@ -983,7 +971,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnJumpRangeIndexChanged(int value)
     {
         OnPropertyChanged(nameof(JumpLabel));
-        OnPropertyChanged(nameof(IsJumpAll));
         OnPropertyChanged(nameof(IsJumpToday));
         OnPropertyChanged(nameof(IsJumpYesterday));
         OnPropertyChanged(nameof(IsJumpLastWeek));

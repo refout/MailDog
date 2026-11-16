@@ -199,11 +199,6 @@
                     <StackPanel Width="292" Spacing="2">
                       <TextBlock Text="按时间跳转" Classes="section" Margin="4,0,0,4" />
                       <Button Classes="jump-item"
-                              Classes.active="{Binding IsJumpAll}"
-                              Tag="0"
-                              Content="全部时间"
-                              Click="OnJumpRangeItemClick" />
-                      <Button Classes="jump-item"
                               Classes.active="{Binding IsJumpToday}"
                               Tag="1"
                               Content="今天"
