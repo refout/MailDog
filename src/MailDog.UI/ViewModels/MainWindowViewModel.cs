@@ -1799,6 +1799,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 new GetFoldersRequest { AccountId = account.Id },
                 TimeSpan.FromSeconds(45));
 
+            var previousFolderId = SelectedFolder?.Id;
+
             _suppressSelectionHandlers = true;
             try
             {
@@ -1810,6 +1812,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
                 var target = preserveFolderId is not null
                     ? Folders.FirstOrDefault(folder => folder.Id == preserveFolderId)
+                    : null;
+
+                target ??= previousFolderId is not null
+                    ? Folders.FirstOrDefault(folder => folder.Id == previousFolderId)
                     : null;
 
                 target ??= Folders.FirstOrDefault(folder => folder.Role == FolderRole.Inbox)
@@ -1824,7 +1830,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (SelectedFolder is not null)
             {
-                await LoadMessagesAsync(SelectedFolder);
+                // 同一文件夹只增量合并，避免刷新账户/文件夹时把列表清空重载。
+                if (previousFolderId == SelectedFolder.Id)
+                {
+                    await RefreshMessagesAsync(SelectedFolder);
+                }
+                else
+                {
+                    await LoadMessagesAsync(SelectedFolder);
+                }
             }
             else
             {
@@ -1850,6 +1864,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         var sameFolder = _activeFolderId == folder.Id;
         var previousId = sameFolder ? SelectedMessage?.Id : null;
+        _activeFolderId = folder.Id;
 
         try
         {
@@ -1858,6 +1873,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             FolderTitle = folder.Name;
             StatusMessage = "正在加载邮件…";
 
+            var response = await _engine.RequestAsync<MessagesPageResponse>(
+                IpcMessageTypes.GetMessages,
+                new GetMessagesRequest { FolderId = folder.Id, Limit = 50 });
+
+            // 加载期间切换了文件夹，丢弃过期结果。
+            if (_activeFolderId != folder.Id)
+            {
+                return;
+            }
+
+            // 数据到手后再替换列表，避免加载过程中列表出现空白闪烁。
             _suppressSelectionHandlers = true;
             try
             {
@@ -1886,11 +1912,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             }
 
             NotifySelectionState();
-            _activeFolderId = folder.Id;
-
-            var response = await _engine.RequestAsync<MessagesPageResponse>(
-                IpcMessageTypes.GetMessages,
-                new GetMessagesRequest { FolderId = folder.Id, Limit = 50 });
 
             AddMessages(response.Items);
             HasMore = response.HasMore;
@@ -1923,6 +1944,34 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    /// <summary>增量刷新当前文件夹：只合并最新一页，不清空列表，保留滚动位置与选中项。</summary>
+    private async Task RefreshMessagesAsync(FolderViewModel folder)
+    {
+        if (!IsConnected)
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await _engine.RequestAsync<MessagesPageResponse>(
+                IpcMessageTypes.GetMessages,
+                new GetMessagesRequest { FolderId = folder.Id, Limit = 50 });
+
+            if (_activeFolderId != folder.Id)
+            {
+                return;
+            }
+
+            AddMessages(response.Items);
+            ApplyFilter();
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
         }
     }
 
@@ -2146,8 +2195,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             1 => (new DateTimeOffset(today), new DateTimeOffset(today.AddDays(1))),
             2 => (new DateTimeOffset(today.AddDays(-1)), new DateTimeOffset(today)),
-            3 => (new DateTimeOffset(LastWeekStart(today)), new DateTimeOffset(today)),
-            4 => (new DateTimeOffset(LastMonthStart(today)), new DateTimeOffset(today)),
+            3 => (new DateTimeOffset(LastWeekStart(today)), new DateTimeOffset(ThisWeekStart(today))),
+            4 => (new DateTimeOffset(LastMonthStart(today)), new DateTimeOffset(ThisMonthStart(today))),
             5 => GetCustomRange(),
             6 => (
                 new DateTimeOffset(new DateTime(today.Year - 1, 1, 1)),
@@ -2169,14 +2218,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     private static DateTime LastWeekStart(DateTime today)
+        => ThisWeekStart(today).AddDays(-7);
+
+    private static DateTime ThisWeekStart(DateTime today)
     {
-        // 本周一往前推 7 天，得到上一周的周一。
+        // 本周一。
         var daysSinceMonday = ((int)today.DayOfWeek + 6) % 7;
-        return today.AddDays(-daysSinceMonday - 7);
+        return today.AddDays(-daysSinceMonday);
     }
 
     private static DateTime LastMonthStart(DateTime today)
         => new DateTime(today.Year, today.Month, 1).AddMonths(-1);
+
+    private static DateTime ThisMonthStart(DateTime today)
+        => new DateTime(today.Year, today.Month, 1);
 
     private int CompareMessages(MailSummaryViewModel left, MailSummaryViewModel right)
     {
@@ -2240,7 +2295,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 case NewMailEvent newMail:
                     if (SelectedFolder?.Id == newMail.FolderId)
                     {
-                        await LoadMessagesAsync(SelectedFolder);
+                        await RefreshMessagesAsync(SelectedFolder);
                     }
 
                     break;
