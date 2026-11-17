@@ -45,6 +45,7 @@ public partial class MainWindow : Window
         viewModel.Reader.PropertyChanged += OnReaderPropertyChanged;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.ShowRequested += OnShowRequested;
+        viewModel.ScrollToMessageRequested += OnScrollToMessageRequested;
         MailList.AddHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
         Opened += OnOpened;
@@ -86,11 +87,16 @@ public partial class MainWindow : Window
         });
     }
 
+    private void OnScrollToMessageRequested(MailSummaryViewModel message)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => MailList.ScrollIntoView(message));
+    }
+
     private void OnJumpRangeItemClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is Button { Tag: string tag } && int.TryParse(tag, out var index))
         {
-            // 再次点击当前范围可取消筛选，回到全部邮件。
+            // 再次点击当前范围可清除高亮，不再跳转。
             _viewModel.JumpRangeIndex = _viewModel.JumpRangeIndex == index ? 0 : index;
         }
 

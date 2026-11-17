@@ -57,6 +57,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     /// <summary>请求窗口置前并激活（用于点击系统通知后跳转）。</summary>
     public event Action? ShowRequested;
 
+    /// <summary>请求列表滚动到指定邮件（跳转到某个时间范围时使用）。</summary>
+    public event Action<MailSummaryViewModel>? ScrollToMessageRequested;
+
     public ObservableCollection<FolderViewModel> Folders { get; } = [];
 
     public ObservableCollection<MailSummaryViewModel> Messages { get; } = [];
@@ -981,7 +984,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsJumpLastWeek));
         OnPropertyChanged(nameof(IsJumpLastMonth));
         OnPropertyChanged(nameof(IsJumpLastYear));
-        ApplyFilter();
+        JumpToRange();
     }
 
     partial void OnCustomDateChanged(DateTime? value)
@@ -989,7 +992,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(JumpLabel));
         OnPropertyChanged(nameof(CustomDateText));
         BuildCalendar();
-        ApplyFilter();
     }
 
     [RelayCommand]
@@ -1000,9 +1002,41 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        JumpRangeIndex = 5;
-        ApplyFilter();
+        if (JumpRangeIndex == 5)
+        {
+            JumpToRange();
+        }
+        else
+        {
+            JumpRangeIndex = 5;
+        }
     }
+
+    /// <summary>跳转到指定时间范围的第一封邮件：不改变筛选，只选中并滚动到该邮件。</summary>
+    private void JumpToRange()
+    {
+        if (Messages.Count == 0 || GetJumpRange() is not { } range)
+        {
+            return;
+        }
+
+        // 范围内没有邮件时，退化为定位到时间上最接近的一封。
+        var target = Messages.FirstOrDefault(message => InRange(message.Date.ToLocalTime(), range))
+                     ?? Messages.OrderBy(message => DistanceTo(message.Date.ToLocalTime(), range)).First();
+
+        SelectedMessage = target;
+        ScrollToMessageRequested?.Invoke(target);
+    }
+
+    private static bool InRange(DateTimeOffset value, (DateTimeOffset Start, DateTimeOffset End) range)
+        => value >= range.Start && value < range.End;
+
+    private static TimeSpan DistanceTo(DateTimeOffset value, (DateTimeOffset Start, DateTimeOffset End) range)
+        => value < range.Start
+            ? range.Start - value
+            : value >= range.End
+                ? value - range.End
+                : TimeSpan.Zero;
 
 
     private void OnMessagePropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -2039,15 +2073,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             3 => query.Where(message => message.HasAttachments),
             _ => query
         };
-
-        if (GetJumpRange() is { } range)
-        {
-            query = query.Where(message =>
-            {
-                var local = message.Date.ToLocalTime();
-                return local >= range.Start && local < range.End;
-            });
-        }
 
         var filtered = query.ToList();
         filtered.Sort(CompareMessages);
