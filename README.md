@@ -66,7 +66,16 @@ dotnet test MailDog.slnx -c Debug --no-restore
 
 # 发布两个 AOT 单文件（从仓库根执行）
 pwsh -File src/build/publish.ps1 -Runtime win-x64
+
+# 打包：版本化压缩包 dist/MailDog-<版本>-win-x64.zip
+pwsh -File src/build/package.ps1 -Runtime win-x64
+
+# 打包 + 安装包（需要 Inno Setup 6，可用 choco install innosetup 安装）
+pwsh -File src/build/package.ps1 -Runtime win-x64 -Installer
 ```
+
+- 版本号默认读取 `src/Directory.Build.props`，也可用 `-Version 1.2.3` 覆盖。
+- 推送 `v*` 标签会触发 [release 流水线](.github/workflows/release.yml)：同时构建 win-x64 / win-arm64 压缩包与 win-x64 安装包，并创建 GitHub Release 上传产物。
 
 ## 运行
 
@@ -88,11 +97,14 @@ dist/win-x64/MailDog/MailDog.UI.exe
 ## 已实测产物
 
 ```
-dist/win-x64/
-├── MailDog/
-│   ├── MailDog.Engine.exe   13.49 MiB
-│   └── MailDog.UI.exe       45.82 MiB
-└── MailDog-win-x64.zip      26.23 MiB
+dist/
+├── win-x64/
+│   ├── MailDog/
+│   │   ├── MailDog.Engine.exe   13.49 MiB
+│   │   └── MailDog.UI.exe       45.87 MiB
+│   └── MailDog-win-x64.zip      27.08 MiB
+├── MailDog-0.1.0-win-x64.zip        便携版压缩包
+└── MailDog-0.1.0-win-x64-setup.exe  安装包（-Installer）
 ```
 
 - 两个 exe 均为自包含单文件，无需 .NET 运行时；UI 需与 Engine 位于同一目录，才能自动拉起后台。
@@ -114,7 +126,7 @@ dist/win-x64/
 | 5 | NativeWebView + 净化 + 降级 | ✅ 已完成 |
 | 6 | 托盘与进程生命周期闭环 | ✅ 已完成 |
 | 7 | 撰写/回复/发信 | v1.1 |
-| 8 | 代码签名、安装包、自动更新 | v1.1 |
+| 8 | 代码签名、自动更新 | v1.1 |
 
 ## 已知限制
 

@@ -4,7 +4,10 @@ param(
     [string]$Runtime = 'win-x64',
 
     [ValidateSet('Debug', 'Release')]
-    [string]$Configuration = 'Release'
+    [string]$Configuration = 'Release',
+
+    # 覆盖程序集版本（打包流水线传入标签版本号时使用）。
+    [string]$Version
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,6 +26,10 @@ $publishArgs = @(
     '-p:StripSymbols=true'
     '--nologo'
 )
+
+if ($Version) {
+    $publishArgs += "-p:Version=$Version"
+}
 
 Push-Location $srcRoot
 try {
