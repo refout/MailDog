@@ -596,7 +596,7 @@ CREATE TABLE settings (
 - 支持 IDLE 的服务器：每个账户维持一条独立监听连接，进入 IDLE，服务器超时前（9 分钟）主动退出并重入；`CountChanged` 触发该账户立即增量同步。服务器不支持 IDLE 时自动回退到周期轮询。
 - 同步失败按 30s / 60s / 120s / 240s / 600s 退避重试；认证失败改为 30 分钟后再试，避免频繁撞验证。
 - QQ 若 IDLE 不稳定：退避重连；轮询始终作为兜底，有变化才拉取。
-- 应用从睡眠恢复：监听 `SystemEvents.PowerModeChanged`（Engine 内 P/Invoke 或 `Microsoft.Win32.SystemEvents`；优先 P/Invoke 广播消息），恢复后立即同步。
+- 应用从睡眠恢复：托盘窗口接收 `WM_POWERBROADCAST`（`PBT_APMRESUMEAUTOMATIC` / `PBT_APMRESUMESUSPEND`），重建全部 IDLE 连接并立即同步。托盘窗口改为隐藏的顶层窗口，才能收到广播消息（`TaskbarCreated`、电源事件）。
 
 ### 7.6 正文获取
 

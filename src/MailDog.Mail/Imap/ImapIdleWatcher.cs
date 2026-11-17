@@ -62,6 +62,23 @@ public sealed class ImapIdleWatcher : IAsyncDisposable
         }
     }
 
+    /// <summary>断开所有监听连接；下一次 Refresh 会重新启动。</summary>
+    public void RestartAll()
+    {
+        Loop[] loops;
+
+        lock (_gate)
+        {
+            loops = _loops.Values.ToArray();
+            _loops.Clear();
+        }
+
+        foreach (var loop in loops)
+        {
+            Stop(loop);
+        }
+    }
+
     private async Task RunAsync(AccountRecord account, CancellationToken cancellationToken)
     {
         var failures = 0;

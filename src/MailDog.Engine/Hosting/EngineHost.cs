@@ -94,6 +94,7 @@ public sealed class EngineHost : IAsyncDisposable
             OpenUi,
             HandleNotificationClicked,
             () => _ = SyncAllAsync(_cts.Token),
+            OnSystemResumed,
             () => _cts.Cancel(),
             IsDarkTheme);
 
@@ -270,6 +271,35 @@ public sealed class EngineHost : IAsyncDisposable
         if (synced)
         {
             _tray?.UpdateTooltip(BuildTooltip());
+        }
+    }
+
+    /// <summary>系统从睡眠恢复：IDLE 长连接多半已断，重建监听并立即同步全部账户。</summary>
+    private void OnSystemResumed()
+    {
+        _log.Info("系统已从睡眠恢复，重新建立同步连接。");
+
+        _idle.RestartAll();
+
+        lock (_syncStateGate)
+        {
+            _nextSyncAt.Clear();
+        }
+
+        _ = SyncAfterResumeAsync();
+    }
+
+    private async Task SyncAfterResumeAsync()
+    {
+        try
+        {
+            // 唤醒后网络通常需要几秒才恢复。
+            await Task.Delay(TimeSpan.FromSeconds(2), _cts.Token).ConfigureAwait(false);
+            await SyncAllAsync(_cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // 关闭中。
         }
     }
 

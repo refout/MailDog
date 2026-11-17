@@ -6,6 +6,10 @@ namespace MailDog.Engine.Tray;
 public sealed class Win32Tray : IDisposable
 {
     private const uint WM_TRAYICON = NativeMethods.WM_APP + 1;
+    private const uint WM_POWERBROADCAST = 0x0218;
+    private const int PBT_APMRESUMESUSPEND = 0x0007;
+    private const int PBT_APMRESUMEAUTOMATIC = 0x0012;
+    private const uint WS_EX_TOOLWINDOW = 0x00000080;
     private const uint NIN_BALLOONUSERCLICK = 0x0405;
     private const int CommandOpen = 1;
     private const int CommandSync = 2;
@@ -17,6 +21,7 @@ public sealed class Win32Tray : IDisposable
     private readonly Action _openUi;
     private readonly Action _notificationClicked;
     private readonly Action _syncAll;
+    private readonly Action _resumed;
     private readonly Action _exit;
     private readonly Func<bool> _isDarkTheme;
     private readonly NativeMethods.WndProcDelegate _wndProc;
@@ -36,12 +41,14 @@ public sealed class Win32Tray : IDisposable
         Action openUi,
         Action notificationClicked,
         Action syncAll,
+        Action resumed,
         Action exit,
         Func<bool> isDarkTheme)
     {
         _openUi = openUi;
         _notificationClicked = notificationClicked;
         _syncAll = syncAll;
+        _resumed = resumed;
         _exit = exit;
         _isDarkTheme = isDarkTheme;
         _wndProc = WindowProc;
@@ -72,8 +79,10 @@ public sealed class Win32Tray : IDisposable
             throw new Win32Exception(Marshal.GetLastWin32Error(), "注册托盘窗口类失败。");
         }
 
+        // 用隐藏的顶层窗口（而不是 message-only 窗口）才能收到 Broadcast：
+        // TaskbarCreated 与 WM_POWERBROADCAST 都不会发给 message-only 窗口。
         _window = NativeMethods.CreateWindowEx(
-            0,
+            WS_EX_TOOLWINDOW,
             "MailDog.Tray",
             "MailDog",
             0,
@@ -81,7 +90,7 @@ public sealed class Win32Tray : IDisposable
             0,
             0,
             0,
-            NativeMethods.HwndMessage,
+            IntPtr.Zero,
             IntPtr.Zero,
             windowClass.hInstance,
             IntPtr.Zero);
@@ -229,6 +238,19 @@ public sealed class Win32Tray : IDisposable
         {
             _iconAdded = false;
             AddIcon();
+            return IntPtr.Zero;
+        }
+
+        if (message == WM_POWERBROADCAST)
+        {
+            var powerEvent = (int)(wParam.ToInt64() & 0xFFFF);
+
+            if (powerEvent is PBT_APMRESUMEAUTOMATIC or PBT_APMRESUMESUSPEND)
+            {
+                _resumed();
+                return new IntPtr(1);
+            }
+
             return IntPtr.Zero;
         }
 
