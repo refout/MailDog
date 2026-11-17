@@ -119,11 +119,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private DateTime? _customDate = DateTime.Today;
 
-    /// <summary>日期选择面板是否展开。</summary>
+    public string CustomDateText => CustomDate is { } date ? $"{date:yyyy/M/d}" : "选择日期";
+
+    /// <summary>日期选择面板是否展开（面板显示在跳转下拉菜单之外）。</summary>
     [ObservableProperty]
     private bool _isDatePanelOpen;
-
-    public string CustomDateText => CustomDate is { } date ? $"{date:yyyy/M/d}" : "选择日期";
 
     /// <summary>日历面板当前显示的月份（每月 1 日）。</summary>
     [ObservableProperty]
@@ -161,7 +161,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         var selected = CustomDate?.Date;
         var today = DateTime.Today;
 
-        for (var offset = 0; offset < 42; offset++)
+        // 只保留覆盖整月的周数，避免多出一整行下个月日期。
+        var daysInMonth = DateTime.DaysInMonth(first.Year, first.Month);
+        var usedDays = (int)first.DayOfWeek + daysInMonth;
+        var cellCount = (usedDays + 6) / 7 * 7;
+
+        for (var offset = 0; offset < cellCount; offset++)
         {
             var date = start.AddDays(offset);
             CalendarDays.Add(new CalendarDayViewModel(

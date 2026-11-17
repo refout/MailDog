@@ -97,20 +97,35 @@ public partial class MainWindow : Window
         JumpButton.Flyout?.Hide();
     }
 
-    private void OnJumpFlyoutOpened(object? sender, EventArgs e)
+    private void OnApplyCustomRangeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        _viewModel.ApplyCustomRangeCommand.Execute(null);
         _viewModel.IsDatePanelOpen = false;
+        JumpButton.Flyout?.Hide();
     }
 
     private void OnToggleDatePanelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        if (_viewModel.CustomDate is { } date)
+        {
+            var month = new DateTime(date.Year, date.Month, 1);
+            if (_viewModel.CalendarMonth != month)
+            {
+                _viewModel.CalendarMonth = month;
+            }
+        }
+
         _viewModel.IsDatePanelOpen = !_viewModel.IsDatePanelOpen;
     }
 
-    private void OnApplyCustomRangeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private void OnDatePanelClosed(object? sender, EventArgs e)
     {
-        _viewModel.ApplyCustomRangeCommand.Execute(null);
-        JumpButton.Flyout?.Hide();
+        _viewModel.IsDatePanelOpen = false;
+    }
+
+    private void OnJumpFlyoutClosed(object? sender, EventArgs e)
+    {
+        _viewModel.IsDatePanelOpen = false;
     }
 
     private void OnCalendarDayClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

@@ -195,9 +195,8 @@
                       ToolTip.Tip="{Binding JumpLabel}">
                 <ic:FluentIcon Icon="Calendar" IconSize="Size16" />
                 <Button.Flyout>
-                  <Flyout Placement="BottomEdgeAlignedRight" Opened="OnJumpFlyoutOpened">
-                    <StackPanel Width="292" Spacing="2">
-                      <TextBlock Text="按时间跳转" Classes="section" Margin="4,0,0,4" />
+                  <Flyout Placement="BottomEdgeAlignedRight" Closed="OnJumpFlyoutClosed">
+                    <StackPanel MinWidth="180" Spacing="2">
                       <Button Classes="jump-item"
                               Classes.active="{Binding IsJumpToday}"
                               Tag="1"
@@ -223,75 +222,85 @@
                               Tag="6"
                               Content="去年"
                               Click="OnJumpRangeItemClick" />
-                      <Border Height="1"
-                              Background="{DynamicResource MailDogBrushStroke}" />
-                      <Button Classes="date-field"
+                      <Button x:Name="DateFieldButton"
+                              Classes="date-field"
                               AutomationProperties.Name="选择日期"
+                              Margin="0,6,0,0"
                               Click="OnToggleDatePanelClick">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
                           <TextBlock Text="{Binding CustomDateText}" VerticalAlignment="Center" />
-                          <ic:FluentIcon Icon="Calendar" IconSize="Size16" VerticalAlignment="Center" />
-                        </StackPanel>
+                          <ic:FluentIcon Grid.Column="1"
+                                         Icon="Calendar"
+                                         IconSize="Size16"
+                                         VerticalAlignment="Center" />
+                        </Grid>
                       </Button>
-                      <Border CornerRadius="8"
-                              IsVisible="{Binding IsDatePanelOpen}"
-                              ClipToBounds="True"
-                              Background="{DynamicResource MailDogBrushBgSubtle}"
-                              BorderBrush="{DynamicResource MailDogBrushStroke}"
-                              BorderThickness="1"
-                              Padding="8">
-                        <StackPanel Spacing="4">
-                          <Grid ColumnDefinitions="*,Auto,Auto">
-                            <TextBlock Text="{Binding CalendarMonthText}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                            <Button Grid.Column="1"
-                                    Classes="icon"
-                                    Command="{Binding PreviousMonthCommand}"
-                                    ToolTip.Tip="上个月">
-                              <ic:FluentIcon Icon="ChevronLeft" IconSize="Size16" />
-                            </Button>
-                            <Button Grid.Column="2"
-                                    Classes="icon"
-                                    Command="{Binding NextMonthCommand}"
-                                    ToolTip.Tip="下个月">
-                              <ic:FluentIcon Icon="ChevronRight" IconSize="Size16" />
-                            </Button>
-                          </Grid>
-                          <UniformGrid Columns="7">
-                            <TextBlock Text="日" Classes="calendar-weekday" />
-                            <TextBlock Text="一" Classes="calendar-weekday" />
-                            <TextBlock Text="二" Classes="calendar-weekday" />
-                            <TextBlock Text="三" Classes="calendar-weekday" />
-                            <TextBlock Text="四" Classes="calendar-weekday" />
-                            <TextBlock Text="五" Classes="calendar-weekday" />
-                            <TextBlock Text="六" Classes="calendar-weekday" />
-                          </UniformGrid>
-                          <ItemsControl ItemsSource="{Binding CalendarDays}">
-                            <ItemsControl.ItemsPanel>
-                              <ItemsPanelTemplate>
-                                <UniformGrid Columns="7" />
-                              </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                              <DataTemplate x:DataType="vm:CalendarDayViewModel">
-                                <Button Classes="calendar-day"
-                                        Classes.selected="{Binding IsSelected}"
-                                        Classes.outside="{Binding !IsCurrentMonth}"
-                                        Classes.today="{Binding IsToday}"
-                                        Content="{Binding DayText}"
-                                        Click="OnCalendarDayClick" />
-                              </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                          </ItemsControl>
-                        </StackPanel>
-                      </Border>
-                      <Button Content="应用"
-                              Command="{Binding ApplyCustomRangeCommand}"
-                              IsVisible="{Binding IsDatePanelOpen}"
-                              Click="OnApplyCustomRangeClick"
-                              Margin="0,4,0,0"
-                              HorizontalAlignment="Stretch" />
+
+                      <!-- 日期选择面板：显示在下拉菜单之外，单独浮层 -->
+                      <Popup x:Name="DatePanel"
+                             PlacementTarget="{Binding #DateFieldButton}"
+                             Placement="RightEdgeAlignedTop"
+                             HorizontalOffset="10"
+                             IsOpen="{Binding IsDatePanelOpen, Mode=TwoWay}"
+                             IsLightDismissEnabled="False"
+                             Closed="OnDatePanelClosed">
+                        <Border Background="{DynamicResource MailDogBrushPopup}"
+                                BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                BoxShadow="0 6 18 0 #55000000"
+                                Padding="8">
+                          <StackPanel Width="224" Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto,Auto">
+                              <TextBlock Text="{Binding CalendarMonthText}"
+                                         FontWeight="SemiBold"
+                                         VerticalAlignment="Center" />
+                              <Button Grid.Column="1"
+                                      Classes="icon"
+                                      Command="{Binding PreviousMonthCommand}"
+                                      ToolTip.Tip="上个月">
+                                <ic:FluentIcon Icon="ChevronLeft" IconSize="Size16" />
+                              </Button>
+                              <Button Grid.Column="2"
+                                      Classes="icon"
+                                      Command="{Binding NextMonthCommand}"
+                                      ToolTip.Tip="下个月">
+                                <ic:FluentIcon Icon="ChevronRight" IconSize="Size16" />
+                              </Button>
+                            </Grid>
+                            <UniformGrid Columns="7">
+                              <TextBlock Text="日" Classes="calendar-weekday" />
+                              <TextBlock Text="一" Classes="calendar-weekday" />
+                              <TextBlock Text="二" Classes="calendar-weekday" />
+                              <TextBlock Text="三" Classes="calendar-weekday" />
+                              <TextBlock Text="四" Classes="calendar-weekday" />
+                              <TextBlock Text="五" Classes="calendar-weekday" />
+                              <TextBlock Text="六" Classes="calendar-weekday" />
+                            </UniformGrid>
+                            <ItemsControl ItemsSource="{Binding CalendarDays}">
+                              <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                  <UniformGrid Columns="7" />
+                                </ItemsPanelTemplate>
+                              </ItemsControl.ItemsPanel>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CalendarDayViewModel">
+                                  <Button Classes="calendar-day"
+                                          Classes.selected="{Binding IsSelected}"
+                                          Classes.outside="{Binding !IsCurrentMonth}"
+                                          Classes.today="{Binding IsToday}"
+                                          Content="{Binding DayText}"
+                                          Click="OnCalendarDayClick" />
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="应用"
+                                    Command="{Binding ApplyCustomRangeCommand}"
+                                    Click="OnApplyCustomRangeClick"
+                                    HorizontalAlignment="Stretch" />
+                          </StackPanel>
+                        </Border>
+                      </Popup>
                     </StackPanel>
                   </Flyout>
                 </Button.Flyout>
