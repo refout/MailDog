@@ -591,10 +591,11 @@ CREATE TABLE settings (
 
 ### 7.5 IDLE 与轮询
 
-> v1 实现：使用 60s 轮询（PeriodicTimer）完成增量同步，尚未启用 IMAP IDLE；IDLE 作为 v1.1 优化项保留。
+> v1 只读实现：周期轮询兜底（默认 60s）；v1.1 已加入 IDLE 实时收信。
 
-- 支持 IDLE 的服务器：进入 IDLE，服务器超时前（通常 9 分钟）主动退出并重入；`CountChanged` 触发增量同步。
-- QQ 若 IDLE 不稳定：provider 能力标记 `UseIdle=false`，改为 60s 轮询 `STATUS (MESSAGES UNSEEN)`，有变化才拉取。
+- 支持 IDLE 的服务器：每个账户维持一条独立监听连接，进入 IDLE，服务器超时前（9 分钟）主动退出并重入；`CountChanged` 触发该账户立即增量同步。服务器不支持 IDLE 时自动回退到周期轮询。
+- 同步失败按 30s / 60s / 120s / 240s / 600s 退避重试；认证失败改为 30 分钟后再试，避免频繁撞验证。
+- QQ 若 IDLE 不稳定：退避重连；轮询始终作为兜底，有变化才拉取。
 - 应用从睡眠恢复：监听 `SystemEvents.PowerModeChanged`（Engine 内 P/Invoke 或 `Microsoft.Win32.SystemEvents`；优先 P/Invoke 广播消息），恢复后立即同步。
 
 ### 7.6 正文获取

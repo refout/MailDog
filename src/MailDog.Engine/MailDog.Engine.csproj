@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net11.0</TargetFramework>
     <AssemblyName>MailDog.Engine</AssemblyName>
     <RootNamespace>MailDog.Engine</RootNamespace>

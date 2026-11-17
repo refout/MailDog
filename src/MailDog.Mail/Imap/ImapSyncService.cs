@@ -434,28 +434,9 @@ public sealed class ImapSyncService : IAsyncDisposable
             session.Client = null;
         }
 
-        var config = ProviderCatalog.Get(account.Provider);
-        var client = new ImapClient { Timeout = 30000 };
-
-        await client.ConnectAsync(config.ImapHost, config.ImapPort, SecureSocketOptions.SslOnConnect, cancellationToken)
+        session.Client = await ImapConnectionFactory
+            .ConnectAsync(account, _accounts, _tokens, cancellationToken)
             .ConfigureAwait(false);
-
-        if (account.AuthKind == "oauth2")
-        {
-            var token = await _tokens.GetAccessTokenAsync(account, cancellationToken).ConfigureAwait(false);
-            await client.AuthenticateAsync(new SaslMechanismOAuth2(account.Email, token), cancellationToken)
-                .ConfigureAwait(false);
-        }
-        else
-        {
-            var password = _accounts.GetPassword(account)
-                ?? throw new AuthenticationException("未找到账户授权码，请重新添加账户。");
-
-            await client.AuthenticateAsync(new SaslMechanismPlain(account.Email, password), cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        session.Client = client;
     }
 
     private async Task<IReadOnlyList<FolderRecord>> LoadFoldersAsync(

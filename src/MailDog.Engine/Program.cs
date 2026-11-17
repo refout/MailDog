@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using MailDog.Engine.Hosting;
 using MailDog.Mail.Storage;
@@ -9,9 +10,20 @@ namespace MailDog.Engine;
 
 internal static class Program
 {
+    private const uint AttachParentProcess = 0xFFFFFFFF;
+
     public static int Main(string[] args)
     {
-        if (args.Contains("--probe", StringComparer.OrdinalIgnoreCase))
+        var probe = args.Contains("--probe", StringComparer.OrdinalIgnoreCase);
+        var console = args.Contains("--console", StringComparer.OrdinalIgnoreCase);
+
+        // 进程是 WinExe：从终端带 --probe / --console 启动时借用父窗口的控制台输出。
+        if ((probe || console) && OperatingSystem.IsWindows())
+        {
+            AttachConsole(AttachParentProcess);
+        }
+
+        if (probe)
         {
             return RunProbes();
         }
@@ -27,7 +39,7 @@ internal static class Program
 
         var host = new EngineHost(
             databasePath,
-            hideConsole: !args.Contains("--console", StringComparer.OrdinalIgnoreCase));
+            hideConsole: !console);
 
         try
         {
@@ -58,6 +70,10 @@ internal static class Program
 
         return null;
     }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AttachConsole(uint dwProcessId);
 
     private static int RunProbes()
     {

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
@@ -8,6 +9,7 @@ using MailDog.Mail.Accounts;
 using MailDog.Mail.Auth;
 using MailDog.Mail.Imap;
 using MailDog.Mail.Storage;
+using MailKit.Security;
 
 namespace MailDog.Engine.Hosting;
 
@@ -19,11 +21,16 @@ public sealed class EngineHost : IAsyncDisposable
     private readonly SecretStore _secrets;
     private readonly AccountService _accounts;
     private readonly ImapSyncService _sync;
+    private readonly ImapIdleWatcher _idle;
     private readonly OutlookAuthService _outlookAuth;
     private readonly RequestRouter _router;
     private readonly IpcServer _ipc;
     private readonly CancellationTokenSource _cts = new();
     private readonly bool _hideConsole;
+    private readonly ConcurrentDictionary<string, byte> _synchronizing = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTimeOffset> _nextSyncAt = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _syncFailures = new(StringComparer.Ordinal);
+    private readonly object _syncStateGate = new();
     private Task? _scheduler;
     private Win32Tray? _tray;
     private (long MessageId, string AccountId, long FolderId)? _lastNotification;
@@ -39,12 +46,15 @@ public sealed class EngineHost : IAsyncDisposable
         _accounts = new AccountService(_store, _secrets);
         _outlookAuth = new OutlookAuthService(_store, _accounts, _secrets);
         _sync = new ImapSyncService(_store, _accounts, _outlookAuth);
+        _idle = new ImapIdleWatcher(_accounts, _outlookAuth);
         _router = new RequestRouter(_store, _accounts, _sync, _outlookAuth);
         _ipc = new IpcServer(_router, message => _log.Warn(message));
 
         _router.Diagnostic += message => _log.Warn(message);
         _router.TakePendingNavigation = TakePendingNavigation;
         _sync.Diagnostic += message => _log.Warn(message);
+        _idle.Diagnostic += message => _log.Info(message);
+        _idle.MailArrived += accountId => _ = SyncFromIdleAsync(accountId);
         _sync.NewMail += message =>
         {
             _ipc.Broadcast(IpcMessageTypes.NewMail, message);
@@ -222,8 +232,8 @@ public sealed class EngineHost : IAsyncDisposable
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var minutes = Math.Clamp(_store.GetSettings().SyncIntervalMinutes, 1, 60);
-                await Task.Delay(TimeSpan.FromMinutes(minutes), cancellationToken).ConfigureAwait(false);
+                // 每 30 秒检查一次：到期的账户才同步，失败账户按退避时间重试。
+                await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
                 await SyncAllAsync(cancellationToken).ConfigureAwait(false);
             }
         }
@@ -234,26 +244,112 @@ public sealed class EngineHost : IAsyncDisposable
 
     private async Task SyncAllAsync(CancellationToken cancellationToken)
     {
-        foreach (var account in _accounts.GetAccounts())
+        var accounts = _store.GetAccounts();
+
+        // 顺带让 IDLE 监听与账户列表保持一致。
+        _idle.Refresh(accounts);
+
+        var now = DateTimeOffset.UtcNow;
+        var synced = false;
+
+        foreach (var account in accounts)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            try
+            lock (_syncStateGate)
             {
-                await _sync.SyncAccountAsync(account.Id, cancellationToken).ConfigureAwait(false);
+                if (_nextSyncAt.TryGetValue(account.Id, out var due) && due > now)
+                {
+                    continue;
+                }
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                _log.Warn($"同步账户 {account.Email} 失败：{exception.Message}");
-            }
+
+            synced |= await TrySyncAccountAsync(account.Id, cancellationToken).ConfigureAwait(false);
         }
 
-        _tray?.UpdateTooltip(BuildTooltip());
+        if (synced)
+        {
+            _tray?.UpdateTooltip(BuildTooltip());
+        }
     }
+
+    /// <summary>IDLE 收到新邮件后的即时同步。</summary>
+    private async Task SyncFromIdleAsync(string accountId)
+    {
+        try
+        {
+            if (await TrySyncAccountAsync(accountId, _cts.Token).ConfigureAwait(false))
+            {
+                _tray?.UpdateTooltip(BuildTooltip());
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 关闭中。
+        }
+    }
+
+    private async Task<bool> TrySyncAccountAsync(string accountId, CancellationToken cancellationToken)
+    {
+        // 同一账户同一时间只跑一个同步，IDLE 与轮询不会叠加。
+        if (!_synchronizing.TryAdd(accountId, 0))
+        {
+            return false;
+        }
+
+        try
+        {
+            await _sync.SyncAccountAsync(accountId, cancellationToken).ConfigureAwait(false);
+
+            lock (_syncStateGate)
+            {
+                _syncFailures.Remove(accountId);
+                _nextSyncAt[accountId] = DateTimeOffset.UtcNow.AddMinutes(CurrentIntervalMinutes);
+            }
+
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (AuthenticationException exception)
+        {
+            // 认证失败通常需要用户重新登录，避免频繁重试。
+            lock (_syncStateGate)
+            {
+                _nextSyncAt[accountId] = DateTimeOffset.UtcNow.AddMinutes(30);
+            }
+
+            _log.Warn($"账户认证失败，30 分钟后重试：{exception.Message}");
+            return false;
+        }
+        catch (Exception exception)
+        {
+            int failures;
+            TimeSpan delay;
+
+            lock (_syncStateGate)
+            {
+                failures = _syncFailures.GetValueOrDefault(accountId) + 1;
+                _syncFailures[accountId] = failures;
+                delay = TimeSpan.FromSeconds(Math.Min(
+                    600,
+                    30 * Math.Pow(2, Math.Min(failures - 1, 4))));
+                _nextSyncAt[accountId] = DateTimeOffset.UtcNow + delay;
+            }
+
+            _log.Warn($"同步账户失败，{delay.TotalSeconds:0} 秒后重试：{exception.Message}");
+            return false;
+        }
+        finally
+        {
+            _synchronizing.TryRemove(accountId, out _);
+        }
+    }
+
+    private int CurrentIntervalMinutes
+        => Math.Clamp(_store.GetSettings().SyncIntervalMinutes, 1, 60);
 
     public async ValueTask DisposeAsync()
     {
@@ -271,6 +367,7 @@ public sealed class EngineHost : IAsyncDisposable
             }
         }
 
+        await _idle.DisposeAsync().ConfigureAwait(false);
         await _sync.DisposeAsync().ConfigureAwait(false);
         await _ipc.DisposeAsync().ConfigureAwait(false);
         _tray?.Dispose();
