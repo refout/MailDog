@@ -422,6 +422,35 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _theme = "system";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCompactDensity))]
+    [NotifyPropertyChangedFor(nameof(IsNormalDensity))]
+    private string _density = "compact";
+
+    public bool IsCompactDensity
+    {
+        get => !ThemeService.IsNormalDensity(Density);
+        set
+        {
+            if (value)
+            {
+                Density = "compact";
+            }
+        }
+    }
+
+    public bool IsNormalDensity
+    {
+        get => ThemeService.IsNormalDensity(Density);
+        set
+        {
+            if (value)
+            {
+                Density = "normal";
+            }
+        }
+    }
+
+    [ObservableProperty]
     private int _themeIndex;
 
     [ObservableProperty]
@@ -2311,6 +2340,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         => new()
         {
             Theme = Theme,
+            Density = Density,
             Material = Material,
             BackgroundColor = string.IsNullOrWhiteSpace(BackgroundColorHex) ? null : BackgroundColorHex.Trim(),
             BackgroundOpacity = Math.Clamp(BackgroundOpacity, 40, 100),
@@ -3265,6 +3295,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         QueueSettingsSave();
     }
 
+    partial void OnDensityChanged(string value)
+    {
+        ThemeService.ApplyDensity(value);
+        _readerAppearanceDirty = true;
+        QueueSettingsSave();
+    }
+
     partial void OnShowRemoteImagesChanged(bool value)
     {
         _allowRemoteImages = value;
@@ -3329,6 +3366,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             Theme = _settings.Theme;
+            Density = ThemeService.IsNormalDensity(_settings.Density) ? "normal" : "compact";
             ThemeIndex = _settings.Theme switch
             {
                 "light" => 1,
@@ -3777,7 +3815,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ? custom
             : themeDark ? Color.Parse("#202020") : Color.Parse("#F3F3F3");
 
-        // 与窗口的 MailDogBrushBgLayer 保持一致：基色上提 5%。
+        // 与窗口的 MailDogBrushSurfacePane 保持一致：基色上提 5%。
         var layer = AdjustColor(baseColor, 0.05);
         var dark = (0.2126 * layer.R) + (0.7152 * layer.G) + (0.0722 * layer.B) < 140;
 

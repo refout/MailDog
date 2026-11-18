@@ -1,7 +1,7 @@
-# 界面统一方案：令牌、密度与布局（v1.1）
+# 界面统一方案：令牌、密度与布局（v1.2）
 
-> 状态：**方案待批准**（尚未开始改代码）
-> 日期：2026-11-18
+> 状态：**已实施**（2026-11-19）；第 1/2/4/5/6/7 步完成，第 3 步已完成 `SettingsView` 拆分，其余视图待拆
+> 日期：2026-11-18（方案）/ 2026-11-19（落地）
 > 关联：[UI-DESIGN.md](./UI-DESIGN.md)（现行为基准）、[PLAN.md](./PLAN.md)
 > 落地后合并回 UI-DESIGN.md 的 2.1 / 2.2 / 2.3 / 2.4 / 4.4 / 5.x 章节
 
@@ -321,9 +321,33 @@ src/MailDog.UI/
 | WebView2 邮件正文白底 | 暗色下出现白卡 | 视为内容卡：加 1px `StrokeSubtle` + 圆角，明确“正文区”而非窗口底色；不改邮件样式 |
 | 拆分文件与并行开发冲突 | 合并冲突 | 等并行提交合流后再开始第 3 步 |
 
-## 11. 待决定 / 待验证
+## 12. 实施记录（2026-11-19）
 
-- [ ] 密度默认值：建议 `compact`（保持现状观感）。
-- [ ] 是否本期加 HighContrast：建议本期不做，`ThemeDictionaries` 预留 `HighContrast` 键。
-- [ ] `FluentTheme.DensityStyle` 运行时行为（第 2 步 spike 结论）。
-- [ ] 字号统一到 13（而非 UI-DESIGN 里的 14）——需你确认，确认后同步改文档。
+### 12.1 已落地
+
+| 项 | 实际结果 |
+|---|---|
+| 颜色单源 | `Tokens.axaml` 23 个语义色；视图与 C# 全部改用新名，旧 `MailDogBrushBg*` 别名已删除；`grep` 旧名 0 命中 |
+| 尺寸单源 | 控件高度/行高/页边距/图标/圆角/字号全部走 `MailDogSize*`、`MailDogRadius*`、`MailDogType*` |
+| 输入类等高 | `TextBox`、`ComboBox`、`CheckBox` 统一 `MinHeight=ControlHeight`、`Padding=10,0`、居中、圆角 6 |
+| 按钮 | 74 个按钮的内联 `Padding`/`FontSize` 全部移除，统一由 `Button` 默认规格 + `.primary/.subtle/.danger/.icon/.sm/.lg` 承担；新增 `.toolbar` 只负责间距 |
+| 密度 | 设置页“外观 → 界面密度”两档；`density` 入库；`ThemeService.ApplyDensity` 同时推送 Fluent `DensityStyle` 与尺寸令牌；重启保留 |
+| 顶栏 | 新增 `Controls/PageHeader`（透明、仅 1px 下边框、返回 + 标题）；设置页改为导航列通高 + 内容列 `Auto/*/Auto`，顶栏不再横贯导航列 |
+| 背景归属 | 侧栏 `SurfaceSubtle` / 列表与阅读 `SurfacePane` / 设置内容 `SurfaceWindow` + `SurfaceCard` 卡片；行、工具条透明 |
+| 拆分 | 设置页整块（约 930 行）迁入 `Views/SettingsView.axaml(.cs)`，账户/发件箱/备份事件处理器同步迁入；`MainWindow.axaml` 由 1937 行降到约 1035 行 |
+| 短页留白 | 通知、阅读、同步分区改为 `Border.settings-card` 卡片分组，并补一条产品说明；不再是大片无结构空白 |
+| 阅读工具栏 | 11 个动作按钮改为 `WrapPanel + .icon.toolbar`；窄窗（916px）自动折成两行，不再右侧裁切 |
+
+### 12.2 验证
+
+- `dotnet build src/MailDog.slnx`：0 警告 0 错误。
+- `dotnet test src/MailDog.slnx`：64 通过（Contracts 6 / Html 28 / Mail 30）。
+- 真机 916×639：暗色收件箱、设置外观/通知/阅读/同步/账户管理（含“编辑账户”进入表单）、亮色设置页均正常；返回按钮回到收件箱。
+- 密度切换后行高与控件高度变化，`density=standard` 入库并在重启后保留。
+
+### 12.3 仍待处理
+
+- 第 3 步剩余视图（侧栏、列表、阅读、欢迎页、账户表单）尚未独立成文件；`MainWindow` 目前保留这三栏与壳。
+- `ApplyPalette` 仍按自定义背景色重算表面色与文字/描边回退色；这些值不再被 XAML 直接引用，但尚未全部从令牌读取。
+- 自定义背景色预设本身是产品数据（16 进制字面量），不属于界面令牌，保留在 ViewModel。
+- 页内仍有少量内联字号（13/12/11）与 `Margin`；已不影响控件等高与按钮一致性，后续可按视图逐步替换为 `Body/Caption`。

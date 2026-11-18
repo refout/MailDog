@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             x:Class="MailDog.UI.Controls.PageHeader">
+  <Border Height="{DynamicResource MailDogSizeCommandBar}"
+          Background="Transparent"
+          BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+          BorderThickness="0,0,0,1"
+          Padding="16,0">
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+      <Button x:Name="BackButton"
+              Classes="icon subtle"
+              Click="OnBackClick"
+              AutomationProperties.Name="返回"
+              ToolTip.Tip="返回">
+        <ic:FluentIcon Icon="ChevronLeft" IconSize="Size20" />
+      </Button>
+      <TextBlock x:Name="TitleText"
+                 Grid.Column="1"
+                 FontSize="{DynamicResource MailDogTypeTitle}"
+                 FontWeight="SemiBold"
+                 VerticalAlignment="Center"
+                 TextTrimming="CharacterEllipsis" />
+    </Grid>
+  </Border>
+</UserControl>

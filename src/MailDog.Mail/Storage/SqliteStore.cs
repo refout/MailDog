@@ -1132,6 +1132,7 @@ public sealed class SqliteStore : IDisposable
         return new AppSettingsDto
         {
             Theme = values.GetValueOrDefault("theme", "system"),
+            Density = values.GetValueOrDefault("density") == "normal" ? "normal" : "compact",
             Material = values.GetValueOrDefault("material", "mica"),
             BackgroundColor = string.IsNullOrWhiteSpace(values.GetValueOrDefault("backgroundColor"))
                 ? null
@@ -1162,6 +1163,7 @@ public sealed class SqliteStore : IDisposable
         {
             using var transaction = _connection.BeginTransaction();
             UpsertSetting(transaction, "theme", settings.Theme);
+            UpsertSetting(transaction, "density", settings.Density == "normal" ? "normal" : "compact");
             UpsertSetting(transaction, "material", settings.Material);
             UpsertSetting(transaction, "backgroundColor", settings.BackgroundColor ?? string.Empty);
             UpsertSetting(transaction, "backgroundOpacity", settings.BackgroundOpacity.ToString(CultureInfo.InvariantCulture));

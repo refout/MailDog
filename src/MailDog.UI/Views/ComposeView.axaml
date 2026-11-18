@@ -8,7 +8,7 @@
   <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto"
         Margin="24,18,24,18"
         RowSpacing="10"
-        Background="{DynamicResource MailDogBrushBgLayer}">
+        Background="{DynamicResource MailDogBrushSurfacePane}">
 
     <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
       <TextBlock Text="{Binding WindowTitle}"
@@ -116,8 +116,8 @@
 
       <Border Grid.Column="1"
               IsVisible="{Binding IsMarkdown}"
-              Background="{DynamicResource MailDogBrushBgSubtle}"
-              BorderBrush="{DynamicResource MailDogBrushStroke}"
+              Background="{DynamicResource MailDogBrushSurfaceSubtle}"
+              BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
               BorderThickness="1"
               CornerRadius="8"
               ClipToBounds="True">
@@ -155,8 +155,8 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:ComposeAttachmentViewModel">
-            <Border Background="{DynamicResource MailDogBrushBgSubtle}"
-                    BorderBrush="{DynamicResource MailDogBrushStroke}"
+            <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
+                    BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                     BorderThickness="1"
                     CornerRadius="6"
                     Padding="8,4"
@@ -187,11 +187,11 @@
 
     <StackPanel Grid.Row="9" Spacing="6">
       <Border IsVisible="{Binding HasError}"
-              Background="{DynamicResource MailDogBrushDangerTint}"
+              Background="{DynamicResource MailDogBrushStatusDangerTint}"
               CornerRadius="6"
               Padding="10,7">
         <TextBlock Text="{Binding Error}"
-                   Foreground="{DynamicResource MailDogBrushDanger}"
+                   Foreground="{DynamicResource MailDogBrushStatusDanger}"
                    FontSize="12"
                    TextWrapping="Wrap" />
       </Border>
@@ -201,7 +201,7 @@
               CornerRadius="6"
               Padding="10,7">
         <TextBlock Text="{Binding Status}"
-                   Foreground="{DynamicResource MailDogBrushAccent}"
+                   Foreground="{DynamicResource MailDogBrushAccentBase}"
                    FontSize="12"
                    TextWrapping="Wrap" />
       </Border>

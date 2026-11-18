@@ -61,6 +61,8 @@ public sealed class AppSettingsDto
 {
     public string Theme { get; init; } = "system";
 
+    public string Density { get; init; } = "compact";
+
     public string Material { get; init; } = "mica";
 
     public string? BackgroundColor { get; init; }

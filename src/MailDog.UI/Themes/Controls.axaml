@@ -97,6 +97,10 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
   </Style>
+
+  <Style Selector="Button.toolbar">
+    <Setter Property="Margin" Value="0,0,4,4" />
+  </Style>
   <Style Selector="Button.icon:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
   </Style>
@@ -192,6 +196,16 @@
     <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentHover}" />
   </Style>
 
+  <!-- ================= 容器 ================= -->
+
+  <Style Selector="Border.settings-card">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceCard}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushStrokeSubtle}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusCard}" />
+    <Setter Property="Padding" Value="16" />
+  </Style>
+
   <!-- ================= 列表与浮层 ================= -->
 
   <Style Selector="ListBoxItem">
@@ -224,15 +238,20 @@
 
   <!-- ================= 文本样式 ================= -->
 
+  <Style Selector="TextBlock.page-title">
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeTitle}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
   <Style Selector="TextBlock.caption">
     <Setter Property="FontSize" Value="{DynamicResource MailDogTypeCaption}" />
     <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextSecondary}" />
   </Style>
 
   <Style Selector="TextBlock.section">
-    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeCaption}" />
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeBody}" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextTertiary}" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextSecondary}" />
   </Style>
 
   <Style Selector="TextBlock.calendar-weekday">

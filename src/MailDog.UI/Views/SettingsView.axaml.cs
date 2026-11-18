@@ -1,0 +1,156 @@
+using System;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using MailDog.UI.ViewModels;
+
+namespace MailDog.UI.Views;
+
+public partial class SettingsView : UserControl
+{
+    public SettingsView()
+    {
+        InitializeComponent();
+    }
+
+    private MainWindowViewModel? Vm => DataContext as MainWindowViewModel;
+
+    private void OnEditAccountClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            Vm?.BeginEditAccount(account);
+        }
+    }
+
+    private async void OnReauthorizeAccountClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account } && Vm is { } vm)
+        {
+            await vm.ReauthorizeAccountAsync(account);
+        }
+    }
+
+    private async void OnSetDefaultAccountClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account } && Vm is { } vm)
+        {
+            await vm.SetDefaultAccountAsync(account);
+        }
+    }
+
+    private async void OnMoveAccountUpClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account } && Vm is { } vm)
+        {
+            await vm.MoveAccountAsync(account, -1);
+        }
+    }
+
+    private async void OnMoveAccountDownClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account } && Vm is { } vm)
+        {
+            await vm.MoveAccountAsync(account, 1);
+        }
+    }
+
+    private void OnDeleteAccountClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            Vm?.RequestDeleteAccount(account);
+        }
+    }
+
+    private void OnCancelDeleteAccountClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            Vm?.CancelDeleteAccount(account);
+        }
+    }
+
+    private async void OnConfirmDeleteAccountClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account } && Vm is { } vm)
+        {
+            await vm.DeleteAccountAsync(account);
+        }
+    }
+
+    private async void OnRefreshOutboxClick(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is { } vm)
+        {
+            await vm.RefreshOutboxAsync();
+        }
+    }
+
+    private async void OnRetryOutboxClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: OutboxItemViewModel item } && Vm is { } vm)
+        {
+            await vm.RetryOutboxAsync(item);
+        }
+    }
+
+    private async void OnDeleteOutboxClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: OutboxItemViewModel item } && Vm is { } vm)
+        {
+            await vm.DeleteOutboxAsync(item);
+        }
+    }
+
+    private async void OnCreateBackupClick(object? sender, RoutedEventArgs e)
+    {
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage is null)
+        {
+            return;
+        }
+
+        var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "创建 MailDog 备份",
+            SuggestedFileName = $"MailDog-backup-{DateTime.Now:yyyyMMdd-HHmm}.zip",
+            DefaultExtension = "zip",
+            ShowOverwritePrompt = true
+        });
+
+        var path = file?.TryGetLocalPath();
+        if (!string.IsNullOrEmpty(path) && Vm is { } vm)
+        {
+            await vm.CreateBackupAsync(path);
+        }
+    }
+
+    private async void OnRestoreBackupClick(object? sender, RoutedEventArgs e)
+    {
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage is null)
+        {
+            return;
+        }
+
+        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "选择 MailDog 备份",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("MailDog 备份")
+                {
+                    Patterns = ["*.zip"]
+                }
+            ]
+        });
+
+        var path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+        if (!string.IsNullOrEmpty(path) && Vm is { } vm)
+        {
+            await vm.RestoreBackupAsync(path);
+        }
+    }
+}
