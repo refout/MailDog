@@ -2,6 +2,8 @@
 
 双进程、全 Native AOT、零 MSAL 的桌面邮件客户端。
 
+> 官网与下载页：<https://refout.github.io/MailDog/>
+
 - **Engine**：MailKit（IMAP）+ SQLite 索引 + Win32 托盘 + OAuth2 PKCE + 命名管道服务
 - **UI**：Avalonia 12 + Fluent Design + NativeWebView，按需启动、关闭即退
 
