@@ -121,7 +121,8 @@ public sealed class ImapSyncService : IAsyncDisposable
                 cached.Html,
                 cached.PlainText,
                 cached.Truncated,
-                cached.Attachments);
+                cached.Attachments,
+                fromCache: true);
         }
 
         if (message.Size > MaxBodyBytes)

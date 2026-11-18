@@ -155,7 +155,8 @@ public static class MimeConverter
         string? html,
         string? plainText,
         bool truncated,
-        IReadOnlyList<AttachmentRecord> attachments)
+        IReadOnlyList<AttachmentRecord> attachments,
+        bool fromCache = false)
         => new()
         {
             MessageId = message.Id,
@@ -163,6 +164,7 @@ public static class MimeConverter
             Html = html,
             PlainText = plainText,
             Truncated = truncated,
+            FromCache = fromCache,
             Attachments = attachments.Select(attachment => new AttachmentDto
             {
                 FileName = attachment.FileName,

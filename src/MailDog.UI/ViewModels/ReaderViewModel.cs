@@ -95,6 +95,9 @@ public sealed partial class ReaderViewModel : ObservableObject
     private bool _imagesBlocked;
 
     [ObservableProperty]
+    private bool _isFromCache;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasNotice))]
     private string? _notice;
 
@@ -132,6 +135,7 @@ public sealed partial class ReaderViewModel : ObservableObject
         UseHtml = false;
         PlainText = string.Empty;
         ImagesBlocked = false;
+        IsFromCache = false;
         Notice = null;
         Error = null;
         Attachments = [];
@@ -160,6 +164,7 @@ public sealed partial class ReaderViewModel : ObservableObject
                 PreviewAttachment))
             .ToArray();
         Notice = body.Truncated ? "邮件内容较大，已截断。" : null;
+        IsFromCache = body.FromCache;
         Error = null;
 
         var sanitized = sanitizer.Sanitize(body.Html, allowRemoteImages);

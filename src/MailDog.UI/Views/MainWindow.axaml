@@ -12,9 +12,40 @@
         MinHeight="600"
         TransparencyLevelHint="Mica, Blur"
         Background="Transparent">
-  <Grid RowDefinitions="*,Auto">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Grid.Row="0"
+            IsVisible="{Binding IsOffline}"
+            Background="{DynamicResource MailDogBrushWarningTint}"
+            BorderBrush="{DynamicResource MailDogBrushWarning}"
+            BorderThickness="0,0,0,1"
+            Padding="16,8">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+        <ic:FluentIcon Grid.Column="0"
+                       Icon="Warning"
+                       IconSize="Size16"
+                       Foreground="{DynamicResource MailDogBrushWarning}"
+                       VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Spacing="1">
+          <TextBlock Text="{Binding OfflineTitle}"
+                     FontSize="13"
+                     FontWeight="SemiBold" />
+          <TextBlock Text="{Binding OfflineMessage}"
+                     FontSize="12"
+                     Foreground="{DynamicResource MailDogBrushTextSecondary}"
+                     TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+        <Button Grid.Column="2"
+                Content="{Binding OfflineActionText}"
+                Command="{Binding RetryOfflineCommand}"
+                IsEnabled="{Binding !IsBusy}"
+                Padding="12,4"
+                FontSize="12"
+                VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
     <!-- 三栏内容 -->
-    <Grid ColumnDefinitions="240,360,*" IsVisible="{Binding !IsOverlayOpen}">
+    <Grid Grid.Row="1" ColumnDefinitions="240,360,*" IsVisible="{Binding !IsOverlayOpen}">
       <!-- 文件夹栏 -->
       <Border Grid.Column="0"
               Background="{DynamicResource MailDogBrushBgSubtle}"
@@ -654,9 +685,20 @@
             <TextBlock Text="{Binding Reader.SenderLine}"
                        FontSize="14"
                        Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-            <TextBlock Text="{Binding Reader.DateText}"
-                       FontSize="12"
-                       Foreground="{DynamicResource MailDogBrushTextTertiary}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="{Binding Reader.DateText}"
+                         FontSize="12"
+                         Foreground="{DynamicResource MailDogBrushTextTertiary}" />
+              <Border IsVisible="{Binding Reader.IsFromCache}"
+                      Background="{DynamicResource MailDogBrushAccentTint}"
+                      CornerRadius="4"
+                      Padding="6,0"
+                      VerticalAlignment="Center">
+                <TextBlock Text="本地缓存"
+                           FontSize="11"
+                           Foreground="{DynamicResource MailDogBrushAccent}" />
+              </Border>
+            </StackPanel>
             <ItemsControl ItemsSource="{Binding Reader.Attachments}"
                           IsVisible="{Binding Reader.HasAttachments}"
                           Margin="0,8,0,0">
@@ -1653,7 +1695,7 @@
       </Grid>
     </Border>
 
-    <Border Grid.Row="1"
+    <Border Grid.Row="2"
             IsVisible="{Binding HasStatusMessage}"
             Background="{DynamicResource MailDogBrushBgSubtle}"
             BorderBrush="{DynamicResource MailDogBrushStroke}"

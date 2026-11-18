@@ -27,6 +27,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly List<MailSummaryViewModel> _allMessages = [];
     private readonly Dictionary<long, FolderViewModel> _foldersById = [];
     private readonly Dictionary<long, FolderRole> _folderRoles = [];
+    private readonly Dictionary<string, string> _syncErrors = [];
     private AppSettingsDto _settings = new();
     private MailBodyDto? _currentBody;
     private DateTimeOffset? _nextDate;
@@ -226,7 +227,53 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isBusy;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OfflineTitle))]
+    [NotifyPropertyChangedFor(nameof(OfflineActionText))]
     private bool _isConnected;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OfflineTitle))]
+    [NotifyPropertyChangedFor(nameof(OfflineActionText))]
+    private bool _isOffline;
+
+    [ObservableProperty]
+    private string? _offlineMessage;
+
+    public string OfflineTitle => IsConnected ? "离线模式" : "后台连接断开";
+
+    public string OfflineActionText => IsConnected ? "重试同步" : "重新连接";
+
+    partial void OnIsConnectedChanged(bool value)
+        => UpdateOfflineState();
+
+    partial void OnIsOfflineChanged(bool value)
+    {
+        if (!value)
+        {
+            OfflineMessage = null;
+        }
+    }
+
+    private void UpdateOfflineState()
+    {
+        if (!IsConnected)
+        {
+            IsOffline = true;
+            OfflineMessage = "无法连接 MailDog 后台，当前显示已加载的本地缓存。";
+            return;
+        }
+
+        if (_syncErrors.Count == 0)
+        {
+            IsOffline = false;
+            return;
+        }
+
+        IsOffline = true;
+        OfflineMessage = _syncErrors.Count == 1
+            ? $"{_syncErrors.Values.First()} 当前显示已缓存的邮件。"
+            : $"{_syncErrors.Count} 个账户同步失败，当前显示已缓存的邮件。";
+    }
 
     [ObservableProperty]
     private string _folderTitle = "收件箱";
@@ -1266,6 +1313,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private async Task RetryConnectionAsync()
     {
         await ConnectAsync();
+    }
+
+    [RelayCommand]
+    private async Task RetryOfflineAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        if (!IsConnected)
+        {
+            await ConnectAsync();
+            return;
+        }
+
+        await RefreshAsync();
     }
 
     [RelayCommand]
@@ -2475,7 +2539,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             await _engine.ConnectAsync(CancellationToken.None);
+            _syncErrors.Clear();
             IsConnected = true;
+            UpdateOfflineState();
             await LoadSettingsAsync();
             await LoadAccountsAsync();
             StatusMessage = null;
@@ -3335,6 +3401,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (syncState.State == SyncStateKind.Syncing)
         {
+            _syncErrors.Remove(syncState.AccountId);
+            UpdateOfflineState();
+
             var message = syncState.Message ?? "正在同步…";
             if (account is not null)
             {
@@ -3348,6 +3417,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (syncState.State == SyncStateKind.Error)
         {
             var message = syncState.Message ?? "同步失败。";
+            _syncErrors[syncState.AccountId] = message;
+            UpdateOfflineState();
+
             if (account is not null)
             {
                 account.SyncStatus = message;
@@ -3358,13 +3430,24 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
+        _syncErrors.Remove(syncState.AccountId);
+        UpdateOfflineState();
+
         if (account is not null)
         {
             account.SyncStatus = null;
         }
 
-        StatusMessage = null;
-        HasError = false;
+        if (IsOffline)
+        {
+            HasError = true;
+            StatusMessage = OfflineMessage;
+        }
+        else
+        {
+            StatusMessage = null;
+            HasError = false;
+        }
 
         // 任意账户同步结束后都刷新树与当前范围（统一文件夹可能包含该账户）。
         if (SelectedAccount is not null)
@@ -3416,9 +3499,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
+            _syncErrors.Clear();
             IsConnected = false;
             HasError = true;
-            StatusMessage = $"与后台的连接已断开：{reason}";
+            UpdateOfflineState();
+            OfflineMessage = $"与后台的连接已断开：{reason}。当前显示已加载的本地缓存。";
+            StatusMessage = OfflineMessage;
         });
     }
 

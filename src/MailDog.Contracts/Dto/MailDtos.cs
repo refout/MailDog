@@ -50,6 +50,9 @@ public sealed class MailBodyDto
 
     public bool Truncated { get; init; }
 
+    /// <summary>正文来自本地缓存，而不是本次从服务器下载。</summary>
+    public bool FromCache { get; init; }
+
     public AttachmentDto[] Attachments { get; init; } = [];
 
     public string FromName { get; init; } = string.Empty;
