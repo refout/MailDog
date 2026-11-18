@@ -96,161 +96,46 @@
         <span>程序约 60 MB</span>
       </div>
     </div>
+  </div>
 
-    <div class="preview">
-      <input class="pv-input" type="radio" name="pv" id="pv-inbox" checked />
-      <input class="pv-input" type="radio" name="pv" id="pv-reader" />
-      <input class="pv-input" type="radio" name="pv" id="pv-settings" />
+  <section class="shot-band" aria-labelledby="shot-label">
+    <div class="wrap">
+      <div class="preview">
+        <input class="pv-input" type="radio" name="pv" id="pv-inbox" checked />
+        <input class="pv-input" type="radio" name="pv" id="pv-reader" />
+        <input class="pv-input" type="radio" name="pv" id="pv-settings" />
 
-      <div class="pv-head">
-        <span class="pv-label">界面预览</span>
-        <div class="pv-tabs">
-          <label for="pv-inbox">收件箱</label>
-          <label for="pv-reader">阅读</label>
-          <label for="pv-settings">设置</label>
-        </div>
-      </div>
-
-      <!-- 预览为纯 HTML/CSS 绘制的示意界面，不包含真实邮件数据 -->
-      <div class="mock" aria-label="MailDog 界面示意图">
-        <div class="mock-bar"><i></i><i></i><i></i><b>MailDog</b></div>
-
-        <!-- 收件箱 -->
-        <div class="pane pane-inbox mock-body">
-          <div class="mock-side">
-            <div class="g">所有邮箱</div>
-            <div class="mock-item active"><span class="ic"></span>收件箱<span class="n">12</span></div>
-            <div class="mock-item"><span class="ic"></span>已发送</div>
-            <div class="mock-item"><span class="ic"></span>草稿<span class="n">2</span></div>
-            <div class="mock-item"><span class="ic"></span>存档</div>
-            <div class="g">账户</div>
-            <div class="mock-account"><span class="mock-avatar">Q</span>QQ 邮箱</div>
-            <div class="mock-sub">收件箱 · 8</div>
-            <div class="mock-sub">已发送</div>
-            <div class="mock-account"><span class="mock-avatar">O</span>Outlook</div>
-            <div class="mock-sub">收件箱 · 4</div>
-          </div>
-
-          <div class="mock-list">
-            <div class="head"><span>收件箱</span><span>⌄</span></div>
-            <div class="mock-row sel">
-              <span class="av">快</span>
-              <div><span class="t">包裹已到 3 号驿站</span><span class="s">取件码 6-2-1032 · 请 3 天内取走</span></div>
-              <span class="d">10:24</span>
-            </div>
-            <div class="mock-row">
-              <span class="av">银</span>
-              <div><span class="t">本月账单已出</span><span class="s">应还 ¥1,286.40，25 号前还款</span></div>
-              <span class="d">09:52</span>
-            </div>
-            <div class="mock-row">
-              <span class="av">物</span>
-              <div><span class="t">周六上午停水通知</span><span class="s">8:00–12:00 检修，请提前储水</span></div>
-              <span class="d">08:31</span>
-            </div>
-            <div class="mock-row">
-              <span class="av">家</span>
-              <div><span class="t">十一月的照片</span><span class="s">附件 12 个 · 原图在电脑上</span></div>
-              <span class="d">昨天</span>
-            </div>
-            <div class="mock-row">
-              <span class="av">读</span>
-              <div><span class="t">周日线下读书会</span><span class="s">周五截止报名，还剩 6 个位置</span></div>
-              <span class="d">昨天</span>
-            </div>
-            <div class="mock-row">
-              <span class="av">订</span>
-              <div><span class="t">本周精选 · 5 篇</span><span class="s">都是一刻钟能读完的短文</span></div>
-              <span class="d">周一</span>
-            </div>
-          </div>
-
-          <div class="mock-reader">
-            <div class="rt">包裹已到 3 号驿站</div>
-            <div class="rm">快递助手 &lt;notice@example.com&gt; · 2026-11-18 10:24</div>
-            <div class="mock-line m"></div>
-            <div class="mock-line"></div>
-            <div class="mock-line s"></div>
-            <div class="mock-card">
-              <div class="bar"></div>
-              <div class="mock-line m"></div>
-              <div class="mock-line s"></div>
-            </div>
+        <div class="pv-head">
+          <span class="pv-label" id="shot-label">界面预览</span>
+          <div class="pv-tabs">
+            <label for="pv-inbox">收件箱</label>
+            <label for="pv-reader">阅读</label>
+            <label for="pv-settings">设置</label>
           </div>
         </div>
 
-        <!-- 阅读 -->
-        <div class="pane pane-reader">
-          <div class="reader-shell">
-            <div class="reader-top">
-              <div>
-                <div class="reader-subject">包裹已到 3 号驿站</div>
-                <div class="reader-meta">快递助手 &lt;notice@example.com&gt; · 2026-11-18 10:24 · 收件箱</div>
-              </div>
-              <div class="reader-tools">
-                <span>标记未读</span><span>加星标</span><span>下载附件</span>
-              </div>
-            </div>
-            <div class="reader-body">
-              <p>你有一个包裹今天上午到了小区 3 号驿站，请带取件码去取。</p>
-              <p>驿站营业时间 8:00–21:00，包裹可以免费保管 3 天；超过 3 天会退回。</p>
-              <table class="reader-table">
-                <tr><th>包裹</th><th>取件码</th><th>驿站</th></tr>
-                <tr><td>中号纸箱</td><td>6-2-1032</td><td>小区 3 号驿站</td></tr>
-              </table>
-              <p>取件凭证在附件里，打不开的话直接回复这封邮件。</p>
-              <div class="reader-attach">
-                <span class="f">PDF</span>
-                <span class="nm">取件凭证.pdf</span>
-                <span class="sz">0.4 MB</span>
-              </div>
-            </div>
+        <!-- 真机截图：v0.1.1 实际运行窗口，邮件内容为构造出来的演示数据 -->
+        <div class="shot-frame">
+          <div class="pane pane-inbox">
+            <img class="shot shot-light" src="assets/shots/inbox-light.png" width="1293" height="844" alt="MailDog 收件箱：两个邮箱的信都在同一份列表里，右边是正在读的那封" decoding="async">
+            <img class="shot shot-dark" src="assets/shots/inbox-dark.png" width="1293" height="844" alt="" aria-hidden="true" loading="lazy" decoding="async">
+          </div>
+
+          <div class="pane pane-reader">
+            <img class="shot shot-light" src="assets/shots/reader-light.png" width="1293" height="844" alt="MailDog 阅读邮件：标题、发件人和附件都在一页里" loading="lazy" decoding="async">
+            <img class="shot shot-dark" src="assets/shots/reader-dark.png" width="1293" height="844" alt="" aria-hidden="true" loading="lazy" decoding="async">
+          </div>
+
+          <div class="pane pane-settings">
+            <img class="shot shot-light" src="assets/shots/settings-light.png" width="1293" height="844" alt="MailDog 设置页：主题可以跟着系统走，也可以固定成浅色或深色" loading="lazy" decoding="async">
+            <img class="shot shot-dark" src="assets/shots/settings-dark.png" width="1293" height="844" alt="" aria-hidden="true" loading="lazy" decoding="async">
           </div>
         </div>
 
-        <!-- 设置 -->
-        <div class="pane pane-settings">
-          <div class="settings-shell">
-            <div class="settings-nav">
-              <div class="item on">外观与主题</div>
-              <div class="item">正文显示</div>
-              <div class="item">通知</div>
-              <div class="item">账户</div>
-              <div class="item">关于</div>
-            </div>
-            <div class="settings-main">
-              <h4>外观与主题</h4>
-              <div class="hint">窗口底色与列表配色，跟着系统走，也可以手动固定。</div>
-              <div class="set-row">
-                <span class="lb">主题</span>
-                <div class="swatches">
-                  <span class="swatch sw-dark" title="深色"></span>
-                  <span class="swatch sw-light" title="浅色"></span>
-                  <span class="swatch sw-sys on" title="跟随系统"></span>
-                </div>
-              </div>
-              <div class="set-row">
-                <span class="lb">正文显示</span>
-                <div class="seg"><span class="on">HTML</span><span>纯文本</span></div>
-              </div>
-              <div class="set-row">
-                <span class="lb">加载邮件里的图片<span class="hint-inline"> · 默认不加载</span></span>
-                <div class="toggle off"></div>
-              </div>
-              <div class="set-row">
-                <span class="lb">新邮件提醒</span>
-                <div class="toggle"></div>
-              </div>
-              <div class="set-row">
-                <span class="lb">账户</span>
-                <span class="hint-inline">QQ 邮箱 · Outlook</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <p class="shot-note">截图是 v0.1.1 的真实运行窗口，里面的邮件是为演示编的，不是谁的收件箱。</p>
       </div>
     </div>
-  </div>
+  </section>
 
   <section id="features">
     <div class="wrap">
