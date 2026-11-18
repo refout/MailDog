@@ -113,6 +113,7 @@
                     Background="Transparent"
                     BorderThickness="0"
                     Padding="0"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                     ItemsSource="{Binding Accounts}"
                     SelectedItem="{Binding SelectedSidebarItem}">
             <TreeView.ItemContainerTheme>
@@ -154,7 +155,6 @@
                                FontSize="13"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding Email}"
-                               IsVisible="{Binding ShowEmail}"
                                FontSize="11"
                                Foreground="{DynamicResource MailDogBrushTextTertiary}"
                                TextTrimming="CharacterEllipsis" />

@@ -37,9 +37,6 @@ public sealed partial class AccountViewModel : ObservableObject
 
     public string DisplayName { get; }
 
-    /// <summary>显示名与邮箱相同时不再重复展示邮箱。</summary>
-    public bool ShowEmail => !string.Equals(DisplayName, Email, StringComparison.OrdinalIgnoreCase);
-
     public string ProviderText { get; }
 
     public string StatusText { get; }
