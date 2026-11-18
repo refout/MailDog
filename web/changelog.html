@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>更新日志 · MailDog</title>
+<meta name="description" content="MailDog 的版本更新记录：实时收信、账户树、托盘常驻、Native AOT 发布等变更。" />
+<meta name="theme-color" content="#0b0e13" />
+<meta name="color-scheme" content="dark" />
+<link rel="canonical" href="https://refout.github.io/MailDog/changelog.html" />
+<link rel="icon" type="image/png" sizes="64x64" href="./assets/favicon-64.png" />
+<link rel="apple-touch-icon" href="./assets/avatar-96.png" />
+
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="MailDog" />
+<meta property="og:title" content="更新日志 · MailDog" />
+<meta property="og:description" content="MailDog 的版本更新记录：实时收信、账户树、托盘常驻、Native AOT 发布等变更。" />
+<meta property="og:url" content="https://refout.github.io/MailDog/changelog.html" />
+<meta property="og:image" content="https://refout.github.io/MailDog/assets/og.png" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="stylesheet" href="./assets/site.css" />
+</head>
+<body>
+
+<a class="skip" href="#main">跳到主要内容</a>
+
+<header class="site">
+  <div class="wrap nav">
+    <input id="menu" class="menu-toggle" type="checkbox" aria-label="展开导航" />
+    <a class="brand" href="./">
+      <img src="./assets/logo-128.png" alt="" width="30" height="30" />
+      <span>MailDog</span>
+    </a>
+    <nav class="nav-links" aria-label="主导航">
+      <a href="./index.html#features">特性</a>
+      <a href="./index.html#architecture">工作方式</a>
+      <a href="./index.html#start">快速开始</a>
+      <a href="./index.html#faq">常见问题</a>
+      <a href="./index.html#download">下载</a>
+      <a href="./changelog.html" aria-current="page">更新日志</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn btn-ghost btn-sm" href="https://github.com/refout/MailDog" target="_blank" rel="noopener">查看源码</a>
+      <a class="btn btn-primary btn-sm" data-dl="primary" href="https://github.com/refout/MailDog/releases/latest">下载</a>
+    </div>
+    <label class="menu-toggle-label" for="menu" >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+    </label>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap page-head">
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.1.1</span></span>
+    <h1>更新日志</h1>
+    <p>按发布标签整理的主要变更。每个版本都附带 Windows x64 / arm64 的便携包，x64 另有安装包。</p>
+  </div>
+
+  <div class="wrap timeline">
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.1.1</h2>
+        <span class="date">2026-11-18</span>
+        <span class="latest">最新</span>
+      </div>
+      <p class="summary">补齐实时收信与统一账户视图，Engine 改为无窗口常驻——关掉界面也能继续收信。</p>
+      <ul>
+        <li><b>IMAP IDLE 实时收信</b>：每个账户独立监听，断线按 30 秒起、最长 10 分钟的指数退避重连。</li>
+        <li><b>Engine 无窗口化</b>：独立托盘进程，提供打开 UI、立即同步、退出；UI 未运行时也可自行拉起。</li>
+        <li><b>唤醒重连</b>：系统睡眠恢复后自动重建连接并立即补一次同步，不再等下一个轮询周期。</li>
+        <li><b>统一邮箱视图</b>：顶部聚合所有账户的收件箱、已发送、草稿等默认文件夹，下方按账户展开二级文件夹。</li>
+        <li><b>侧栏改用 TreeView</b>：账户行由模板渲染，去掉横向滚动条，长邮箱地址不再挤占层级缩进。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.1.1" target="_blank" rel="noopener">下载 v0.1.1</a>
+        <a href="https://github.com/refout/MailDog/compare/v0.1.0...v0.1.1" target="_blank" rel="noopener">对比 v0.1.0</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.1.0</h2>
+        <span class="date">2026-11-17</span>
+      </div>
+      <p class="summary">首个可用版本：双进程骨架、两种登录路径、本地索引、净化渲染，以及能直接分发的 AOT 产物。</p>
+      <ul>
+        <li><b>双进程架构</b>：UI 与 Engine 通过命名管道通信，4 字节长度前缀 + 源生成 JSON。</li>
+        <li><b>两类账户</b>：QQ 邮箱授权码登录；Outlook OAuth2 Authorization Code + PKCE（Engine 内自研回环）。</li>
+        <li><b>本地索引</b>：SQLite 缓存账户、文件夹、邮件头与正文，已同步内容离线可读。</li>
+        <li><b>HTML 净化</b>：白名单标签与内联样式、CSP 约束、默认拦截远程图片，渲染失败降级纯文本。</li>
+        <li><b>阅读体验</b>：Fluent 三栏、暗/亮主题、搜索与筛选、7 种排序依据、按时间跳转、批量标记与附件下载。</li>
+        <li><b>通知与托盘</b>：气泡通知带应用图标与发件人头像，点击直达对应邮件。</li>
+        <li><b>发布链路</b>：两个 Native AOT 单文件；GitHub Actions 产出 x64 / arm64 便携包与 x64 安装包。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.1.0" target="_blank" rel="noopener">下载 v0.1.0</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
+        <h2>下一步 · v1.1</h2>
+        <span class="date">计划中</span>
+      </div>
+      <p class="summary">把客户端从「能收」推进到「能写」，并处理分发环节的信任问题。</p>
+      <ul>
+        <li><b>撰写与发信</b>：撰写、回复、转发，SMTP 发信与草稿保存。</li>
+        <li><b>代码签名与自动更新</b>：消除首次运行的 SmartScreen 提示，提供版本内更新检查。</li>
+        <li><b>更多 IMAP 服务商</b>：开放自定义服务器与端口配置。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/issues" target="_blank" rel="noopener">参与讨论</a>
+      </div>
+    </article>
+
+  </div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <img src="./assets/logo-128.png" alt="" width="32" height="32" />
+        <div>
+          <div class="fb-name">MailDog</div>
+          <div>双进程、全 Native AOT 的 Windows 邮件客户端。</div>
+        </div>
+      </div>
+      <div class="foot-col">
+        <h5>产品</h5>
+        <a href="./index.html#features">特性</a>
+        <a href="./index.html#download">下载</a>
+        <a href="./changelog.html">更新日志</a>
+      </div>
+      <div class="foot-col">
+        <h5>文档</h5>
+        <a href="https://github.com/refout/MailDog/blob/main/docs/PLAN.md" target="_blank" rel="noopener">技术方案</a>
+        <a href="https://github.com/refout/MailDog/blob/main/docs/UI-DESIGN.md" target="_blank" rel="noopener">界面设计</a>
+        <a href="https://github.com/refout/MailDog/blob/main/docs/SPIKES.md" target="_blank" rel="noopener">探针结论</a>
+      </div>
+      <div class="foot-col">
+        <h5>项目</h5>
+        <a href="https://github.com/refout/MailDog" target="_blank" rel="noopener">源码仓库</a>
+        <a href="https://github.com/refout/MailDog/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/refout/MailDog/issues" target="_blank" rel="noopener">反馈问题</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span data-year>2026</span> MailDog · 由 refout 维护</span>
+      <span>本页按发布标签整理，完整记录见 GitHub Releases</span>
+    </div>
+  </div>
+</footer>
+
+<script src="./assets/site.js" defer></script>
+</body>
+</html>
