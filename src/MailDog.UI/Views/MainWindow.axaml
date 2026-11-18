@@ -1001,7 +1001,8 @@
     </Grid>
 
     <!-- 首次使用 -->
-    <Border Grid.ColumnSpan="3"
+    <Border Grid.Row="1"
+            Grid.ColumnSpan="3"
             IsVisible="{Binding IsWelcomeVisible}"
             Background="{DynamicResource MailDogBrushBgBase}">
       <StackPanel HorizontalAlignment="Center"
@@ -1032,7 +1033,8 @@
     </Border>
 
     <!-- 设置页：主窗口内整页显示 -->
-    <Border Grid.ColumnSpan="3"
+    <Border Grid.Row="1"
+            Grid.ColumnSpan="3"
             IsVisible="{Binding IsSettingsOpen}"
             Background="{DynamicResource MailDogBrushBgBase}">
       <Grid RowDefinitions="56,*">
