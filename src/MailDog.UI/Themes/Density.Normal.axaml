@@ -1,0 +1,19 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    标准密度覆盖层：与 Tokens.axaml 同名键，只在用户选择“标准”时合并进 Application.Resources
+    由 Services/ThemeService 在运行时挂载/卸载（第 2 步接入）。
+  -->
+
+  <x:Double x:Key="MailDogSizeControlHeight">32</x:Double>
+  <x:Double x:Key="MailDogSizeControlHeightSm">28</x:Double>
+  <x:Double x:Key="MailDogSizeControlHeightLg">36</x:Double>
+  <x:Double x:Key="MailDogSizeRowOneLine">36</x:Double>
+  <x:Double x:Key="MailDogSizeRowTwoLine">64</x:Double>
+  <x:Double x:Key="MailDogSizeCommandBar">48</x:Double>
+  <x:Double x:Key="MailDogSizePagePadding">24</x:Double>
+  <x:Double x:Key="MailDogSizeSectionGap">16</x:Double>
+
+  <Thickness x:Key="MailDogPadPage">24</Thickness>
+</ResourceDictionary>

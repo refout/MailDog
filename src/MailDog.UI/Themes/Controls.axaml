@@ -1,0 +1,346 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    组件规格（详见 docs/UI-TOKENS.md 第 4 节）
+    规则：尺寸只取 MailDogSize* / MailDogRadius*，颜色只取 MailDogBrush*
+    本文件按控件类型分组，一个类型一套规格。
+  -->
+
+  <!-- ================= 输入类 ================= -->
+
+  <Style Selector="TextBox">
+    <Setter Property="MinHeight" Value="{DynamicResource MailDogSizeControlHeight}" />
+    <Setter Property="Padding" Value="{DynamicResource MailDogPadControl}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+  </Style>
+
+  <Style Selector="TextBox.multiline">
+    <Setter Property="MinHeight" Value="240" />
+    <Setter Property="Padding" Value="14,12" />
+    <Setter Property="VerticalContentAlignment" Value="Top" />
+  </Style>
+
+  <Style Selector="ComboBox">
+    <Setter Property="MinHeight" Value="{DynamicResource MailDogSizeControlHeight}" />
+    <Setter Property="Padding" Value="{DynamicResource MailDogPadControl}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="CheckBox">
+    <Setter Property="MinHeight" Value="{DynamicResource MailDogSizeControlHeight}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <!-- ================= 按钮 ================= -->
+
+  <Style Selector="Button">
+    <Setter Property="MinHeight" Value="{DynamicResource MailDogSizeControlHeight}" />
+    <Setter Property="Padding" Value="{DynamicResource MailDogPadButton}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeBody}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+
+  <!-- 主色按钮 -->
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentBase}" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextOnAccent}" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentHover}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource MailDogBrushTextOnAccent}" />
+  </Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentPressed}" />
+  </Style>
+
+  <!-- 轻量按钮：无底色、无边框 -->
+  <Style Selector="Button.subtle">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.subtle:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+
+  <!-- 危险操作 -->
+  <Style Selector="Button.danger">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushStatusDanger}" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushStatusDangerTint}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource MailDogBrushStatusDanger}" />
+  </Style>
+
+  <!-- 尺寸档位 -->
+  <Style Selector="Button.sm">
+    <Setter Property="MinHeight" Value="{DynamicResource MailDogSizeControlHeightSm}" />
+    <Setter Property="Padding" Value="8,0" />
+  </Style>
+  <Style Selector="Button.lg">
+    <Setter Property="MinHeight" Value="{DynamicResource MailDogSizeControlHeightLg}" />
+    <Setter Property="Padding" Value="16,0" />
+  </Style>
+
+  <!-- 图标按钮：正方形 -->
+  <Style Selector="Button.icon">
+    <Setter Property="Width" Value="{DynamicResource MailDogSizeControlHeightLg}" />
+    <Setter Property="Height" Value="{DynamicResource MailDogSizeControlHeightLg}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.icon:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+
+  <!-- ================= 导航项与菜单项 ================= -->
+
+  <Style Selector="Button.nav-item">
+    <Setter Property="Height" Value="{DynamicResource MailDogSizeRowOneLine}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="6,0" />
+    <Setter Property="Margin" Value="2,1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeBody}" />
+  </Style>
+  <Style Selector="Button.nav-item:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+  <Style Selector="Button.nav-item.active">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentTint}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Button.menu-item">
+    <Setter Property="Height" Value="{DynamicResource MailDogSizeRowOneLine}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeBody}" />
+  </Style>
+  <Style Selector="Button.menu-item:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+  <Style Selector="Button.menu-item.active">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentTint}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- 字段触发器（日期框这类“看起来像输入框的按钮”） -->
+  <Style Selector="Button.field-trigger">
+    <Setter Property="Height" Value="{DynamicResource MailDogSizeControlHeight}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="{DynamicResource MailDogPadControl}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeBody}" />
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceSubtle}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushStrokeDefault}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Button.field-trigger:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+
+  <!-- 日历格 -->
+  <Style Selector="Button.calendar-cell">
+    <Setter Property="Width" Value="{DynamicResource MailDogSizeControlHeight}" />
+    <Setter Property="Height" Value="{DynamicResource MailDogSizeControlHeight}" />
+    <Setter Property="Margin" Value="1" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeCaption}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.calendar-cell:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+  <Style Selector="Button.calendar-cell.outside">
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextTertiary}" />
+  </Style>
+  <Style Selector="Button.calendar-cell.today">
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushAccentBase}" />
+  </Style>
+  <Style Selector="Button.calendar-cell.selected">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentBase}" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextOnAccent}" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.calendar-cell.selected:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentHover}" />
+  </Style>
+
+  <!-- ================= 列表与浮层 ================= -->
+
+  <Style Selector="ListBoxItem">
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="Margin" Value="4,1" />
+  </Style>
+
+  <Style Selector="MenuFlyoutPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfacePopup}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushStrokeDefault}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusCard}" />
+    <Setter Property="Padding" Value="6" />
+  </Style>
+
+  <Style Selector="FlyoutPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfacePopup}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushStrokeDefault}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusCard}" />
+    <Setter Property="Padding" Value="6" />
+  </Style>
+
+  <Style Selector="MenuFlyoutPresenter MenuItem">
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="MinHeight" Value="{DynamicResource MailDogSizeRowOneLine}" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeBody}" />
+  </Style>
+
+  <!-- ================= 文本样式 ================= -->
+
+  <Style Selector="TextBlock.caption">
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextSecondary}" />
+  </Style>
+
+  <Style Selector="TextBlock.section">
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeCaption}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextTertiary}" />
+  </Style>
+
+  <Style Selector="TextBlock.calendar-weekday">
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextTertiary}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,0,0,2" />
+  </Style>
+
+  <!-- ================= 迁移期别名（视图里还在用旧 class，第 5 步统一换掉） ================= -->
+
+  <Style Selector="Button.side-item">
+    <Setter Property="Height" Value="{DynamicResource MailDogSizeRowOneLine}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="6,0" />
+    <Setter Property="Margin" Value="2,1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeBody}" />
+  </Style>
+  <Style Selector="Button.side-item:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+  <Style Selector="Button.side-item.active">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentTint}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Button.jump-item">
+    <Setter Property="Height" Value="{DynamicResource MailDogSizeRowOneLine}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeBody}" />
+  </Style>
+  <Style Selector="Button.jump-item:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+  <Style Selector="Button.jump-item.active">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentTint}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Button.date-field">
+    <Setter Property="Height" Value="{DynamicResource MailDogSizeControlHeight}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="{DynamicResource MailDogPadControl}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeBody}" />
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceSubtle}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushStrokeDefault}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Button.date-field:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+
+  <Style Selector="Button.calendar-day">
+    <Setter Property="Width" Value="{DynamicResource MailDogSizeControlHeight}" />
+    <Setter Property="Height" Value="{DynamicResource MailDogSizeControlHeight}" />
+    <Setter Property="Margin" Value="1" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeCaption}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.calendar-day:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+  <Style Selector="Button.calendar-day.outside">
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextTertiary}" />
+  </Style>
+  <Style Selector="Button.calendar-day.today">
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushAccentBase}" />
+  </Style>
+  <Style Selector="Button.calendar-day.selected">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentBase}" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextOnAccent}" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.calendar-day.selected:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushAccentHover}" />
+  </Style>
+
+  <Style Selector="Button.account-add">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.account-add:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+
+</Styles>

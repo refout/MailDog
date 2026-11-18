@@ -1,47 +1,133 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    设计令牌（详见 docs/UI-TOKENS.md）
+    分层：FluentTheme.Palettes → Color → Brush → Themes/Controls.axaml
+    规则：视图里不写十六进制；尺寸/字号只取本文件的 MailDogSize* / MailDogType*
+  -->
+
   <ResourceDictionary.ThemeDictionaries>
+
     <ResourceDictionary x:Key="Light">
-      <SolidColorBrush x:Key="MailDogBrushBgBase" Color="#F3F3F3" />
-      <SolidColorBrush x:Key="MailDogBrushBgLayer" Color="#FFFFFF" />
-      <SolidColorBrush x:Key="MailDogBrushBgSubtle" Color="#FAFAFA" />
-      <SolidColorBrush x:Key="MailDogBrushHover" Color="#0A000000" />
-      <SolidColorBrush x:Key="MailDogBrushStroke" Color="#E0E0E0" />
-      <SolidColorBrush x:Key="MailDogBrushStrokeSubtle" Color="#EBEBEB" />
-      <SolidColorBrush x:Key="MailDogBrushTextPrimary" Color="#1B1B1B" />
-      <SolidColorBrush x:Key="MailDogBrushTextSecondary" Color="#616161" />
-      <SolidColorBrush x:Key="MailDogBrushTextTertiary" Color="#8A8A8A" />
-      <SolidColorBrush x:Key="MailDogBrushTextDisabled" Color="#BDBDBD" />
-      <SolidColorBrush x:Key="MailDogBrushTextOnAccent" Color="#FFFFFF" />
-      <SolidColorBrush x:Key="MailDogBrushAccent" Color="#0F6CBD" />
-      <SolidColorBrush x:Key="MailDogBrushAccentHover" Color="#115EA3" />
-      <SolidColorBrush x:Key="MailDogBrushAccentTint" Color="#EBF3FC" />
-      <SolidColorBrush x:Key="MailDogBrushDanger" Color="#C42B1C" />
-      <SolidColorBrush x:Key="MailDogBrushDangerTint" Color="#FDF3F4" />
-      <SolidColorBrush x:Key="MailDogBrushSuccess" Color="#0F7B0F" />
-      <SolidColorBrush x:Key="MailDogBrushWarning" Color="#9D5D00" />
-      <SolidColorBrush x:Key="MailDogBrushWarningTint" Color="#FFF9F0" />
+      <Color x:Key="MailDogColorSurfaceWindow">#F3F3F3</Color>
+      <Color x:Key="MailDogColorSurfacePane">#FFFFFF</Color>
+      <Color x:Key="MailDogColorSurfaceSubtle">#FAFAFA</Color>
+      <Color x:Key="MailDogColorSurfaceCard">#FFFFFF</Color>
+      <Color x:Key="MailDogColorSurfacePopup">#FFFFFF</Color>
+      <Color x:Key="MailDogColorAccentTint">#EBF3FC</Color>
+      <Color x:Key="MailDogColorFillHover">#0A000000</Color>
+      <Color x:Key="MailDogColorStatusDanger">#C42B1C</Color>
+      <Color x:Key="MailDogColorStatusDangerTint">#FDF3F4</Color>
+      <Color x:Key="MailDogColorStatusSuccess">#0F7B0F</Color>
+      <Color x:Key="MailDogColorStatusWarning">#9D5D00</Color>
+      <Color x:Key="MailDogColorStatusWarningTint">#FFF9F0</Color>
+      <Color x:Key="MailDogColorTextOnAccent">#FFFFFF</Color>
+      <Color x:Key="MailDogColorTextPrimary">#1B1B1B</Color>
+      <Color x:Key="MailDogColorTextSecondary">#616161</Color>
+      <Color x:Key="MailDogColorTextTertiary">#8A8A8A</Color>
+      <Color x:Key="MailDogColorTextDisabled">#BDBDBD</Color>
+      <Color x:Key="MailDogColorStrokeDefault">#E0E0E0</Color>
+      <Color x:Key="MailDogColorStrokeSubtle">#EBEBEB</Color>
+      <Color x:Key="MailDogColorStrokeStrong">#BDBDBD</Color>
+      <Color x:Key="MailDogColorAccentBase">#0F6CBD</Color>
+      <Color x:Key="MailDogColorAccentHover">#115EA3</Color>
+      <Color x:Key="MailDogColorAccentPressed">#0B4F8A</Color>
     </ResourceDictionary>
+
     <ResourceDictionary x:Key="Dark">
-      <SolidColorBrush x:Key="MailDogBrushBgBase" Color="#202020" />
-      <SolidColorBrush x:Key="MailDogBrushBgLayer" Color="#272727" />
-      <SolidColorBrush x:Key="MailDogBrushBgSubtle" Color="#1F1F1F" />
-      <SolidColorBrush x:Key="MailDogBrushHover" Color="#0FFFFFFF" />
-      <SolidColorBrush x:Key="MailDogBrushStroke" Color="#3D3D3D" />
-      <SolidColorBrush x:Key="MailDogBrushStrokeSubtle" Color="#333333" />
-      <SolidColorBrush x:Key="MailDogBrushTextPrimary" Color="#FFFFFF" />
-      <SolidColorBrush x:Key="MailDogBrushTextSecondary" Color="#C7C7C7" />
-      <SolidColorBrush x:Key="MailDogBrushTextTertiary" Color="#9A9A9A" />
-      <SolidColorBrush x:Key="MailDogBrushTextDisabled" Color="#6E6E6E" />
-      <SolidColorBrush x:Key="MailDogBrushTextOnAccent" Color="#0A0A0A" />
-      <SolidColorBrush x:Key="MailDogBrushAccent" Color="#479EF5" />
-      <SolidColorBrush x:Key="MailDogBrushAccentHover" Color="#62ABF5" />
-      <SolidColorBrush x:Key="MailDogBrushAccentTint" Color="#1A3A5C" />
-      <SolidColorBrush x:Key="MailDogBrushDanger" Color="#FF99A4" />
-      <SolidColorBrush x:Key="MailDogBrushDangerTint" Color="#3B1A1A" />
-      <SolidColorBrush x:Key="MailDogBrushSuccess" Color="#6CCB5F" />
-      <SolidColorBrush x:Key="MailDogBrushWarning" Color="#FCE100" />
-      <SolidColorBrush x:Key="MailDogBrushWarningTint" Color="#3A3010" />
+      <Color x:Key="MailDogColorSurfaceWindow">#202020</Color>
+      <Color x:Key="MailDogColorSurfacePane">#272727</Color>
+      <Color x:Key="MailDogColorSurfaceSubtle">#1F1F1F</Color>
+      <Color x:Key="MailDogColorSurfaceCard">#272727</Color>
+      <Color x:Key="MailDogColorSurfacePopup">#272727</Color>
+      <Color x:Key="MailDogColorAccentTint">#1A3A5C</Color>
+      <Color x:Key="MailDogColorFillHover">#0FFFFFFF</Color>
+      <Color x:Key="MailDogColorStatusDanger">#FF99A4</Color>
+      <Color x:Key="MailDogColorStatusDangerTint">#3B1A1A</Color>
+      <Color x:Key="MailDogColorStatusSuccess">#6CCB5F</Color>
+      <Color x:Key="MailDogColorStatusWarning">#FCE100</Color>
+      <Color x:Key="MailDogColorStatusWarningTint">#3A3010</Color>
+      <Color x:Key="MailDogColorTextOnAccent">#0A0A0A</Color>
+      <Color x:Key="MailDogColorTextPrimary">#FFFFFF</Color>
+      <Color x:Key="MailDogColorTextSecondary">#BDBDBD</Color>
+      <Color x:Key="MailDogColorTextTertiary">#8A8A8A</Color>
+      <Color x:Key="MailDogColorTextDisabled">#5C5C5C</Color>
+      <Color x:Key="MailDogColorStrokeDefault">#3D3D3D</Color>
+      <Color x:Key="MailDogColorStrokeSubtle">#2B2B2B</Color>
+      <Color x:Key="MailDogColorStrokeStrong">#5C5C5C</Color>
+      <Color x:Key="MailDogColorAccentBase">#479EF5</Color>
+      <Color x:Key="MailDogColorAccentHover">#62ABF5</Color>
+      <Color x:Key="MailDogColorAccentPressed">#3D8BF8</Color>
     </ResourceDictionary>
+
   </ResourceDictionary.ThemeDictionaries>
+
+  <!-- ========== 语义画刷（新名，视图迁移目标） ========== -->
+  <SolidColorBrush x:Key="MailDogBrushSurfaceWindow" Color="{DynamicResource MailDogColorSurfaceWindow}" />
+  <SolidColorBrush x:Key="MailDogBrushSurfacePane" Color="{DynamicResource MailDogColorSurfacePane}" />
+  <SolidColorBrush x:Key="MailDogBrushSurfaceSubtle" Color="{DynamicResource MailDogColorSurfaceSubtle}" />
+  <SolidColorBrush x:Key="MailDogBrushSurfaceCard" Color="{DynamicResource MailDogColorSurfaceCard}" />
+  <SolidColorBrush x:Key="MailDogBrushSurfacePopup" Color="{DynamicResource MailDogColorSurfacePopup}" />
+  <SolidColorBrush x:Key="MailDogBrushFillHover" Color="{DynamicResource MailDogColorFillHover}" />
+
+  <SolidColorBrush x:Key="MailDogBrushTextPrimary" Color="{DynamicResource MailDogColorTextPrimary}" />
+  <SolidColorBrush x:Key="MailDogBrushTextSecondary" Color="{DynamicResource MailDogColorTextSecondary}" />
+  <SolidColorBrush x:Key="MailDogBrushTextTertiary" Color="{DynamicResource MailDogColorTextTertiary}" />
+  <SolidColorBrush x:Key="MailDogBrushTextDisabled" Color="{DynamicResource MailDogColorTextDisabled}" />
+  <SolidColorBrush x:Key="MailDogBrushTextOnAccent" Color="{DynamicResource MailDogColorTextOnAccent}" />
+
+  <SolidColorBrush x:Key="MailDogBrushStrokeDefault" Color="{DynamicResource MailDogColorStrokeDefault}" />
+  <SolidColorBrush x:Key="MailDogBrushStrokeSubtle" Color="{DynamicResource MailDogColorStrokeSubtle}" />
+  <SolidColorBrush x:Key="MailDogBrushStrokeStrong" Color="{DynamicResource MailDogColorStrokeStrong}" />
+
+  <SolidColorBrush x:Key="MailDogBrushAccentBase" Color="{DynamicResource MailDogColorAccentBase}" />
+  <SolidColorBrush x:Key="MailDogBrushAccentHover" Color="{DynamicResource MailDogColorAccentHover}" />
+  <SolidColorBrush x:Key="MailDogBrushAccentPressed" Color="{DynamicResource MailDogColorAccentPressed}" />
+  <SolidColorBrush x:Key="MailDogBrushAccentTint" Color="{DynamicResource MailDogColorAccentTint}" />
+
+  <SolidColorBrush x:Key="MailDogBrushStatusDanger" Color="{DynamicResource MailDogColorStatusDanger}" />
+  <SolidColorBrush x:Key="MailDogBrushStatusDangerTint" Color="{DynamicResource MailDogColorStatusDangerTint}" />
+  <SolidColorBrush x:Key="MailDogBrushStatusSuccess" Color="{DynamicResource MailDogColorStatusSuccess}" />
+  <SolidColorBrush x:Key="MailDogBrushStatusWarning" Color="{DynamicResource MailDogColorStatusWarning}" />
+  <SolidColorBrush x:Key="MailDogBrushStatusWarningTint" Color="{DynamicResource MailDogColorStatusWarningTint}" />
+
+  <!-- ========== 迁移期别名（旧名，视图改完即删除） ========== -->
+  <SolidColorBrush x:Key="MailDogBrushBgBase" Color="{DynamicResource MailDogColorSurfaceWindow}" />
+  <SolidColorBrush x:Key="MailDogBrushBgLayer" Color="{DynamicResource MailDogColorSurfacePane}" />
+  <SolidColorBrush x:Key="MailDogBrushBgSubtle" Color="{DynamicResource MailDogColorSurfaceSubtle}" />
+  <SolidColorBrush x:Key="MailDogBrushPopup" Color="{DynamicResource MailDogColorSurfacePopup}" />
+  <SolidColorBrush x:Key="MailDogBrushHover" Color="{DynamicResource MailDogColorFillHover}" />
+  <SolidColorBrush x:Key="MailDogBrushStroke" Color="{DynamicResource MailDogColorStrokeDefault}" />
+  <SolidColorBrush x:Key="MailDogBrushAccent" Color="{DynamicResource MailDogColorAccentBase}" />
+  <SolidColorBrush x:Key="MailDogBrushDanger" Color="{DynamicResource MailDogColorStatusDanger}" />
+  <SolidColorBrush x:Key="MailDogBrushDangerTint" Color="{DynamicResource MailDogColorStatusDangerTint}" />
+  <SolidColorBrush x:Key="MailDogBrushSuccess" Color="{DynamicResource MailDogColorStatusSuccess}" />
+  <SolidColorBrush x:Key="MailDogBrushWarning" Color="{DynamicResource MailDogColorStatusWarning}" />
+  <SolidColorBrush x:Key="MailDogBrushWarningTint" Color="{DynamicResource MailDogColorStatusWarningTint}" />
+
+  <!-- ========== 尺寸（紧凑档为默认值；标准档见 Density.Normal.axaml） ========== -->
+  <x:Double x:Key="MailDogSizeControlHeight">28</x:Double>
+  <x:Double x:Key="MailDogSizeControlHeightSm">24</x:Double>
+  <x:Double x:Key="MailDogSizeControlHeightLg">32</x:Double>
+  <x:Double x:Key="MailDogSizeRowOneLine">32</x:Double>
+  <x:Double x:Key="MailDogSizeRowTwoLine">56</x:Double>
+  <x:Double x:Key="MailDogSizeCommandBar">40</x:Double>
+  <x:Double x:Key="MailDogSizePagePadding">16</x:Double>
+  <x:Double x:Key="MailDogSizeSectionGap">12</x:Double>
+  <x:Double x:Key="MailDogSizeIcon">16</x:Double>
+  <x:Double x:Key="MailDogSizeIconLg">20</x:Double>
+
+  <CornerRadius x:Key="MailDogRadiusControl">6</CornerRadius>
+  <CornerRadius x:Key="MailDogRadiusCard">8</CornerRadius>
+  <CornerRadius x:Key="MailDogRadiusPill">999</CornerRadius>
+  <Thickness x:Key="MailDogPadControl">10,0</Thickness>
+  <Thickness x:Key="MailDogPadButton">12,0</Thickness>
+  <Thickness x:Key="MailDogPadPage">16</Thickness>
+
+  <!-- ========== 字号 ========== -->
+  <x:Double x:Key="MailDogTypeDisplay">28</x:Double>
+  <x:Double x:Key="MailDogTypeTitle">20</x:Double>
+  <x:Double x:Key="MailDogTypeBody">13</x:Double>
+  <x:Double x:Key="MailDogTypeCaption">12</x:Double>
 </ResourceDictionary>
