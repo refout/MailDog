@@ -1,7 +1,7 @@
 # MailDog 技术方案
 
-> 状态：v1 只读实现完成（Stage 0–6）
-> 日期：2026-11-14
+> 状态：v1.1 写操作与发信完成（Stage 0–7）；Stage 8 的代码签名与自动更新仍待证书/发布链路
+> 日期：2026-11-18
 > 适用范围：MailDog v1（Windows 优先）
 > 关联文档：[UI-DESIGN.md](./UI-DESIGN.md)、[SPIKES.md](./SPIKES.md)
 
@@ -1092,7 +1092,7 @@ GitHub Actions `windows-latest`：
 
 > 每个阶段的“完成”定义：AOT 发布产物冒烟通过 + 文档更新 + 提交到 `main`。
 
-> 实现状态：Stage 0–6 已完成（v1 只读客户端）；Stage 7–8 属于 v1.1。
+> 实现状态：Stage 0–7 已完成（v1.1 写操作与发信）；Stage 8 的签名与自动更新待证书/发布链路。
 
 ### Stage 0：工具链与 AOT 探针（已完成）
 
@@ -1186,7 +1186,7 @@ GitHub Actions `windows-latest`：
 
 - Win32 托盘、菜单、气泡通知、任务栏重建处理。
 - 单实例、托盘拉起 UI、`showMainWindow`。
-- 开机自启开关（注册表 Run）。
+- 开机自启开关（注册表 Run）。**已完成**：设置页“登录 Windows 时自动启动”，Engine 在设置保存与启动时同步 HKCU Run。
 
 **退出标准**
 
@@ -1194,15 +1194,17 @@ GitHub Actions `windows-latest`：
 - 托盘点击可拉起/聚焦 UI；通知点击可定位邮件。
 - 注销/重启后托盘恢复。
 
-### Stage 7：写操作与发信（v1.1）
+### Stage 7：写操作与发信（v1.1，已完成）
 
 - 已读/旗标双向同步、重试队列。
 - SMTP：QQ PLAIN / Outlook OAuth2；Outbox 表与重试。
-- 撰写窗口、草稿、附件。
+- 撰写页、草稿、附件。撰写为主窗口内嵌页，不弹独立窗口；支持可选 Markdown 正文并在发送/存草稿时转换为 HTML。
+- 自定义 IMAP/SMTP 服务器、cid 内嵌图、附件默认程序打开。
 
-### Stage 8：分发（v1.1）
+### Stage 8：分发（v1.1，部分完成）
 
-- 代码签名、安装包、版本检查、崩溃报告（可选、需隐私开关）。
+- 压缩包、Inno Setup 安装包与 GitHub Release 流水线已完成。
+- 仍待：代码签名证书（需 OV/EV 证书与签名密钥）、自动更新检查、崩溃报告（可选）。
 
 ---
 
