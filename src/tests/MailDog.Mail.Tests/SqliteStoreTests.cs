@@ -442,6 +442,43 @@ public sealed class SqliteStoreTests : IDisposable
     }
 
     [Fact]
+    public void SearchMessageIdsFindsCachedBodyWithinFolderScope()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+        _store.UpsertFolders(account.Id,
+        [
+            new FolderRecord(0, account.Id, "INBOX", "收件箱", FolderRole.Inbox, 0, 0, 0, 0),
+            new FolderRecord(0, account.Id, "ARCHIVE", "归档", FolderRole.Archive, 0, 0, 0, 0)
+        ]);
+
+        var folders = _store.GetFolders(account.Id);
+        var inbox = Assert.Single(folders, folder => folder.Role == FolderRole.Inbox);
+        var archive = Assert.Single(folders, folder => folder.Role == FolderRole.Archive);
+        var now = DateTimeOffset.UtcNow;
+
+        _store.UpsertMessages(account.Id, inbox.Id,
+        [
+            new MessageRecord(0, account.Id, inbox.Id, 1, "m1", "项目进度", "Alice", "alice@example.com",
+                "me@example.com", string.Empty, now, 1, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+        _store.UpsertMessages(account.Id, archive.Id,
+        [
+            new MessageRecord(0, account.Id, archive.Id, 2, "m2", "旧项目", "Alice", "alice@example.com",
+                "me@example.com", string.Empty, now.AddDays(-1), 1, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        var inboxMessage = Assert.Single(_store.QueryMessages(inbox.Id, null, null, 10).Items);
+        var archiveMessage = Assert.Single(_store.QueryMessages(archive.Id, null, null, 10).Items);
+        _store.SaveBody(inboxMessage.Id, null, "会议纪要与项目进度安排", false, []);
+        _store.SaveBody(archiveMessage.Id, null, "无关内容", false, []);
+
+        Assert.Equal([inboxMessage.Id], _store.SearchMessageIds("会议", inbox.Id, null));
+        Assert.Equal([inboxMessage.Id], _store.SearchMessageIds("项目进度", inbox.Id, null));
+        Assert.Empty(_store.SearchMessageIds("会议", archive.Id, null));
+    }
+
+    [Fact]
     public void AccountServerRoundTrip()
     {
         var account = CreateAccount();

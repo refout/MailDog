@@ -35,6 +35,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private long? _activeFolderId;
     private FolderRole? _activeRole;
     private string? _activeScope;
+    private HashSet<long>? _searchResultIds;
+    private CancellationTokenSource? _searchCts;
     private bool _allowRemoteImages;
     private bool _initialized;
     private bool _suppressSelectionHandlers;
@@ -2999,7 +3001,67 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     partial void OnSearchTextChanged(string value)
     {
+        _searchResultIds = null;
         ApplyFilter();
+
+        var term = value.Trim();
+        if (term.Length == 0)
+        {
+            _searchCts?.Cancel();
+            return;
+        }
+
+        _ = SearchBodyAsync(term);
+    }
+
+    private async Task SearchBodyAsync(string term)
+    {
+        _searchCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _searchCts = cts;
+        var folderId = _activeFolderId;
+        var role = _activeRole;
+
+        try
+        {
+            var response = await _engine.RequestAsync<MessageSearchResponse>(
+                IpcMessageTypes.SearchMessages,
+                new SearchMessagesRequest
+                {
+                    FolderId = folderId ?? 0,
+                    Role = role,
+                    Query = term
+                },
+                TimeSpan.FromSeconds(30),
+                cts.Token);
+
+            if (cts.IsCancellationRequested
+                || !string.Equals(SearchText.Trim(), term, StringComparison.Ordinal)
+                || folderId != _activeFolderId
+                || role != _activeRole)
+            {
+                return;
+            }
+
+            _searchResultIds = new HashSet<long>(response.MessageIds);
+            ApplyFilter();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch
+        {
+            // 正文索引不可用时仍保留主题/发件人/预览的本地搜索。
+        }
+        finally
+        {
+            if (ReferenceEquals(_searchCts, cts))
+            {
+                _searchCts = null;
+            }
+
+            cts.Dispose();
+        }
     }
 
     partial void OnThemeChanged(string value)
@@ -3320,6 +3382,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             HasError = false;
             FolderTitle = title;
             StatusMessage = "正在加载邮件…";
+            _searchResultIds = null;
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                _ = SearchBodyAsync(SearchText.Trim());
+            }
 
             var response = await _engine.RequestAsync<MessagesPageResponse>(
                 IpcMessageTypes.GetMessages,
@@ -3562,11 +3629,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
             var term = SearchText.Trim();
+            var indexedIds = _searchResultIds;
             query = query.Where(message =>
                 message.Subject.Contains(term, StringComparison.OrdinalIgnoreCase)
                 || message.Sender.Contains(term, StringComparison.OrdinalIgnoreCase)
                 || message.SenderAddress.Contains(term, StringComparison.OrdinalIgnoreCase)
-                || message.Preview.Contains(term, StringComparison.OrdinalIgnoreCase));
+                || message.Preview.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (indexedIds is not null && indexedIds.Contains(message.Id)));
         }
 
         query = FilterIndex switch

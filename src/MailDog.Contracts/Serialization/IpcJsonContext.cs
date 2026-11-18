@@ -32,6 +32,8 @@ namespace MailDog.Contracts.Serialization;
 [JsonSerializable(typeof(DeleteFolderRequest))]
 [JsonSerializable(typeof(GetMessagesRequest))]
 [JsonSerializable(typeof(MessagesPageResponse))]
+[JsonSerializable(typeof(SearchMessagesRequest))]
+[JsonSerializable(typeof(MessageSearchResponse))]
 [JsonSerializable(typeof(GetMessageBodyRequest))]
 [JsonSerializable(typeof(MessageBodyResponse))]
 [JsonSerializable(typeof(MoveMessageRequest))]

@@ -35,6 +35,8 @@ public static class IpcMessageTypes
 
     public const string GetMessages = "getMessages";
     public const string MessagesPage = "messagesPage";
+    public const string SearchMessages = "searchMessages";
+    public const string MessageSearch = "messageSearch";
     public const string GetMessageBody = "getMessageBody";
     public const string MessageBody = "messageBody";
     public const string MoveMessage = "moveMessage";

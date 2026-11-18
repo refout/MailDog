@@ -567,6 +567,16 @@ public sealed class SqliteStore : IDisposable
                     command.Parameters.AddWithValue("$preview", message.Preview);
                     command.ExecuteNonQuery();
 
+                    using (var rowIdCommand = _connection.CreateCommand())
+                    {
+                        rowIdCommand.Transaction = transaction;
+                        rowIdCommand.CommandText = "SELECT id FROM messages WHERE folder_id = $folderId AND uid = $uid;";
+                        rowIdCommand.Parameters.AddWithValue("$folderId", folderId);
+                        rowIdCommand.Parameters.AddWithValue("$uid", message.Uid);
+                        var rowId = Convert.ToInt64(rowIdCommand.ExecuteScalar());
+                        UpdateMessageFts(transaction, rowId);
+                    }
+
                     if (!existing.Contains(message.Uid))
                     {
                         newUids.Add(message.Uid);
@@ -1087,6 +1097,7 @@ public sealed class SqliteStore : IDisposable
                 updateMessage.ExecuteNonQuery();
             }
 
+            UpdateMessageFts(transaction, messageId);
             transaction.Commit();
         }
     }
@@ -1632,6 +1643,137 @@ public sealed class SqliteStore : IDisposable
         }
     }
 
+    /// <summary>全文搜索当前文件夹或统一文件夹中的邮件，返回匹配的消息行 ID。</summary>
+    public IReadOnlyList<long> SearchMessageIds(string query, long? folderId, FolderRole? role, int limit = 200)
+    {
+        var text = query.Trim();
+        if (text.Length == 0)
+        {
+            return [];
+        }
+
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            var filters = new List<string>();
+            if (folderId is { } id)
+            {
+                filters.Add("m.folder_id = $folderId");
+                command.Parameters.AddWithValue("$folderId", id);
+            }
+
+            if (role is { } folderRole)
+            {
+                filters.Add("f.role = $role");
+                command.Parameters.AddWithValue("$role", folderRole.ToString());
+            }
+
+            var scope = filters.Count == 0 ? string.Empty : " AND " + string.Join(" AND ", filters);
+            command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 500));
+
+            if (text.Length < 3)
+            {
+                // trigram 索引只能匹配三个及以上字符，短词回退到 LIKE。
+                command.CommandText = $"""
+                    SELECT m.id
+                    FROM messages m
+                    JOIN folders f ON f.id = m.folder_id
+                    LEFT JOIN bodies b ON b.message_row_id = m.id
+                    WHERE (
+                        m.subject LIKE $like OR
+                        m.from_name LIKE $like OR
+                        m.from_addr LIKE $like OR
+                        m.to_addrs LIKE $like OR
+                        m.cc_addrs LIKE $like OR
+                        m.preview LIKE $like OR
+                        b.text_plain LIKE $like
+                    ){scope}
+                    ORDER BY m.date_utc DESC, m.id DESC
+                    LIMIT $limit;
+                    """;
+                command.Parameters.AddWithValue("$like", $"%{text}%");
+            }
+            else
+            {
+                var terms = text.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(term => $"\"{term.Replace("\"", "\"\"")}\"");
+                command.CommandText = $"""
+                    SELECT m.id
+                    FROM message_fts
+                    JOIN messages m ON m.id = message_fts.message_id
+                    JOIN folders f ON f.id = m.folder_id
+                    WHERE message_fts MATCH $match{scope}
+                    ORDER BY m.date_utc DESC, m.id DESC
+                    LIMIT $limit;
+                    """;
+                command.Parameters.AddWithValue("$match", string.Join(" ", terms));
+            }
+
+            var result = new List<long>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                result.Add(reader.GetInt64(0));
+            }
+
+            return result;
+        }
+    }
+
+    private void UpdateMessageFts(SqliteTransaction? transaction, long messageId)
+    {
+        string subject;
+        string sender;
+        string recipients;
+        string body;
+
+        using (var query = _connection.CreateCommand())
+        {
+            query.Transaction = transaction;
+            query.CommandText = """
+                SELECT m.subject, m.from_name, m.from_addr, m.to_addrs, m.cc_addrs,
+                       COALESCE(b.text_plain, '')
+                FROM messages m
+                LEFT JOIN bodies b ON b.message_row_id = m.id
+                WHERE m.id = $id;
+                """;
+            query.Parameters.AddWithValue("$id", messageId);
+            using var reader = query.ExecuteReader();
+            if (!reader.Read())
+            {
+                return;
+            }
+
+            subject = reader.GetString(0);
+            sender = $"{reader.GetString(1)} {reader.GetString(2)}";
+            recipients = $"{reader.GetString(3)} {reader.GetString(4)}";
+            body = reader.GetString(5);
+        }
+
+        using (var delete = _connection.CreateCommand())
+        {
+            delete.Transaction = transaction;
+            delete.CommandText = "DELETE FROM message_fts WHERE message_id = $id;";
+            delete.Parameters.AddWithValue("$id", messageId);
+            delete.ExecuteNonQuery();
+        }
+
+        using (var insert = _connection.CreateCommand())
+        {
+            insert.Transaction = transaction;
+            insert.CommandText = """
+                INSERT INTO message_fts (message_id, subject, sender, recipients, body)
+                VALUES ($id, $subject, $sender, $recipients, $body);
+                """;
+            insert.Parameters.AddWithValue("$id", messageId);
+            insert.Parameters.AddWithValue("$subject", subject);
+            insert.Parameters.AddWithValue("$sender", sender);
+            insert.Parameters.AddWithValue("$recipients", recipients);
+            insert.Parameters.AddWithValue("$body", body.Length > 20000 ? body[..20000] : body);
+            insert.ExecuteNonQuery();
+        }
+    }
+
     private void RecountFolder(long folderId)
     {
         lock (_gate)
@@ -1769,6 +1911,28 @@ public sealed class SqliteStore : IDisposable
             Execute("""
                 ALTER TABLE outbox ADD COLUMN is_markdown INTEGER NOT NULL DEFAULT 0;
                 PRAGMA user_version = 6;
+                """);
+        }
+
+        if (version < 7)
+        {
+            Execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS message_fts USING fts5(
+                    message_id UNINDEXED,
+                    subject,
+                    sender,
+                    recipients,
+                    body,
+                    tokenize='trigram'
+                );
+
+                INSERT INTO message_fts (message_id, subject, sender, recipients, body)
+                SELECT m.id, m.subject, m.from_name || ' ' || m.from_addr,
+                       m.to_addrs || ' ' || m.cc_addrs, COALESCE(b.text_plain, '')
+                FROM messages m
+                LEFT JOIN bodies b ON b.message_row_id = m.id;
+
+                PRAGMA user_version = 7;
                 """);
         }
     }

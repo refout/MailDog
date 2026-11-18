@@ -102,6 +102,18 @@ public sealed class RequestRouter
             case GetMessagesRequest request:
                 return GetMessages(request);
 
+            case SearchMessagesRequest request:
+                return new MessageSearchResponse
+                {
+                    MessageIds = _store.SearchMessageIds(
+                        request.Query,
+                        request.Role is null && request.FolderId > 0 ? request.FolderId : null,
+                        request.Role,
+                        request.Limit) is { Count: > 0 } ids
+                        ? ids.ToArray()
+                        : []
+                };
+
             case GetMessageBodyRequest request:
                 return new MessageBodyResponse
                 {

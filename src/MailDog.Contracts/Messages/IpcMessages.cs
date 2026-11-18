@@ -159,6 +159,22 @@ public sealed class MessagesPageResponse : Ipc.IIpcMessage
     public long? NextId { get; init; }
 }
 
+public sealed class SearchMessagesRequest : Ipc.IIpcMessage
+{
+    public long FolderId { get; init; }
+
+    public FolderRole? Role { get; init; }
+
+    public string Query { get; init; } = string.Empty;
+
+    public int Limit { get; init; } = 200;
+}
+
+public sealed class MessageSearchResponse : Ipc.IIpcMessage
+{
+    public long[] MessageIds { get; init; } = [];
+}
+
 public sealed class GetMessageBodyRequest : Ipc.IIpcMessage
 {
     public long MessageId { get; init; }
