@@ -52,10 +52,6 @@ public sealed partial class FolderViewModel : ObservableObject
         _ => Icon.Folder
     };
 
-    /// <summary>是否是当前正在浏览的文件夹（同一时间只有一个）。</summary>
-    [ObservableProperty]
-    private bool _isActive;
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasUnread))]
     [NotifyPropertyChangedFor(nameof(UnreadText))]

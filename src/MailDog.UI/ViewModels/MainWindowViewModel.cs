@@ -98,6 +98,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private UnifiedFolderViewModel? _selectedUnifiedFolder;
 
+    /// <summary>左侧账户树的选中项：账户（仅展开）或文件夹。</summary>
+    [ObservableProperty]
+    private object? _selectedSidebarItem;
+
+    private bool _suppressSidebarSelection;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
     [NotifyPropertyChangedFor(nameof(OverlayTitle))]
@@ -1650,7 +1656,42 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         UpdateActiveStates();
+        SetSidebarSelectionSilently(value);
         _ = LoadMessagesAsync(value);
+    }
+
+    partial void OnSelectedSidebarItemChanged(object? value)
+    {
+        if (_suppressSidebarSelection)
+        {
+            return;
+        }
+
+        switch (value)
+        {
+            case AccountViewModel account:
+                // 账户行只负责展开，不改变邮件范围；把选中态还给当前文件夹。
+                account.IsExpanded = true;
+                SetSidebarSelectionSilently(SelectedFolder);
+                break;
+
+            case FolderViewModel folder:
+                SelectedFolder = folder;
+                break;
+        }
+    }
+
+    private void SetSidebarSelectionSilently(object? item)
+    {
+        _suppressSidebarSelection = true;
+        try
+        {
+            SelectedSidebarItem = item;
+        }
+        finally
+        {
+            _suppressSidebarSelection = false;
+        }
     }
 
     partial void OnSelectedUnifiedFolderChanged(UnifiedFolderViewModel? value)
@@ -1674,16 +1715,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         UpdateActiveStates();
+        SetSidebarSelectionSilently(null);
         _ = LoadRoleMessagesAsync(value.Role, value.Name);
     }
 
     private void UpdateActiveStates()
     {
-        foreach (var folder in Folders)
-        {
-            folder.IsActive = SelectedFolder is not null && folder.Id == SelectedFolder.Id;
-        }
-
         foreach (var folder in UnifiedFolders)
         {
             folder.IsActive = SelectedUnifiedFolder is not null
@@ -2581,6 +2618,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 }
 
                 UpdateActiveStates();
+                SetSidebarSelectionSilently(folder);
                 await LoadMessagesAsync(folder);
             }
         }
