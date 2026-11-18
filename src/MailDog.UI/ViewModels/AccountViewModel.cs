@@ -71,4 +71,16 @@ public sealed partial class AccountViewModel : ObservableObject
     private string? _syncStatus;
 
     public bool HasSyncStatus => !string.IsNullOrEmpty(SyncStatus);
+
+    [ObservableProperty]
+    private bool _isDeleteConfirmVisible;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDeleteError))]
+    private string? _deleteError;
+
+    public bool HasDeleteError => !string.IsNullOrEmpty(DeleteError);
+
+    [ObservableProperty]
+    private bool _isDeleting;
 }

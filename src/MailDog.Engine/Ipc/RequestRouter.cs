@@ -18,19 +18,22 @@ public sealed class RequestRouter
     private readonly ImapSyncService _sync;
     private readonly IOutlookAuthService _auth;
     private readonly SmtpSendService _sender;
+    private readonly StorageMaintenanceService _storage;
 
     public RequestRouter(
         SqliteStore store,
         AccountService accounts,
         ImapSyncService sync,
         IOutlookAuthService auth,
-        SmtpSendService sender)
+        SmtpSendService sender,
+        StorageMaintenanceService storage)
     {
         _store = store;
         _accounts = accounts;
         _sync = sync;
         _auth = auth;
         _sender = sender;
+        _storage = storage;
     }
 
     public event Action<string>? Diagnostic;
@@ -158,6 +161,12 @@ public sealed class RequestRouter
 
             case GetSettingsRequest:
                 return new SettingsResponse { Settings = _store.GetSettings() };
+
+            case GetStorageSummaryRequest:
+                return new StorageSummaryResponse { Summary = _storage.GetSummary() };
+
+            case CleanStorageRequest request:
+                return new StorageCleanupResponse { Result = _storage.Clean(request) };
 
             case TakePendingNavigationRequest:
                 return TakePendingNavigation?.Invoke() ?? new PendingNavigationResponse();

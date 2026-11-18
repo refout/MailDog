@@ -348,6 +348,35 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _settingsSaveHint = "所有更改会自动保存";
 
+    [ObservableProperty]
+    private StorageSummaryDto? _storageSummary;
+
+    [ObservableProperty]
+    private bool _isStorageBusy;
+
+    [ObservableProperty]
+    private string _storageStatus = "打开“本地文件”后读取磁盘占用。";
+
+    partial void OnStorageSummaryChanged(StorageSummaryDto? value)
+    {
+        OnPropertyChanged(nameof(StorageDataDirectory));
+        OnPropertyChanged(nameof(StorageDatabasePath));
+        OnPropertyChanged(nameof(StorageLogDirectory));
+        OnPropertyChanged(nameof(StorageAttachmentCacheDirectory));
+        OnPropertyChanged(nameof(StorageOutboxDirectory));
+        OnPropertyChanged(nameof(StorageNativeDirectory));
+        OnPropertyChanged(nameof(StorageTempDirectory));
+        OnPropertyChanged(nameof(StorageDatabaseSizeText));
+        OnPropertyChanged(nameof(StorageLogSizeText));
+        OnPropertyChanged(nameof(StorageAttachmentSizeText));
+        OnPropertyChanged(nameof(StorageOutboxSizeText));
+        OnPropertyChanged(nameof(StorageNativeSizeText));
+        OnPropertyChanged(nameof(StorageTempSizeText));
+        OnPropertyChanged(nameof(StorageTotalSizeText));
+        OnPropertyChanged(nameof(StorageIndexText));
+        OnPropertyChanged(nameof(StoragePendingOutboxText));
+    }
+
     public bool IsAppearanceSection => SettingsSectionIndex == 0;
 
     public bool IsNotificationsSection => SettingsSectionIndex == 1;
@@ -358,11 +387,71 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsAccountSection => SettingsSectionIndex == 4;
 
+    public bool IsStorageSection => SettingsSectionIndex == 5;
+
     public bool IsAccountListVisible => IsAccountSection && !ShowAddAccountForm;
 
     public bool IsAddAccountFormVisible => IsAccountSection && ShowAddAccountForm;
 
-    public bool IsAboutSection => SettingsSectionIndex == 5;
+    public bool IsAboutSection => SettingsSectionIndex == 6;
+
+    public string StorageDataDirectory => StorageSummary?.DataDirectory ?? "尚未读取";
+
+    public string StorageDatabasePath => StorageSummary?.DatabasePath ?? "尚未读取";
+
+    public string StorageLogDirectory => StorageSummary?.LogDirectory ?? "尚未读取";
+
+    public string StorageAttachmentCacheDirectory => StorageSummary?.AttachmentCacheDirectory ?? "尚未读取";
+
+    public string StorageOutboxDirectory => StorageSummary?.OutboxDirectory ?? "尚未读取";
+
+    public string StorageNativeDirectory => StorageSummary?.NativeDirectory ?? "尚未读取";
+
+    public string StorageTempDirectory => StorageSummary?.TempDirectory ?? "尚未读取";
+
+    public string StorageDatabaseSizeText => FormatStorageSize(StorageSummary?.DatabaseBytes ?? 0);
+
+    public string StorageLogSizeText => FormatStorageSize(StorageSummary?.LogBytes ?? 0);
+
+    public string StorageAttachmentSizeText => FormatStorageSize(StorageSummary?.AttachmentCacheBytes ?? 0);
+
+    public string StorageOutboxSizeText => FormatStorageSize(StorageSummary?.OutboxBytes ?? 0);
+
+    public string StorageNativeSizeText => FormatStorageSize(StorageSummary?.NativeBytes ?? 0);
+
+    public string StorageTempSizeText => FormatStorageSize(StorageSummary?.TempBytes ?? 0);
+
+    public string StorageTotalSizeText => FormatStorageSize(StorageSummary?.TotalBytes ?? 0);
+
+    public string StorageIndexText
+        => StorageSummary is null
+            ? "邮件索引尚未读取"
+            : $"{StorageSummary.MessageCount} 封邮件 · {StorageSummary.BodyCount} 封正文已缓存";
+
+    public string StoragePendingOutboxText
+        => StorageSummary is null
+            ? "待发送邮件尚未读取"
+            : $"待发送/失败邮件 {StorageSummary.PendingOutboxCount} 封";
+
+    private static string FormatStorageSize(long bytes)
+    {
+        if (bytes < 1024)
+        {
+            return $"{bytes} B";
+        }
+
+        if (bytes < 1024 * 1024)
+        {
+            return $"{bytes / 1024.0:0.#} KB";
+        }
+
+        if (bytes < 1024L * 1024 * 1024)
+        {
+            return $"{bytes / (1024.0 * 1024):0.#} MB";
+        }
+
+        return $"{bytes / (1024.0 * 1024 * 1024):0.##} GB";
+    }
 
     [ObservableProperty]
     private bool _showAddAccountForm;
@@ -386,9 +475,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsReadingSection));
         OnPropertyChanged(nameof(IsSyncSection));
         OnPropertyChanged(nameof(IsAccountSection));
+        OnPropertyChanged(nameof(IsStorageSection));
         OnPropertyChanged(nameof(IsAccountListVisible));
         OnPropertyChanged(nameof(IsAddAccountFormVisible));
         OnPropertyChanged(nameof(IsAboutSection));
+
+        if (value == 5)
+        {
+            _ = RefreshStorageAsync();
+        }
     }
 
     public Color BackgroundColorValue
@@ -1435,7 +1530,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         try
         {
-            var directory = Path.Combine(Path.GetTempPath(), "MailDog", "attachments");
+            var directory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "MailDog",
+                "attachments");
             Directory.CreateDirectory(directory);
 
             var fileName = Path.GetFileName(attachment.FileName);
@@ -1847,6 +1945,108 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         IsSettingsOpen = true;
     }
 
+    public void RequestDeleteAccount(AccountViewModel account)
+    {
+        foreach (var item in Accounts)
+        {
+            item.IsDeleteConfirmVisible = item == account;
+            item.DeleteError = null;
+        }
+    }
+
+    public void CancelDeleteAccount(AccountViewModel account)
+    {
+        account.IsDeleteConfirmVisible = false;
+        account.DeleteError = null;
+    }
+
+    public async Task DeleteAccountAsync(AccountViewModel account)
+    {
+        if (account.IsDeleting)
+        {
+            return;
+        }
+
+        var activeFolderDeleted = SelectedFolder is not null
+                                  && account.Folders.Contains(SelectedFolder);
+
+        account.IsDeleting = true;
+        account.DeleteError = null;
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.RemoveAccount,
+                new RemoveAccountRequest { AccountId = account.Id },
+                TimeSpan.FromSeconds(30));
+
+            account.IsDeleteConfirmVisible = false;
+
+            if (activeFolderDeleted)
+            {
+                SelectedFolder = null;
+            }
+
+            await LoadAccountsAsync();
+
+            if (Accounts.Count == 0)
+            {
+                ResetAfterAccountDeletion();
+                return;
+            }
+
+            if (SelectedFolder is not null)
+            {
+                await LoadMessagesAsync(SelectedFolder);
+            }
+            else
+            {
+                var unified = SelectedUnifiedFolder ?? UnifiedFolders.FirstOrDefault();
+                if (SelectedUnifiedFolder is null)
+                {
+                    SelectedUnifiedFolder = unified;
+                }
+                else if (unified is not null)
+                {
+                    await LoadRoleMessagesAsync(unified.Role, unified.Name);
+                }
+            }
+
+            StatusMessage = $"账户 {account.Email} 已删除。";
+        }
+        catch (Exception exception)
+        {
+            account.DeleteError = GetErrorMessage(exception);
+            account.IsDeleteConfirmVisible = true;
+        }
+        finally
+        {
+            account.IsDeleting = false;
+        }
+    }
+
+    private void ResetAfterAccountDeletion()
+    {
+        SelectedAccount = null;
+        SelectedFolder = null;
+        SelectedUnifiedFolder = null;
+        Folders.Clear();
+        _foldersById.Clear();
+        _folderRoles.Clear();
+        RecalculateUnifiedCounts();
+        _activeScope = null;
+        _activeRole = null;
+        _activeFolderId = null;
+        _allMessages.Clear();
+        Messages.Clear();
+        SelectedMessage = null;
+        _currentBody = null;
+        Reader.Reset();
+        FolderTitle = string.Empty;
+        IsEmpty = false;
+        StatusMessage = "账户已删除。";
+    }
+
     private void ResetAccountForm()
     {
         EditingAccountId = null;
@@ -1942,7 +2142,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenAbout()
     {
-        SettingsSectionIndex = 5;
+        SettingsSectionIndex = 6;
         IsSettingsOpen = true;
     }
 
@@ -1983,6 +2183,117 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         catch
         {
             // 打开浏览器失败时不影响关于页。
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshStorageAsync()
+    {
+        if (IsStorageBusy)
+        {
+            return;
+        }
+
+        IsStorageBusy = true;
+        StorageStatus = "正在读取本地数据…";
+
+        try
+        {
+            await LoadStorageSummaryCoreAsync();
+            StorageStatus = "本地数据统计已更新。";
+        }
+        catch (Exception exception)
+        {
+            StorageStatus = $"读取失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsStorageBusy = false;
+        }
+    }
+
+    private async Task LoadStorageSummaryCoreAsync()
+    {
+        var response = await _engine.RequestAsync<StorageSummaryResponse>(
+            IpcMessageTypes.GetStorageSummary,
+            new GetStorageSummaryRequest(),
+            TimeSpan.FromSeconds(30));
+
+        StorageSummary = response.Summary;
+    }
+
+    private async Task CleanStorageAsync(CleanStorageRequest request)
+    {
+        if (IsStorageBusy)
+        {
+            return;
+        }
+
+        IsStorageBusy = true;
+        StorageStatus = "正在清理…";
+
+        try
+        {
+            var response = await _engine.RequestAsync<StorageCleanupResponse>(
+                IpcMessageTypes.CleanStorage,
+                request,
+                TimeSpan.FromSeconds(60));
+
+            try
+            {
+                await LoadStorageSummaryCoreAsync();
+            }
+            catch
+            {
+                // 清理已成功，统计刷新失败不应改变清理结果。
+            }
+
+            var skipped = response.Result.SkippedFiles > 0
+                ? $"，{response.Result.SkippedFiles} 个文件被占用未清理"
+                : string.Empty;
+            StorageStatus = $"{response.Result.Message} 释放 {FormatStorageSize(response.Result.FreedBytes)}{skipped}";
+        }
+        catch (Exception exception)
+        {
+            StorageStatus = $"清理失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsStorageBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private Task CleanAttachmentCacheAsync()
+        => CleanStorageAsync(new CleanStorageRequest { CleanAttachmentCache = true });
+
+    [RelayCommand]
+    private Task CleanLogsAsync()
+        => CleanStorageAsync(new CleanStorageRequest { CleanLogs = true });
+
+    [RelayCommand]
+    private Task CleanTempFilesAsync()
+        => CleanStorageAsync(new CleanStorageRequest { CleanTempFiles = true });
+
+    [RelayCommand]
+    private void OpenFolder(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        {
+            StorageStatus = "目录不存在或尚未读取。";
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(path)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception exception)
+        {
+            StorageStatus = $"打开目录失败：{GetErrorMessage(exception)}";
         }
     }
 

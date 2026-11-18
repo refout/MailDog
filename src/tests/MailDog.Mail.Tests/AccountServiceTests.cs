@@ -83,6 +83,85 @@ public sealed class AccountServiceTests : IDisposable
         Assert.Equal(MailProvider.Outlook, updated.Provider);
     }
 
+    [Fact]
+    public void RemoveAccountDeletesCachedDataAndOutboxAttachments()
+    {
+        var added = _accounts.AddPasswordAccount(
+            MailProvider.QQ,
+            "remove@qq.com",
+            "secret",
+            "待删除");
+
+        _store.UpsertFolders(added.Id,
+        [
+            new FolderRecord(0, added.Id, "INBOX", "收件箱", FolderRole.Inbox, 1, 0, 0, 0)
+        ]);
+
+        var folder = Assert.Single(_store.GetFolders(added.Id));
+        var now = DateTimeOffset.UtcNow;
+
+        _store.UpsertMessages(added.Id, folder.Id,
+        [
+            new MessageRecord(
+                0,
+                added.Id,
+                folder.Id,
+                1,
+                "message-1",
+                "主题",
+                "Alice",
+                "alice@example.com",
+                "me@example.com",
+                string.Empty,
+                now,
+                1024,
+                MailFlags.None,
+                false,
+                string.Empty,
+                BodyStates.NotFetched)
+        ]);
+
+        var messageId = Assert.Single(_store.QueryMessages(folder.Id, null, null, 10).Items).Id;
+        _store.QueuePendingFlag(messageId, "Seen", true, now);
+
+        var attachmentDirectory = Path.Combine(_directory, "outbox", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(attachmentDirectory);
+        var attachmentPath = Path.Combine(attachmentDirectory, "a.txt");
+        File.WriteAllText(attachmentPath, "attachment");
+
+        var outboxId = _store.InsertOutbox(
+            new OutboxRecord(
+                0,
+                added.Id,
+                "to@example.com",
+                string.Empty,
+                string.Empty,
+                "主题",
+                "正文",
+                null,
+                "<outbox@example.com>",
+                OutboxStatuses.Pending,
+                0,
+                now,
+                null,
+                now,
+                null,
+                [],
+                false),
+            [
+                new OutboxAttachmentRecord(0, "a.txt", attachmentPath, "text/plain", 10)
+            ]);
+
+        _accounts.RemoveAccount(added.Id);
+
+        Assert.Empty(_accounts.GetAccounts());
+        Assert.Empty(_store.GetFolders(added.Id));
+        Assert.Null(_store.GetOutbox(outboxId));
+        Assert.Empty(_store.GetDuePendingFlags(now.AddDays(1), 10));
+        Assert.False(File.Exists(attachmentPath));
+        Assert.False(Directory.Exists(attachmentDirectory));
+    }
+
     public void Dispose()
     {
         _store.Dispose();

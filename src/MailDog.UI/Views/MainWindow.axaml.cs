@@ -105,6 +105,30 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnDeleteAccountClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            _viewModel.RequestDeleteAccount(account);
+        }
+    }
+
+    private void OnCancelDeleteAccountClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            _viewModel.CancelDeleteAccount(account);
+        }
+    }
+
+    private async void OnConfirmDeleteAccountClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            await _viewModel.DeleteAccountAsync(account);
+        }
+    }
+
     /// <summary>把账户的展开状态同步到 TreeViewItem（框架容器不直接支持双向绑定）。</summary>
     private void OnFolderTreeContainerPrepared(object? sender, ContainerPreparedEventArgs e)
     {

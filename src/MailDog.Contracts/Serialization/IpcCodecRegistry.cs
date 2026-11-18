@@ -50,6 +50,10 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.GetSettings, IpcJsonContext.Default.GetSettingsRequest);
         Register(IpcMessageTypes.Settings, IpcJsonContext.Default.SettingsResponse);
         Register(IpcMessageTypes.UpdateSettings, IpcJsonContext.Default.UpdateSettingsRequest);
+        Register(IpcMessageTypes.GetStorageSummary, IpcJsonContext.Default.GetStorageSummaryRequest);
+        Register(IpcMessageTypes.StorageSummary, IpcJsonContext.Default.StorageSummaryResponse);
+        Register(IpcMessageTypes.CleanStorage, IpcJsonContext.Default.CleanStorageRequest);
+        Register(IpcMessageTypes.StorageCleanup, IpcJsonContext.Default.StorageCleanupResponse);
 
         Register(IpcMessageTypes.NewMail, IpcJsonContext.Default.NewMailEvent);
         Register(IpcMessageTypes.SyncState, IpcJsonContext.Default.SyncStateEvent);

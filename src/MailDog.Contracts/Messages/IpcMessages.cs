@@ -284,6 +284,31 @@ public sealed class UpdateSettingsRequest : Ipc.IIpcMessage
     public AppSettingsDto Settings { get; init; } = new();
 }
 
+// 本地文件与存储
+
+public sealed class GetStorageSummaryRequest : Ipc.IIpcMessage
+{
+}
+
+public sealed class StorageSummaryResponse : Ipc.IIpcMessage
+{
+    public StorageSummaryDto Summary { get; init; } = new();
+}
+
+public sealed class CleanStorageRequest : Ipc.IIpcMessage
+{
+    public bool CleanAttachmentCache { get; init; }
+
+    public bool CleanLogs { get; init; }
+
+    public bool CleanTempFiles { get; init; }
+}
+
+public sealed class StorageCleanupResponse : Ipc.IIpcMessage
+{
+    public StorageCleanupResultDto Result { get; init; } = new();
+}
+
 // 事件
 
 public sealed class NewMailEvent : Ipc.IIpcMessage

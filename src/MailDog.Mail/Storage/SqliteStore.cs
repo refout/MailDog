@@ -224,17 +224,91 @@ public sealed class SqliteStore : IDisposable
         }
     }
 
-    public void DeleteAccount(string accountId)
+    /// <summary>
+    /// 删除账户及其本地数据；返回需要由上层清理的 outbox 附件文件路径。
+    /// folders/messages/bodies/attachments/account_servers 由外键级联删除，
+    /// outbox 与 pending_flags 没有账户外键，必须在这里显式清理。
+    /// </summary>
+    public IReadOnlyList<string> DeleteAccount(string accountId)
     {
         lock (_gate)
         {
             using var transaction = _connection.BeginTransaction();
-            using var command = _connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = "DELETE FROM accounts WHERE id = $id;";
-            command.Parameters.AddWithValue("$id", accountId);
-            command.ExecuteNonQuery();
+            var attachmentPaths = new List<string>();
+
+            using (var select = _connection.CreateCommand())
+            {
+                select.Transaction = transaction;
+                select.CommandText = """
+                    SELECT oa.stored_path
+                    FROM outbox_attachments oa
+                    JOIN outbox o ON o.id = oa.outbox_id
+                    WHERE o.account_id = $id;
+                    """;
+                select.Parameters.AddWithValue("$id", accountId);
+
+                using var reader = select.ExecuteReader();
+                while (reader.Read())
+                {
+                    attachmentPaths.Add(reader.GetString(0));
+                }
+            }
+
+            using (var flags = _connection.CreateCommand())
+            {
+                flags.Transaction = transaction;
+                flags.CommandText = """
+                    DELETE FROM pending_flags
+                    WHERE message_id IN (SELECT id FROM messages WHERE account_id = $id);
+                    """;
+                flags.Parameters.AddWithValue("$id", accountId);
+                flags.ExecuteNonQuery();
+            }
+
+            using (var outbox = _connection.CreateCommand())
+            {
+                outbox.Transaction = transaction;
+                outbox.CommandText = "DELETE FROM outbox WHERE account_id = $id;";
+                outbox.Parameters.AddWithValue("$id", accountId);
+                outbox.ExecuteNonQuery();
+            }
+
+            using (var command = _connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText = "DELETE FROM accounts WHERE id = $id;";
+                command.Parameters.AddWithValue("$id", accountId);
+                command.ExecuteNonQuery();
+            }
+
             transaction.Commit();
+            return attachmentPaths;
+        }
+    }
+
+    public StorageCountsRecord GetStorageCounts()
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                SELECT
+                    (SELECT COUNT(*) FROM messages),
+                    (SELECT COUNT(*) FROM bodies),
+                    (SELECT COUNT(*) FROM outbox
+                     WHERE status IN ('pending', 'sending', 'failed'));
+                """;
+
+            using var reader = command.ExecuteReader();
+            if (!reader.Read())
+            {
+                return new StorageCountsRecord(0, 0, 0);
+            }
+
+            return new StorageCountsRecord(
+                Convert.ToInt32(reader.GetInt64(0), CultureInfo.InvariantCulture),
+                Convert.ToInt32(reader.GetInt64(1), CultureInfo.InvariantCulture),
+                Convert.ToInt32(reader.GetInt64(2), CultureInfo.InvariantCulture));
         }
     }
 

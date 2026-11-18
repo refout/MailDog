@@ -168,11 +168,55 @@ public sealed class AccountService
             return;
         }
 
-        _store.DeleteAccount(accountId);
+        var outboxAttachments = _store.DeleteAccount(accountId);
 
         if (account.SecretRef is not null)
         {
             _secrets.Delete(account.SecretRef);
+        }
+
+        DeleteOutboxAttachments(outboxAttachments);
+    }
+
+    private static void DeleteOutboxAttachments(IReadOnlyList<string> paths)
+    {
+        var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in paths)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+
+                var directory = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    directories.Add(directory);
+                }
+            }
+            catch
+            {
+                // 清理失败不能阻断账户删除；残留文件由本地文件管理页处理。
+            }
+        }
+
+        foreach (var directory in directories)
+        {
+            try
+            {
+                if (Directory.Exists(directory)
+                    && !Directory.EnumerateFileSystemEntries(directory).Any())
+                {
+                    Directory.Delete(directory);
+                }
+            }
+            catch
+            {
+                // 可能是其他进程仍在占用，留待后续清理。
+            }
         }
     }
 

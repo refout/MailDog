@@ -51,6 +51,11 @@ public static class IpcMessageTypes
     public const string Settings = "settings";
     public const string UpdateSettings = "updateSettings";
 
+    public const string GetStorageSummary = "getStorageSummary";
+    public const string StorageSummary = "storageSummary";
+    public const string CleanStorage = "cleanStorage";
+    public const string StorageCleanup = "storageCleanup";
+
     public const string NewMail = "newMail";
     public const string SyncState = "syncState";
     public const string AuthState = "authState";

@@ -913,6 +913,12 @@
                 </ListBoxItem>
                 <ListBoxItem Padding="10,8">
                   <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ic:FluentIcon Icon="Folder" IconSize="Size16" />
+                    <TextBlock Text="本地文件" FontSize="13" VerticalAlignment="Center" />
+                  </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Padding="10,8">
+                  <StackPanel Orientation="Horizontal" Spacing="12">
                     <ic:FluentIcon Icon="Info" IconSize="Size16" />
                     <TextBlock Text="关于" FontSize="13" VerticalAlignment="Center" />
                   </StackPanel>
@@ -1168,6 +1174,7 @@
                                       CornerRadius="8"
                                       Padding="14,12"
                                       Margin="0,0,0,8">
+                                <StackPanel Spacing="10">
                                 <Grid ColumnDefinitions="Auto,*,Auto">
                                   <Border Width="40"
                                           Height="40"
@@ -1196,7 +1203,7 @@
                                   </StackPanel>
                                   <StackPanel Grid.Column="2"
                                               Orientation="Horizontal"
-                                              Spacing="10"
+                                              Spacing="8"
                                               VerticalAlignment="Center">
                                     <TextBlock Text="{Binding StatusText}"
                                                FontSize="12"
@@ -1204,11 +1211,54 @@
                                                Foreground="{Binding StatusBrush}" />
                                     <Button Content="编辑"
                                             Click="OnEditAccountClick"
+                                            IsEnabled="{Binding !IsDeleting}"
                                             Padding="10,4"
                                             FontSize="12"
                                             AutomationProperties.Name="编辑账户" />
+                                    <Button Content="删除"
+                                            Click="OnDeleteAccountClick"
+                                            IsEnabled="{Binding !IsDeleting}"
+                                            Padding="10,4"
+                                            FontSize="12"
+                                            Foreground="{DynamicResource MailDogBrushDanger}"
+                                            AutomationProperties.Name="删除账户" />
                                   </StackPanel>
                                 </Grid>
+
+                                <Border IsVisible="{Binding IsDeleteConfirmVisible}"
+                                        Background="{DynamicResource MailDogBrushDangerTint}"
+                                        BorderBrush="{DynamicResource MailDogBrushDanger}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Padding="12,10">
+                                  <StackPanel Spacing="8">
+                                    <TextBlock Text="删除后只会移除本地账户、缓存和凭据，不会删除服务器上的邮件或草稿；该账户尚未发出的邮件也会从发件箱移除。"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource MailDogBrushDanger}" />
+                                    <TextBlock Text="{Binding DeleteError}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource MailDogBrushDanger}"
+                                               IsVisible="{Binding HasDeleteError}" />
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="8"
+                                                HorizontalAlignment="Right">
+                                      <Button Content="取消"
+                                              Click="OnCancelDeleteAccountClick"
+                                              IsEnabled="{Binding !IsDeleting}"
+                                              Padding="12,4"
+                                              FontSize="12" />
+                                      <Button Content="确认删除"
+                                              Click="OnConfirmDeleteAccountClick"
+                                              IsEnabled="{Binding !IsDeleting}"
+                                              Padding="12,4"
+                                              FontSize="12"
+                                              Foreground="{DynamicResource MailDogBrushDanger}" />
+                                    </StackPanel>
+                                  </StackPanel>
+                                </Border>
+                                </StackPanel>
                               </Border>
                             </DataTemplate>
                           </ItemsControl.ItemTemplate>
@@ -1308,6 +1358,221 @@
                         <TextBlock Text="{Binding AddAccountStatus}"
                                    Classes="caption"
                                    TextWrapping="Wrap" />
+                      </StackPanel>
+
+                      <StackPanel IsVisible="{Binding IsStorageSection}" Spacing="16">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <StackPanel Spacing="4">
+                            <TextBlock Text="本地文件" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Text="查看磁盘占用、打开数据目录，并清理可再生缓存。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+                          <Button Grid.Column="1"
+                                  Content="刷新"
+                                  Command="{Binding RefreshStorageCommand}"
+                                  IsEnabled="{Binding !IsStorageBusy}"
+                                  VerticalAlignment="Top"
+                                  Padding="12,4"
+                                  FontSize="12" />
+                        </Grid>
+
+                        <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                                BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="16">
+                          <StackPanel Spacing="10">
+                            <TextBlock Text="占用" Classes="section" />
+
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="邮件数据库（含 WAL）"
+                                         FontSize="13"
+                                         Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding StorageDatabaseSizeText}"
+                                         FontSize="13" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="正文与索引"
+                                         FontSize="13"
+                                         Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding StorageIndexText}"
+                                         FontSize="13"
+                                         HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="附件缓存"
+                                         FontSize="13"
+                                         Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding StorageAttachmentSizeText}"
+                                         FontSize="13" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="发件箱附件"
+                                         FontSize="13"
+                                         Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding StorageOutboxSizeText}"
+                                         FontSize="13" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="日志"
+                                         FontSize="13"
+                                         Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding StorageLogSizeText}"
+                                         FontSize="13" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="原生库"
+                                         FontSize="13"
+                                         Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding StorageNativeSizeText}"
+                                         FontSize="13" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="临时文件"
+                                         FontSize="13"
+                                         Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding StorageTempSizeText}"
+                                         FontSize="13" />
+                            </Grid>
+                            <Border BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                    BorderThickness="0,1,0,0"
+                                    Padding="0,10,0,0">
+                              <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="合计"
+                                           FontSize="13"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding StorageTotalSizeText}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold" />
+                              </Grid>
+                            </Border>
+                            <TextBlock Text="{Binding StoragePendingOutboxText}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Border>
+
+                        <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                                BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="16">
+                          <StackPanel Spacing="10">
+                            <TextBlock Text="目录" Classes="section" />
+                            <TextBlock Text="打开目录会使用系统文件管理器；删除文件前请确认 MailDog 已退出相关预览程序。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                              <TextBlock Text="数据" Width="44" FontSize="13" VerticalAlignment="Center" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding StorageDataDirectory}"
+                                         FontSize="12"
+                                         TextTrimming="CharacterEllipsis"
+                                         ToolTip.Tip="{Binding StorageDataDirectory}"
+                                         VerticalAlignment="Center" />
+                              <Button Grid.Column="2"
+                                      Content="打开"
+                                      Command="{Binding OpenFolderCommand}"
+                                      CommandParameter="{Binding StorageDataDirectory}"
+                                      Padding="10,3"
+                                      FontSize="12" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                              <TextBlock Text="日志" Width="44" FontSize="13" VerticalAlignment="Center" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding StorageLogDirectory}"
+                                         FontSize="12"
+                                         TextTrimming="CharacterEllipsis"
+                                         ToolTip.Tip="{Binding StorageLogDirectory}"
+                                         VerticalAlignment="Center" />
+                              <Button Grid.Column="2"
+                                      Content="打开"
+                                      Command="{Binding OpenFolderCommand}"
+                                      CommandParameter="{Binding StorageLogDirectory}"
+                                      Padding="10,3"
+                                      FontSize="12" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                              <TextBlock Text="附件" Width="44" FontSize="13" VerticalAlignment="Center" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding StorageAttachmentCacheDirectory}"
+                                         FontSize="12"
+                                         TextTrimming="CharacterEllipsis"
+                                         ToolTip.Tip="{Binding StorageAttachmentCacheDirectory}"
+                                         VerticalAlignment="Center" />
+                              <Button Grid.Column="2"
+                                      Content="打开"
+                                      Command="{Binding OpenFolderCommand}"
+                                      CommandParameter="{Binding StorageAttachmentCacheDirectory}"
+                                      Padding="10,3"
+                                      FontSize="12" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                              <TextBlock Text="发件箱" Width="44" FontSize="13" VerticalAlignment="Center" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding StorageOutboxDirectory}"
+                                         FontSize="12"
+                                         TextTrimming="CharacterEllipsis"
+                                         ToolTip.Tip="{Binding StorageOutboxDirectory}"
+                                         VerticalAlignment="Center" />
+                              <Button Grid.Column="2"
+                                      Content="打开"
+                                      Command="{Binding OpenFolderCommand}"
+                                      CommandParameter="{Binding StorageOutboxDirectory}"
+                                      Padding="10,3"
+                                      FontSize="12" />
+                            </Grid>
+                          </StackPanel>
+                        </Border>
+
+                        <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                                BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="16">
+                          <StackPanel Spacing="10">
+                            <TextBlock Text="清理" Classes="section" />
+                            <TextBlock Text="只清理可再生缓存，不会删除数据库、草稿、旗标邮件或待发送邮件；当前日志文件会保留。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <WrapPanel>
+                              <Button Content="清理附件缓存"
+                                      Command="{Binding CleanAttachmentCacheCommand}"
+                                      IsEnabled="{Binding !IsStorageBusy}"
+                                      Margin="0,0,8,8"
+                                      Padding="12,6"
+                                      FontSize="12" />
+                              <Button Content="清理旧日志"
+                                      Command="{Binding CleanLogsCommand}"
+                                      IsEnabled="{Binding !IsStorageBusy}"
+                                      Margin="0,0,8,8"
+                                      Padding="12,6"
+                                      FontSize="12" />
+                              <Button Content="清理临时文件"
+                                      Command="{Binding CleanTempFilesCommand}"
+                                      IsEnabled="{Binding !IsStorageBusy}"
+                                      Margin="0,0,0,8"
+                                      Padding="12,6"
+                                      FontSize="12" />
+                            </WrapPanel>
+                            <ProgressBar IsIndeterminate="True"
+                                         Height="3"
+                                         IsVisible="{Binding IsStorageBusy}" />
+                            <TextBlock Text="{Binding StorageStatus}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Border>
                       </StackPanel>
 
                       <StackPanel IsVisible="{Binding IsAboutSection}" Spacing="16">

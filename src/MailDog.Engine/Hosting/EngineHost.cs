@@ -25,6 +25,7 @@ public sealed class EngineHost : IAsyncDisposable
     private readonly ImapIdleWatcher _idle;
     private readonly OutlookAuthService _outlookAuth;
     private readonly SmtpSendService _smtp;
+    private readonly StorageMaintenanceService _storage;
     private readonly OutboxWorker _outbox;
     private readonly FlagSyncWorker _flagSync;
     private readonly RequestRouter _router;
@@ -55,9 +56,10 @@ public sealed class EngineHost : IAsyncDisposable
         var dataDirectory = Path.GetDirectoryName(_databasePath)
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailDog");
         _smtp = new SmtpSendService(_store, _accounts, _outlookAuth, dataDirectory);
+        _storage = new StorageMaintenanceService(_store, databasePath);
         _outbox = new OutboxWorker(_store, _smtp);
         _flagSync = new FlagSyncWorker(_store, _sync);
-        _router = new RequestRouter(_store, _accounts, _sync, _outlookAuth, _smtp);
+        _router = new RequestRouter(_store, _accounts, _sync, _outlookAuth, _smtp, _storage);
         _ipc = new IpcServer(_router, message => _log.Warn(message));
 
         _router.Diagnostic += message => _log.Warn(message);

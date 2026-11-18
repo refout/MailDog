@@ -123,3 +123,5 @@ public static class BodyStates
     public const int TooLarge = 2;
     public const int Failed = 3;
 }
+
+public sealed record StorageCountsRecord(int Messages, int Bodies, int PendingOutbox);
