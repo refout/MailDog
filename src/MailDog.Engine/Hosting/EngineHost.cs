@@ -26,6 +26,7 @@ public sealed class EngineHost : IAsyncDisposable
     private readonly OutlookAuthService _outlookAuth;
     private readonly SmtpSendService _smtp;
     private readonly StorageMaintenanceService _storage;
+    private readonly LocalBackupService _backup;
     private readonly OutboxWorker _outbox;
     private readonly FlagSyncWorker _flagSync;
     private readonly RequestRouter _router;
@@ -47,6 +48,7 @@ public sealed class EngineHost : IAsyncDisposable
         _log = new FileLogger();
         _databasePath = databasePath;
         _hideConsole = hideConsole;
+        LocalBackupService.ApplyPendingRestore(databasePath);
         _store = new SqliteStore(databasePath);
         _secrets = new SecretStore(_store);
         _accounts = new AccountService(_store, _secrets);
@@ -57,9 +59,10 @@ public sealed class EngineHost : IAsyncDisposable
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailDog");
         _smtp = new SmtpSendService(_store, _accounts, _outlookAuth, dataDirectory, _sync);
         _storage = new StorageMaintenanceService(_store, databasePath);
+        _backup = new LocalBackupService(_store, databasePath);
         _outbox = new OutboxWorker(_store, _smtp);
         _flagSync = new FlagSyncWorker(_store, _sync);
-        _router = new RequestRouter(_store, _accounts, _sync, _outlookAuth, _smtp, _storage);
+        _router = new RequestRouter(_store, _accounts, _sync, _outlookAuth, _smtp, _storage, _backup);
         _ipc = new IpcServer(_router, message => _log.Warn(message));
 
         _router.Diagnostic += message => _log.Warn(message);

@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Platform;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using MailDog.UI.ViewModels;
 
@@ -171,6 +172,78 @@ public partial class MainWindow : Window
         if (sender is Button { DataContext: OutboxItemViewModel item })
         {
             await _viewModel.DeleteOutboxAsync(item);
+        }
+    }
+
+    private async void OnCreateBackupClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var file = await StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            Title = "创建 MailDog 备份",
+            SuggestedFileName = $"MailDog-backup-{DateTime.Now:yyyyMMdd-HHmm}.zip",
+            DefaultExtension = "zip",
+            ShowOverwritePrompt = true
+        });
+
+        var path = file?.TryGetLocalPath();
+        if (!string.IsNullOrEmpty(path))
+        {
+            await _viewModel.CreateBackupAsync(path);
+        }
+    }
+
+    private async void OnRestoreBackupClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = "选择 MailDog 备份",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new Avalonia.Platform.Storage.FilePickerFileType("MailDog 备份")
+                {
+                    Patterns = ["*.zip"]
+                }
+            ]
+        });
+
+        var path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+        if (!string.IsNullOrEmpty(path))
+        {
+            await _viewModel.RestoreBackupAsync(path);
+        }
+    }
+
+    private async void OnExportMessageClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedMessage is not { } message)
+        {
+            return;
+        }
+
+        var name = string.IsNullOrWhiteSpace(message.Subject) ? "maildog-message" : message.Subject.Trim();
+        foreach (var invalid in Path.GetInvalidFileNameChars())
+        {
+            name = name.Replace(invalid, '_');
+        }
+
+        if (name.Length > 100)
+        {
+            name = name[..100];
+        }
+
+        var file = await StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            Title = "导出邮件",
+            SuggestedFileName = $"{name}.eml",
+            DefaultExtension = "eml",
+            ShowOverwritePrompt = true
+        });
+
+        var path = file?.TryGetLocalPath();
+        if (!string.IsNullOrEmpty(path))
+        {
+            await _viewModel.ExportSelectedMessageAsync(path);
         }
     }
 

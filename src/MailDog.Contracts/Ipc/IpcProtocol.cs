@@ -66,6 +66,12 @@ public static class IpcMessageTypes
     public const string StorageSummary = "storageSummary";
     public const string CleanStorage = "cleanStorage";
     public const string StorageCleanup = "storageCleanup";
+    public const string CreateBackup = "createBackup";
+    public const string BackupResult = "backupResult";
+    public const string RestoreBackup = "restoreBackup";
+    public const string RestoreResult = "restoreResult";
+    public const string ExportMessage = "exportMessage";
+    public const string MessageExport = "messageExport";
     public const string ListOutbox = "listOutbox";
     public const string OutboxList = "outboxList";
     public const string RetryOutbox = "retryOutbox";

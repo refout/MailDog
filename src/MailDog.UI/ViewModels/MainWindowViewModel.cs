@@ -459,6 +459,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _outboxStatus = "发件箱中的待发送和失败邮件会显示在这里。";
 
     [ObservableProperty]
+    private bool _isBackupBusy;
+
+    [ObservableProperty]
+    private string _backupStatus = "备份包含本地数据库；恢复会在下次启动 Engine 时生效。";
+
+    [ObservableProperty]
     private string _storageStatus = "打开“本地文件”后读取磁盘占用。";
 
     partial void OnStorageSummaryChanged(StorageSummaryDto? value)
@@ -2779,6 +2785,92 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         finally
         {
             IsOutboxBusy = false;
+        }
+    }
+
+    public async Task CreateBackupAsync(string destinationPath)
+    {
+        if (IsBackupBusy)
+        {
+            return;
+        }
+
+        IsBackupBusy = true;
+        BackupStatus = "正在创建数据库备份…";
+        try
+        {
+            var response = await _engine.RequestAsync<BackupResponse>(
+                IpcMessageTypes.CreateBackup,
+                new CreateBackupRequest { DestinationPath = destinationPath },
+                TimeSpan.FromSeconds(120));
+
+            BackupStatus = $"备份已保存：{response.Result.Path}（{FormatStorageSize(response.Result.Size)}）";
+            await LoadStorageSummaryCoreAsync();
+        }
+        catch (Exception exception)
+        {
+            BackupStatus = $"备份失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsBackupBusy = false;
+        }
+    }
+
+    public async Task RestoreBackupAsync(string archivePath)
+    {
+        if (IsBackupBusy)
+        {
+            return;
+        }
+
+        IsBackupBusy = true;
+        BackupStatus = "正在校验备份…";
+        try
+        {
+            var response = await _engine.RequestAsync<RestoreResponse>(
+                IpcMessageTypes.RestoreBackup,
+                new RestoreBackupRequest { ArchivePath = archivePath },
+                TimeSpan.FromSeconds(60));
+
+            BackupStatus = response.Result.RestartRequired
+                ? "恢复已安排。请从托盘完全退出 MailDog 后重新打开，恢复将在下次启动时生效；当前数据库会先自动保留一份副本。"
+                : "恢复已完成。";
+        }
+        catch (Exception exception)
+        {
+            BackupStatus = $"恢复失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsBackupBusy = false;
+        }
+    }
+
+    public async Task ExportSelectedMessageAsync(string destinationPath)
+    {
+        if (SelectedMessage is not { } message)
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await _engine.RequestAsync<MessageExportResponse>(
+                IpcMessageTypes.ExportMessage,
+                new ExportMessageRequest
+                {
+                    MessageId = message.Id,
+                    DestinationPath = destinationPath
+                },
+                TimeSpan.FromSeconds(120));
+
+            StatusMessage = $"已导出邮件：{response.Path}（{FormatStorageSize(response.Size)}）";
+            HasError = false;
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
         }
     }
 

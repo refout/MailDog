@@ -46,3 +46,21 @@ public sealed class StorageCleanupResultDto
 
     public string Message { get; init; } = string.Empty;
 }
+
+public sealed class BackupResultDto
+{
+    public string Path { get; init; } = string.Empty;
+
+    public long Size { get; init; }
+
+    public DateTimeOffset CreatedUtc { get; init; }
+}
+
+public sealed class RestoreResultDto
+{
+    public bool Staged { get; init; }
+
+    public string BackupPath { get; init; } = string.Empty;
+
+    public bool RestartRequired { get; init; }
+}

@@ -19,6 +19,7 @@ public sealed class RequestRouter
     private readonly IOutlookAuthService _auth;
     private readonly SmtpSendService _sender;
     private readonly StorageMaintenanceService _storage;
+    private readonly LocalBackupService _backup;
 
     public RequestRouter(
         SqliteStore store,
@@ -26,7 +27,8 @@ public sealed class RequestRouter
         ImapSyncService sync,
         IOutlookAuthService auth,
         SmtpSendService sender,
-        StorageMaintenanceService storage)
+        StorageMaintenanceService storage,
+        LocalBackupService backup)
     {
         _store = store;
         _accounts = accounts;
@@ -34,6 +36,7 @@ public sealed class RequestRouter
         _auth = auth;
         _sender = sender;
         _storage = storage;
+        _backup = backup;
     }
 
     public event Action<string>? Diagnostic;
@@ -215,6 +218,25 @@ public sealed class RequestRouter
 
             case CleanStorageRequest request:
                 return new StorageCleanupResponse { Result = _storage.Clean(request) };
+
+            case CreateBackupRequest request:
+                return new BackupResponse { Result = _backup.CreateBackup(request.DestinationPath) };
+
+            case RestoreBackupRequest request:
+                return new RestoreResponse { Result = _backup.StageRestore(request.ArchivePath) };
+
+            case ExportMessageRequest request:
+            {
+                var size = await _sync.ExportMessageAsync(
+                    request.MessageId,
+                    request.DestinationPath,
+                    cancellationToken).ConfigureAwait(false);
+                return new MessageExportResponse
+                {
+                    Path = request.DestinationPath,
+                    Size = size
+                };
+            }
 
             case ListOutboxRequest:
                 return new OutboxListResponse

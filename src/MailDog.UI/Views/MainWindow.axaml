@@ -857,6 +857,12 @@
                     AutomationProperties.Name="继续编辑草稿">
               <ic:FluentIcon Icon="Edit" IconSize="Size16" />
             </Button>
+            <Button Click="OnExportMessageClick"
+                    Padding="8,4"
+                    ToolTip.Tip="导出为 .eml"
+                    AutomationProperties.Name="导出邮件">
+              <ic:FluentIcon Icon="ArrowDownload" IconSize="Size16" />
+            </Button>
             <Button Command="{Binding ReplyCommand}"
                     Padding="8,4"
                     ToolTip.Tip="回复"
@@ -1801,6 +1807,39 @@
                                 </DataTemplate>
                               </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                          </StackPanel>
+                        </Border>
+
+                        <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                                BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="16">
+                          <StackPanel Spacing="10">
+                            <TextBlock Text="备份与恢复" Classes="section" />
+                            <TextBlock Text="备份会生成包含本地数据库的 ZIP。恢复只在下次启动 Engine 时替换数据库，启动前会先复制当前数据库。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <WrapPanel>
+                              <Button Content="创建备份"
+                                      Click="OnCreateBackupClick"
+                                      IsEnabled="{Binding !IsBackupBusy}"
+                                      Margin="0,0,8,8"
+                                      Padding="12,6"
+                                      FontSize="12" />
+                              <Button Content="从备份恢复"
+                                      Click="OnRestoreBackupClick"
+                                      IsEnabled="{Binding !IsBackupBusy}"
+                                      Margin="0,0,0,8"
+                                      Padding="12,6"
+                                      FontSize="12" />
+                            </WrapPanel>
+                            <ProgressBar IsIndeterminate="True"
+                                         Height="3"
+                                         IsVisible="{Binding IsBackupBusy}" />
+                            <TextBlock Text="{Binding BackupStatus}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
                           </StackPanel>
                         </Border>
 

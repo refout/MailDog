@@ -384,6 +384,40 @@ public sealed class StorageCleanupResponse : Ipc.IIpcMessage
     public StorageCleanupResultDto Result { get; init; } = new();
 }
 
+public sealed class CreateBackupRequest : Ipc.IIpcMessage
+{
+    public string DestinationPath { get; init; } = string.Empty;
+}
+
+public sealed class BackupResponse : Ipc.IIpcMessage
+{
+    public BackupResultDto Result { get; init; } = new();
+}
+
+public sealed class RestoreBackupRequest : Ipc.IIpcMessage
+{
+    public string ArchivePath { get; init; } = string.Empty;
+}
+
+public sealed class RestoreResponse : Ipc.IIpcMessage
+{
+    public RestoreResultDto Result { get; init; } = new();
+}
+
+public sealed class ExportMessageRequest : Ipc.IIpcMessage
+{
+    public long MessageId { get; init; }
+
+    public string DestinationPath { get; init; } = string.Empty;
+}
+
+public sealed class MessageExportResponse : Ipc.IIpcMessage
+{
+    public string Path { get; init; } = string.Empty;
+
+    public long Size { get; init; }
+}
+
 public sealed class ListOutboxRequest : Ipc.IIpcMessage
 {
 }

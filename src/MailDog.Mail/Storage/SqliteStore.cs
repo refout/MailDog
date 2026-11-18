@@ -1774,6 +1774,29 @@ public sealed class SqliteStore : IDisposable
         }
     }
 
+    /// <summary>生成一致性数据库快照，供备份打包；快照是独立 SQLite 文件。</summary>
+    public void BackupTo(string destinationPath)
+    {
+        lock (_gate)
+        {
+            var fullPath = Path.GetFullPath(destinationPath);
+            var directory = Path.GetDirectoryName(fullPath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            if (File.Exists(fullPath))
+            {
+                File.Delete(fullPath);
+            }
+
+            using var command = _connection.CreateCommand();
+            command.CommandText = $"VACUUM INTO '{fullPath.Replace("'", "''")}';";
+            command.ExecuteNonQuery();
+        }
+    }
+
     private void RecountFolder(long folderId)
     {
         lock (_gate)

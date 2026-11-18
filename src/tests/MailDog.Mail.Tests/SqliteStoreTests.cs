@@ -479,6 +479,47 @@ public sealed class SqliteStoreTests : IDisposable
     }
 
     [Fact]
+    public void BackupAndRestoreRoundTrip()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "maildog-backup-tests", Guid.NewGuid().ToString("N"));
+        var databasePath = Path.Combine(directory, "maildog.db");
+        var archivePath = Path.Combine(directory, "backup.zip");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            var store = new SqliteStore(databasePath);
+            var account = CreateAccount();
+            store.UpsertAccount(account);
+            var backup = new LocalBackupService(store, databasePath);
+
+            var result = backup.CreateBackup(archivePath);
+            Assert.True(result.Size > 0);
+            Assert.True(File.Exists(archivePath));
+
+            var restore = backup.StageRestore(archivePath);
+            Assert.True(restore.Staged);
+            Assert.True(restore.RestartRequired);
+
+            store.Dispose();
+            LocalBackupService.ApplyPendingRestore(databasePath);
+
+            using var reopened = new SqliteStore(databasePath);
+            Assert.Single(reopened.GetAccounts());
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(directory, true);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    [Fact]
     public void AccountServerRoundTrip()
     {
         var account = CreateAccount();

@@ -65,6 +65,12 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.StorageSummary, IpcJsonContext.Default.StorageSummaryResponse);
         Register(IpcMessageTypes.CleanStorage, IpcJsonContext.Default.CleanStorageRequest);
         Register(IpcMessageTypes.StorageCleanup, IpcJsonContext.Default.StorageCleanupResponse);
+        Register(IpcMessageTypes.CreateBackup, IpcJsonContext.Default.CreateBackupRequest);
+        Register(IpcMessageTypes.BackupResult, IpcJsonContext.Default.BackupResponse);
+        Register(IpcMessageTypes.RestoreBackup, IpcJsonContext.Default.RestoreBackupRequest);
+        Register(IpcMessageTypes.RestoreResult, IpcJsonContext.Default.RestoreResponse);
+        Register(IpcMessageTypes.ExportMessage, IpcJsonContext.Default.ExportMessageRequest);
+        Register(IpcMessageTypes.MessageExport, IpcJsonContext.Default.MessageExportResponse);
         Register(IpcMessageTypes.ListOutbox, IpcJsonContext.Default.ListOutboxRequest);
         Register(IpcMessageTypes.OutboxList, IpcJsonContext.Default.OutboxListResponse);
         Register(IpcMessageTypes.RetryOutbox, IpcJsonContext.Default.RetryOutboxRequest);

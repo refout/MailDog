@@ -108,6 +108,58 @@ public sealed class ImapSyncService : IAsyncDisposable
         }
     }
 
+    /// <summary>把完整 MIME 源邮件导出为 .eml 文件，保留原始头、正文和附件。</summary>
+    public async Task<long> ExportMessageAsync(
+        long messageId,
+        string destinationPath,
+        CancellationToken cancellationToken)
+    {
+        var message = _store.GetMessage(messageId)
+            ?? throw new KeyNotFoundException("邮件不存在。");
+
+        var account = _accounts.GetRecord(message.AccountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var folderRecord = _store.GetFolder(message.FolderId)
+            ?? throw new KeyNotFoundException("文件夹不存在。");
+
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var folder = session.Client!.GetFolder(folderRecord.FullName);
+            await folder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                var mime = await folder.GetMessageAsync(
+                    ToUniqueId(message.Uid),
+                    cancellationToken).ConfigureAwait(false);
+
+                var directory = Path.GetDirectoryName(destinationPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                await using var stream = File.Create(destinationPath);
+                await mime.WriteToAsync(stream, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                return stream.Length;
+            }
+            finally
+            {
+                await folder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
     /// <summary>读取附件字节用于内嵌预览；超过上限时拒绝，避免把大文件搬进 IPC 和内存。</summary>
     public async Task<AttachmentBytesDto> ReadAttachmentAsync(
         long messageId,
