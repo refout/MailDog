@@ -144,6 +144,16 @@ public sealed class RequestRouter
                 };
             }
 
+            case ReadAttachmentRequest request:
+                return new AttachmentBytesResponse
+                {
+                    Attachment = await _sync.ReadAttachmentAsync(
+                        request.MessageId,
+                        request.Index,
+                        request.MaxBytes,
+                        cancellationToken).ConfigureAwait(false)
+                };
+
             case MarkReadRequest request:
                 await _sync.SetSeenAsync(request.MessageId, request.IsRead, cancellationToken).ConfigureAwait(false);
                 return new OkResponse { Affected = 1 };

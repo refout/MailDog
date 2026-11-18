@@ -38,6 +38,16 @@ public sealed class AttachmentDto
     public bool IsInline { get; init; }
 }
 
+/// <summary>从服务器读回的附件内容，用于阅读区内嵌预览，不落盘。</summary>
+public sealed class AttachmentBytesDto
+{
+    public string FileName { get; init; } = string.Empty;
+
+    public string MimeType { get; init; } = string.Empty;
+
+    public byte[] Content { get; init; } = [];
+}
+
 public sealed class MailBodyDto
 {
     public long MessageId { get; init; }

@@ -1,3 +1,4 @@
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MailDog.Contracts.Dto;
@@ -5,25 +6,29 @@ using MailDog.Html;
 
 namespace MailDog.UI.ViewModels;
 
-public sealed partial class AttachmentViewModel : ObservableObject
+public sealed partial class AttachmentViewModel : ObservableObject, IDisposable
 {
     private readonly Func<AttachmentViewModel, Task> _download;
     private readonly Func<AttachmentViewModel, Task>? _preview;
+    private readonly Func<AttachmentViewModel, Task<AttachmentBytesDto>>? _loadBytes;
 
     public AttachmentViewModel(
         long messageId,
         int index,
         AttachmentDto attachment,
         Func<AttachmentViewModel, Task> download,
-        Func<AttachmentViewModel, Task>? preview = null)
+        Func<AttachmentViewModel, Task>? preview = null,
+        Func<AttachmentViewModel, Task<AttachmentBytesDto>>? loadBytes = null)
     {
         MessageId = messageId;
         Index = index;
         FileName = attachment.FileName;
+        MimeType = attachment.MimeType;
         SizeText = FormatSize(attachment.Size);
         IsInline = attachment.IsInline;
         _download = download;
         _preview = preview;
+        _loadBytes = loadBytes;
     }
 
     public long MessageId { get; }
@@ -32,15 +37,66 @@ public sealed partial class AttachmentViewModel : ObservableObject
 
     public string FileName { get; }
 
+    public string MimeType { get; }
+
     public string SizeText { get; }
 
     public bool IsInline { get; }
+
+    public bool IsImage => MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+        && !MimeType.Contains("svg", StringComparison.OrdinalIgnoreCase);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPreviewImage))]
+    private Bitmap? _previewImage;
+
+    [ObservableProperty]
+    private bool _isPreviewLoading;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPreviewError))]
+    private string? _previewError;
+
+    public bool HasPreviewImage => PreviewImage is not null;
+
+    public bool HasPreviewError => !string.IsNullOrWhiteSpace(PreviewError);
+
+    public async Task LoadPreviewImageAsync()
+    {
+        if (!IsImage || _loadBytes is null || PreviewImage is not null || IsPreviewLoading)
+        {
+            return;
+        }
+
+        IsPreviewLoading = true;
+        PreviewError = null;
+        try
+        {
+            var attachment = await _loadBytes(this);
+            await using var stream = new MemoryStream(attachment.Content);
+            PreviewImage = new Bitmap(stream);
+        }
+        catch (Exception exception)
+        {
+            PreviewError = exception.Message;
+        }
+        finally
+        {
+            IsPreviewLoading = false;
+        }
+    }
 
     [RelayCommand]
     private Task DownloadAsync() => _download(this);
 
     [RelayCommand]
     private Task PreviewAsync() => _preview?.Invoke(this) ?? Task.CompletedTask;
+
+    public void Dispose()
+    {
+        PreviewImage?.Dispose();
+        PreviewImage = null;
+    }
 
     private static string FormatSize(long bytes)
     {
@@ -116,6 +172,9 @@ public sealed partial class ReaderViewModel : ObservableObject
 
     public Func<AttachmentViewModel, Task>? PreviewAttachment { get; set; }
 
+    /// <summary>由主视图模型注入：读取附件字节用于内嵌图片预览，不落盘。</summary>
+    public Func<AttachmentViewModel, Task<AttachmentBytesDto>>? LoadAttachmentBytes { get; set; }
+
     public bool HasError => !string.IsNullOrEmpty(Error);
 
     public bool HasAttachments => Attachments.Length > 0;
@@ -128,6 +187,7 @@ public sealed partial class ReaderViewModel : ObservableObject
 
     public void Reset()
     {
+        ClearAttachments();
         Subject = string.Empty;
         SenderLine = string.Empty;
         DateText = string.Empty;
@@ -138,6 +198,15 @@ public sealed partial class ReaderViewModel : ObservableObject
         IsFromCache = false;
         Notice = null;
         Error = null;
+    }
+
+    private void ClearAttachments()
+    {
+        foreach (var attachment in Attachments)
+        {
+            attachment.Dispose();
+        }
+
         Attachments = [];
     }
 
@@ -155,14 +224,22 @@ public sealed partial class ReaderViewModel : ObservableObject
         Subject = body.Subject;
         SenderLine = senderLine;
         DateText = dateText;
+        ClearAttachments();
         Attachments = body.Attachments
             .Select((attachment, index) => new AttachmentViewModel(
                 body.MessageId,
                 index,
                 attachment,
                 DownloadAttachment ?? (_ => Task.CompletedTask),
-                PreviewAttachment))
+                PreviewAttachment,
+                LoadAttachmentBytes))
             .ToArray();
+
+        foreach (var attachment in Attachments.Where(attachment => attachment.IsImage))
+        {
+            _ = attachment.LoadPreviewImageAsync();
+        }
+
         Notice = body.Truncated ? "邮件内容较大，已截断。" : null;
         IsFromCache = body.FromCache;
         Error = null;

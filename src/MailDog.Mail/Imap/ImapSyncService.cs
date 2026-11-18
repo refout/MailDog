@@ -108,6 +108,71 @@ public sealed class ImapSyncService : IAsyncDisposable
         }
     }
 
+    /// <summary>读取附件字节用于内嵌预览；超过上限时拒绝，避免把大文件搬进 IPC 和内存。</summary>
+    public async Task<AttachmentBytesDto> ReadAttachmentAsync(
+        long messageId,
+        int attachmentIndex,
+        int maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var message = _store.GetMessage(messageId)
+            ?? throw new KeyNotFoundException("邮件不存在。");
+
+        var account = _accounts.GetRecord(message.AccountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var folderRecord = _store.GetFolder(message.FolderId)
+            ?? throw new KeyNotFoundException("文件夹不存在。");
+
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var folder = session.Client!.GetFolder(folderRecord.FullName);
+            await folder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                var mime = await folder.GetMessageAsync(
+                    ToUniqueId(message.Uid),
+                    cancellationToken).ConfigureAwait(false);
+
+                var part = MimeConverter.FindAttachment(mime, attachmentIndex)
+                    ?? throw new InvalidOperationException("附件不存在，请刷新邮件后重试。");
+
+                if (part.Content is null)
+                {
+                    throw new InvalidOperationException("附件内容为空。");
+                }
+
+                await using var buffer = new MemoryStream();
+                await part.Content.DecodeToAsync(buffer, cancellationToken).ConfigureAwait(false);
+
+                if (buffer.Length > Math.Max(1, maxBytes))
+                {
+                    throw new InvalidOperationException("附件超过内嵌预览上限，请使用“打开”或“下载”。");
+                }
+
+                return new AttachmentBytesDto
+                {
+                    FileName = part.FileName ?? "attachment",
+                    MimeType = part.ContentType.MimeType,
+                    Content = buffer.ToArray()
+                };
+            }
+            finally
+            {
+                await folder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
     public async Task<MailBodyDto> GetBodyAsync(long messageId, CancellationToken cancellationToken)
     {
         var message = _store.GetMessage(messageId)

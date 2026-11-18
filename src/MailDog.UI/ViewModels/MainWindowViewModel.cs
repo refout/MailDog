@@ -54,6 +54,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         Reader.PropertyChanged += OnReaderPropertyChanged;
         Reader.DownloadAttachment = DownloadAttachmentAsync;
         Reader.PreviewAttachment = OpenAttachmentAsync;
+        Reader.LoadAttachmentBytes = LoadAttachmentBytesAsync;
         Accounts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAccounts));
         RefreshBackgroundPresets();
         BuildCalendar();
@@ -1932,6 +1933,25 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         _allowRemoteImages = true;
         RenderCurrentBody();
+    }
+
+    private async Task<AttachmentBytesDto> LoadAttachmentBytesAsync(AttachmentViewModel attachment)
+    {
+        if (!IsConnected)
+        {
+            throw new InvalidOperationException("尚未连接 Engine。");
+        }
+
+        var response = await _engine.RequestAsync<AttachmentBytesResponse>(
+            IpcMessageTypes.ReadAttachment,
+            new ReadAttachmentRequest
+            {
+                MessageId = attachment.MessageId,
+                Index = attachment.Index
+            },
+            TimeSpan.FromSeconds(60));
+
+        return response.Attachment;
     }
 
     private async Task DownloadAttachmentAsync(AttachmentViewModel attachment)

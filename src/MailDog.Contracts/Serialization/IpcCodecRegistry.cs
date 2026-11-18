@@ -42,6 +42,8 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.MoveMessage, IpcJsonContext.Default.MoveMessageRequest);
         Register(IpcMessageTypes.DeleteMessage, IpcJsonContext.Default.DeleteMessageRequest);
         Register(IpcMessageTypes.DownloadAttachment, IpcJsonContext.Default.DownloadAttachmentRequest);
+        Register(IpcMessageTypes.ReadAttachment, IpcJsonContext.Default.ReadAttachmentRequest);
+        Register(IpcMessageTypes.AttachmentBytes, IpcJsonContext.Default.AttachmentBytesResponse);
         Register(IpcMessageTypes.AttachmentSaved, IpcJsonContext.Default.AttachmentSavedResponse);
         Register(IpcMessageTypes.SendMail, IpcJsonContext.Default.SendMailRequest);
         Register(IpcMessageTypes.SendMailResult, IpcJsonContext.Default.SendMailResponse);

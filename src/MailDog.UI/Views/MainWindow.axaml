@@ -796,31 +796,48 @@
                           CornerRadius="8"
                           Padding="10,6"
                           Margin="0,0,8,8">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                      <ic:FluentIcon Icon="Attach"
-                                     IconSize="Size16"
-                                     VerticalAlignment="Center" />
-                      <TextBlock Text="{Binding FileName}"
-                                 FontSize="12"
-                                 MaxWidth="220"
-                                 TextTrimming="CharacterEllipsis"
-                                 VerticalAlignment="Center" />
-                      <TextBlock Text="{Binding SizeText}"
+                    <StackPanel Spacing="6">
+                      <Border Background="{DynamicResource MailDogBrushBgLayer}"
+                              CornerRadius="4"
+                              IsVisible="{Binding HasPreviewImage}"
+                              ClipToBounds="True">
+                        <Image Source="{Binding PreviewImage}"
+                               MaxWidth="260"
+                               MaxHeight="200"
+                               Stretch="Uniform"
+                               AutomationProperties.Name="附件图片预览" />
+                      </Border>
+                      <TextBlock Text="{Binding PreviewError}"
+                                 IsVisible="{Binding HasPreviewError}"
                                  Classes="caption"
-                                 VerticalAlignment="Center" />
-                      <Button Content="打开"
-                              FontSize="11"
-                              Padding="8,2"
-                              Margin="4,0,0,0"
-                              Command="{Binding PreviewCommand}"
-                              ToolTip.Tip="下载并用默认程序打开"
-                              AutomationProperties.Name="打开附件" />
-                      <Button Content="下载"
-                              FontSize="11"
-                              Padding="8,2"
-                              Margin="4,0,0,0"
-                              Command="{Binding DownloadCommand}"
-                              AutomationProperties.Name="下载附件" />
+                                 TextWrapping="Wrap"
+                                 MaxWidth="260" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <ic:FluentIcon Icon="Attach"
+                                       IconSize="Size16"
+                                       VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding FileName}"
+                                   FontSize="12"
+                                   MaxWidth="220"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding SizeText}"
+                                   Classes="caption"
+                                   VerticalAlignment="Center" />
+                        <Button Content="打开"
+                                FontSize="11"
+                                Padding="8,2"
+                                Margin="4,0,0,0"
+                                Command="{Binding PreviewCommand}"
+                                ToolTip.Tip="下载并用默认程序打开"
+                                AutomationProperties.Name="打开附件" />
+                        <Button Content="下载"
+                                FontSize="11"
+                                Padding="8,2"
+                                Margin="4,0,0,0"
+                                Command="{Binding DownloadCommand}"
+                                AutomationProperties.Name="下载附件" />
+                      </StackPanel>
                     </StackPanel>
                   </Border>
                 </DataTemplate>

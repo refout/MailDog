@@ -46,6 +46,8 @@ public static class IpcMessageTypes
     public const string SetFlag = "setFlag";
     public const string SetFlagBatch = "setFlagBatch";
     public const string DownloadAttachment = "downloadAttachment";
+    public const string ReadAttachment = "readAttachment";
+    public const string AttachmentBytes = "attachmentBytes";
     public const string AttachmentSaved = "attachmentSaved";
     public const string SendMail = "sendMail";
     public const string SendMailResult = "sendMailResult";

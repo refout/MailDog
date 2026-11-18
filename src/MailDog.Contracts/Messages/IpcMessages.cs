@@ -208,6 +208,20 @@ public sealed class DownloadAttachmentRequest : Ipc.IIpcMessage
     public string DestinationPath { get; init; } = string.Empty;
 }
 
+public sealed class ReadAttachmentRequest : Ipc.IIpcMessage
+{
+    public long MessageId { get; init; }
+
+    public int Index { get; init; }
+
+    public int MaxBytes { get; init; } = 8 * 1024 * 1024;
+}
+
+public sealed class AttachmentBytesResponse : Ipc.IIpcMessage
+{
+    public AttachmentBytesDto Attachment { get; init; } = new();
+}
+
 public sealed class AttachmentSavedResponse : Ipc.IIpcMessage
 {
     public string Path { get; init; } = string.Empty;
