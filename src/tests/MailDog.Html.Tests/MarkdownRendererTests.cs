@@ -52,4 +52,26 @@ public sealed class MarkdownRendererTests
         Assert.Contains("引用", html);
         Assert.Contains("<ol><li>甲</li><li>乙</li></ol>", html);
     }
+
+    [Fact]
+    public void RendersTablesAndSafeImages()
+    {
+        var html = MarkdownRenderer.ToHtml("""
+            | 项目 | 状态 |
+            | :--- | ---: |
+            | 搜索 | 完成 |
+            | 附件 | 完成 |
+
+            ![截图](https://example.com/a.png)
+            ![危险](javascript:alert(1))
+            """);
+
+        Assert.Contains("<table", html);
+        Assert.Contains("<th", html);
+        Assert.Contains("项目", html);
+        Assert.Contains("搜索", html);
+        Assert.Contains("<img src=\"https://example.com/a.png\"", html);
+        Assert.DoesNotContain("src=\"javascript", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("危险", html);
+    }
 }

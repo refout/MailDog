@@ -68,6 +68,12 @@ public static class MarkdownRenderer
                 continue;
             }
 
+            if (TryRenderTable(lines, index, html, out var nextIndex))
+            {
+                index = nextIndex;
+                continue;
+            }
+
             index = RenderParagraph(lines, index, html);
         }
 
@@ -133,8 +139,97 @@ public static class MarkdownRenderer
         return index;
     }
 
-    private static int RenderParagraph(string[] lines, int index, StringBuilder html)
+    private static bool TryRenderTable(string[] lines, int index, StringBuilder html, out int nextIndex)
     {
+        nextIndex = index;
+        if (index + 1 >= lines.Length || !lines[index].Contains('|'))
+        {
+            return false;
+        }
+
+        var header = SplitTableRow(lines[index]);
+        var separator = SplitTableRow(lines[index + 1]);
+        if (header.Length < 2 || separator.Length != header.Length || !IsTableSeparator(separator))
+        {
+            return false;
+        }
+
+        html.Append("<table style=\"border-collapse:collapse;width:100%;margin:8px 0\"><thead><tr>");
+        for (var column = 0; column < header.Length; column++)
+        {
+            html.Append("<th style=\"border:1px solid #d0d0d0;padding:6px;text-align:")
+                .Append(TableAlignment(separator[column]))
+                .Append("\">")
+                .Append(RenderInline(header[column]))
+                .Append("</th>");
+        }
+
+        html.Append("</tr></thead><tbody>");
+        var rowIndex = index + 2;
+        while (rowIndex < lines.Length && !string.IsNullOrWhiteSpace(lines[rowIndex]) && lines[rowIndex].Contains('|'))
+        {
+            var cells = SplitTableRow(lines[rowIndex]);
+            html.Append("<tr>");
+            for (var column = 0; column < header.Length; column++)
+            {
+                html.Append("<td style=\"border:1px solid #d0d0d0;padding:6px;text-align:")
+                    .Append(TableAlignment(separator[column]))
+                    .Append("\">")
+                    .Append(RenderInline(column < cells.Length ? cells[column] : string.Empty))
+                    .Append("</td>");
+            }
+
+            html.Append("</tr>");
+            rowIndex++;
+        }
+
+        html.Append("</tbody></table>");
+        nextIndex = rowIndex;
+        return true;
+    }
+
+    private static string[] SplitTableRow(string line)
+    {
+        var trimmed = line.Trim();
+        if (trimmed.StartsWith('|'))
+        {
+            trimmed = trimmed[1..];
+        }
+
+        if (trimmed.EndsWith('|'))
+        {
+            trimmed = trimmed[..^1];
+        }
+
+        return trimmed.Split('|').Select(cell => cell.Trim()).ToArray();
+    }
+
+    private static bool IsTableSeparator(string[] cells)
+    {
+        return cells.All(cell =>
+        {
+            var value = cell.Trim().Trim(':');
+            return value.Length >= 3 && value.All(character => character == '-');
+        });
+    }
+
+    private static string TableAlignment(string separatorCell)
+    {
+        var value = separatorCell.Trim();
+        if (value.StartsWith(':') && value.EndsWith(':'))
+        {
+            return "center";
+        }
+
+        if (value.EndsWith(':'))
+        {
+            return "right";
+        }
+
+        return "left";
+    }
+
+    private static int RenderParagraph(string[] lines, int index, StringBuilder html)    {
         var content = new StringBuilder();
 
         while (index < lines.Length && !string.IsNullOrWhiteSpace(lines[index]))
@@ -212,6 +307,23 @@ public static class MarkdownRenderer
                 }
             }
 
+            if (current == '!' && index + 1 < text.Length && text[index + 1] == '[')
+            {
+                var close = text.IndexOf(']', index + 2);
+                if (close > index
+                    && close + 1 < text.Length
+                    && text[close + 1] == '(')
+                {
+                    var end = text.IndexOf(')', close + 2);
+                    if (end > close)
+                    {
+                        AppendImage(html, text[(index + 2)..close], text[(close + 2)..end]);
+                        index = end + 1;
+                        continue;
+                    }
+                }
+            }
+
             if (current == '[')
             {
                 var close = text.IndexOf(']', index + 1);
@@ -243,8 +355,24 @@ public static class MarkdownRenderer
         return html.ToString();
     }
 
-    private static void AppendLink(StringBuilder html, string label, string url)
+    private static void AppendImage(StringBuilder html, string alt, string url)
     {
+        var target = url.Trim();
+        if (Uri.TryCreate(target, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
+        {
+            html.Append("<img src=\"").Append(WebUtility.HtmlEncode(target)).Append("\" alt=\"")
+                .Append(WebUtility.HtmlEncode(alt))
+                .Append("\" style=\"max-width:100%;height:auto\" />");
+            return;
+        }
+
+        html.Append(WebUtility.HtmlEncode(alt))
+            .Append(" (")
+            .Append(WebUtility.HtmlEncode(target))
+            .Append(')');
+    }
+
+    private static void AppendLink(StringBuilder html, string label, string url)    {
         var target = url.Trim();
 
         if (Uri.TryCreate(target, UriKind.Absolute, out var uri)

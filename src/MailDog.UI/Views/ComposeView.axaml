@@ -102,17 +102,35 @@
                 IsEnabled="{Binding CanEdit}" />
     </Grid>
 
-    <TextBox Grid.Row="7"
-             x:Name="BodyBox"
-             Text="{Binding BodyText, Mode=TwoWay}"
-             AcceptsReturn="True"
-             TextWrapping="Wrap"
-             VerticalContentAlignment="Top"
-             ScrollViewer.VerticalScrollBarVisibility="Auto"
-             Padding="14,12"
-             FontSize="14"
-             IsEnabled="{Binding CanEdit}"
-             PlaceholderText="{Binding BodyPlaceholder}" />
+    <Grid Grid.Row="7" ColumnDefinitions="*,420" ColumnSpacing="12">
+      <TextBox x:Name="BodyBox"
+               Text="{Binding BodyText, Mode=TwoWay}"
+               AcceptsReturn="True"
+               TextWrapping="Wrap"
+               VerticalContentAlignment="Top"
+               ScrollViewer.VerticalScrollBarVisibility="Auto"
+               Padding="14,12"
+               FontSize="14"
+               IsEnabled="{Binding CanEdit}"
+               PlaceholderText="{Binding BodyPlaceholder}" />
+
+      <Border Grid.Column="1"
+              IsVisible="{Binding IsMarkdown}"
+              Background="{DynamicResource MailDogBrushBgSubtle}"
+              BorderBrush="{DynamicResource MailDogBrushStroke}"
+              BorderThickness="1"
+              CornerRadius="8"
+              ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock Text="预览"
+                     Classes="caption"
+                     Margin="12,8,12,4" />
+          <NativeWebView Grid.Row="1"
+                         x:Name="MarkdownPreview"
+                         Margin="1,0,1,1" />
+        </Grid>
+      </Border>
+    </Grid>
 
     <Grid Grid.Row="8" RowDefinitions="Auto,Auto" RowSpacing="6">
       <Grid ColumnDefinitions="*,Auto">

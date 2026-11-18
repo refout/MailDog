@@ -162,8 +162,37 @@ public sealed partial class ComposeViewModel : ObservableObject
 
     public string BodyPlaceholder
         => IsMarkdown
-            ? "正文（Markdown：标题、列表、粗体、链接、代码块）"
+            ? "正文（Markdown：标题、列表、表格、图片、粗体、链接、代码块）"
             : "正文";
+
+    public string BuildMarkdownPreviewHtml()
+    {
+        const string head = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="utf-8" />
+            <meta name="color-scheme" content="light dark" />
+            <style>
+            body { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 14px; line-height: 1.6; padding: 12px; color: #1f1f1f; background: #ffffff; }
+            table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+            th, td { border: 1px solid #d0d0d0; padding: 6px; }
+            pre { background: #f6f6f6; padding: 10px; border-radius: 6px; overflow: auto; }
+            blockquote { margin: 8px 0; padding: 6px 12px; border-left: 3px solid #c8c8c8; color: #555; }
+            img { max-width: 100%; height: auto; }
+            @media (prefers-color-scheme: dark) {
+                body { color: #e8e8e8; background: #1f1f1f; }
+                th, td { border-color: #555; }
+                pre { background: #2b2b2b; }
+                blockquote { border-left-color: #777; color: #bbb; }
+            }
+            </style>
+            </head>
+            <body>
+            """;
+
+        return head + MarkdownRenderer.ToHtml(BodyText) + "</body></html>";
+    }
 
     public ObservableCollection<ComposeAttachmentViewModel> Attachments { get; } = [];
 
