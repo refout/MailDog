@@ -1,6 +1,6 @@
 # MailDog 技术方案
 
-> 状态：v1.1 写操作与发信完成（Stage 0–7）；Stage 8 的代码签名与自动更新仍待证书/发布链路
+> 状态：v1.1 写操作、发件箱、搜索、附件预览、备份恢复与账户偏好完成（Stage 0–8）；Stage 9 的代码签名、自动更新与崩溃上报仍待证书/发布链路/上报端点
 > 日期：2026-11-18
 > 适用范围：MailDog v1（Windows 优先）
 > 关联文档：[UI-DESIGN.md](./UI-DESIGN.md)、[SPIKES.md](./SPIKES.md)
