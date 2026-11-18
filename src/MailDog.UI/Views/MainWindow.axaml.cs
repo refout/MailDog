@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private const int DwmwaTextColor = 36;
 
     private readonly MainWindowViewModel _viewModel;
+    private readonly Dictionary<TreeViewItem, AccountViewModel> _accountNodes = [];
     private bool _adapterReady;
     private bool _internalNavigation;
     private string? _pendingHtml;
@@ -46,6 +47,8 @@ public partial class MainWindow : Window
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.ShowRequested += OnShowRequested;
         viewModel.ScrollToMessageRequested += OnScrollToMessageRequested;
+        FolderTree.ContainerPrepared += OnFolderTreeContainerPrepared;
+        FolderTree.ContainerClearing += OnFolderTreeContainerClearing;
         MailList.AddHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
         Opened += OnOpened;
@@ -95,33 +98,60 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnAccountNodeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    /// <summary>把账户的展开状态同步到 TreeViewItem（框架容器不直接支持双向绑定）。</summary>
+    private void OnFolderTreeContainerPrepared(object? sender, ContainerPreparedEventArgs e)
     {
-        if (sender is Button { DataContext: AccountViewModel account })
-        {
-            account.IsExpanded = !account.IsExpanded;
-
-            if (account.IsExpanded)
-            {
-                _viewModel.SelectedAccount = account;
-            }
-        }
-    }
-
-    private void OnFolderNodeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (sender is not Button { DataContext: FolderViewModel folder })
+        if (e.Container is not TreeViewItem { DataContext: AccountViewModel account } item)
         {
             return;
         }
 
-        _viewModel.SelectedFolder = folder;
-
-        var owner = _viewModel.Accounts.FirstOrDefault(account => account.Folders.Contains(folder));
-        if (owner is not null)
+        if (_accountNodes.TryGetValue(item, out var previous))
         {
-            owner.IsExpanded = true;
-            _viewModel.SelectedAccount = owner;
+            previous.PropertyChanged -= OnAccountExpansionChanged;
+        }
+
+        _accountNodes[item] = account;
+        account.PropertyChanged += OnAccountExpansionChanged;
+        item.PropertyChanged -= OnAccountItemExpandedChanged;
+        item.PropertyChanged += OnAccountItemExpandedChanged;
+        item.IsExpanded = account.IsExpanded;
+    }
+
+    private void OnFolderTreeContainerClearing(object? sender, ContainerClearingEventArgs e)
+    {
+        if (e.Container is TreeViewItem item && _accountNodes.Remove(item, out var account))
+        {
+            account.PropertyChanged -= OnAccountExpansionChanged;
+        }
+    }
+
+    private void OnAccountExpansionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(AccountViewModel.IsExpanded) || sender is not AccountViewModel account)
+        {
+            return;
+        }
+
+        foreach (var (item, node) in _accountNodes)
+        {
+            if (ReferenceEquals(node, account))
+            {
+                item.IsExpanded = account.IsExpanded;
+            }
+        }
+    }
+
+    private void OnAccountItemExpandedChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != TreeViewItem.IsExpandedProperty || sender is not TreeViewItem item)
+        {
+            return;
+        }
+
+        if (_accountNodes.TryGetValue(item, out var account))
+        {
+            account.IsExpanded = item.IsExpanded;
         }
     }
 
@@ -476,6 +506,8 @@ public partial class MainWindow : Window
         Closed -= OnClosed;
         KeyDown -= OnWindowKeyDown;
         MailList.RemoveHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
+        FolderTree.ContainerPrepared -= OnFolderTreeContainerPrepared;
+        FolderTree.ContainerClearing -= OnFolderTreeContainerClearing;
         ActualThemeVariantChanged -= OnActualThemeVariantChanged;
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _viewModel.ShowRequested -= OnShowRequested;
