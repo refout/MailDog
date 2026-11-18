@@ -244,6 +244,110 @@ public sealed class SqliteStoreTests : IDisposable
     }
 
     [Fact]
+    public void MoveMessageBetweenFoldersUpdatesCountsAndDropsPendingFlags()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+        _store.UpsertFolders(account.Id,
+        [
+            new FolderRecord(0, account.Id, "INBOX", "收件箱", FolderRole.Inbox, 0, 0, 0, 0),
+            new FolderRecord(0, account.Id, "Archive", "归档", FolderRole.Archive, 0, 0, 0, 0)
+        ]);
+
+        var inbox = _store.GetFolders(account.Id).Single(folder => folder.Role == FolderRole.Inbox);
+        var archive = _store.GetFolders(account.Id).Single(folder => folder.Role == FolderRole.Archive);
+        var now = DateTimeOffset.UtcNow;
+        _store.UpsertMessages(account.Id, inbox.Id,
+        [
+            new MessageRecord(0, account.Id, inbox.Id, 11, "m1", "邮件一", "Alice", "alice@example.com",
+                "me@example.com", string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched),
+            new MessageRecord(0, account.Id, inbox.Id, 12, "m2", "邮件二", "Bob", "bob@example.com",
+                "me@example.com", string.Empty, now.AddMinutes(1), 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        var messages = _store.QueryMessages(inbox.Id, null, null, 10).Items;
+
+        var moved = Assert.Single(messages, message => message.Subject == "邮件一");
+        _store.QueuePendingFlag(moved.Id, "Seen", true, now);
+        _store.MoveMessageToFolder(moved.Id, archive.Id);
+
+        var stored = Assert.IsType<MessageRecord>(_store.GetMessage(moved.Id));
+        Assert.Equal(archive.Id, stored.FolderId);
+        Assert.Equal(-stored.Id, stored.Uid);
+        Assert.Empty(_store.GetDuePendingFlags(now.AddMinutes(1), 10));
+
+        var source = Assert.Single(_store.GetFolders(account.Id), folder => folder.Id == inbox.Id);
+        var target = Assert.Single(_store.GetFolders(account.Id), folder => folder.Id == archive.Id);
+        Assert.Equal(1, source.TotalCount);
+        Assert.Equal(1, target.TotalCount);
+        Assert.Single(_store.QueryMessages(archive.Id, null, null, 10).Items);
+    }
+
+    [Fact]
+    public void DeleteMessageRemovesRowAndPendingFlag()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+        _store.UpsertFolders(account.Id,
+        [
+            new FolderRecord(0, account.Id, "INBOX", "收件箱", FolderRole.Inbox, 0, 0, 0, 0)
+        ]);
+
+        var folder = Assert.Single(_store.GetFolders(account.Id));
+        var now = DateTimeOffset.UtcNow;
+        _store.UpsertMessages(account.Id, folder.Id,
+        [
+            new MessageRecord(0, account.Id, folder.Id, 21, "m3", "待删除", "Alice", "alice@example.com",
+                "me@example.com", string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        var message = Assert.Single(_store.QueryMessages(folder.Id, null, null, 10).Items);
+
+        _store.QueuePendingFlag(message.Id, "Flagged", true, now);
+        _store.DeleteMessage(message.Id);
+
+        Assert.Null(_store.GetMessage(message.Id));
+        Assert.Empty(_store.QueryMessages(folder.Id, null, null, 10).Items);
+        Assert.Empty(_store.GetDuePendingFlags(now.AddMinutes(1), 10));
+        Assert.Equal(0, Assert.Single(_store.GetFolders(account.Id)).TotalCount);
+    }
+
+    [Fact]
+    public void RenameAndDeleteFolderUpdateLocalState()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+        _store.UpsertFolders(account.Id,
+        [
+            new FolderRecord(0, account.Id, "Projects", "Projects", FolderRole.Other, 0, 0, 0, 0),
+            new FolderRecord(0, account.Id, "INBOX", "收件箱", FolderRole.Inbox, 0, 0, 0, 0)
+        ]);
+
+        var projects = _store.GetFolders(account.Id).Single(folder => folder.Role == FolderRole.Other);
+        _store.RenameFolder(projects.Id, "Work", "Work");
+
+        var renamed = Assert.IsType<FolderRecord>(_store.GetFolder(projects.Id));
+        Assert.Equal("Work", renamed.FullName);
+        Assert.Equal("Work", renamed.DisplayName);
+
+        var now = DateTimeOffset.UtcNow;
+        _store.UpsertMessages(account.Id, projects.Id,
+        [
+            new MessageRecord(0, account.Id, projects.Id, 31, "m4", "归档邮件", "Alice", "alice@example.com",
+                "me@example.com", string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        var message = Assert.Single(_store.QueryMessages(projects.Id, null, null, 10).Items);
+        _store.QueuePendingFlag(message.Id, "Seen", true, now);
+        _store.DeleteFolder(projects.Id);
+
+        Assert.Null(_store.GetFolder(projects.Id));
+        Assert.DoesNotContain(_store.GetFolders(account.Id), folder => folder.Id == projects.Id);
+        Assert.Single(_store.GetFolders(account.Id));
+        Assert.Null(_store.GetMessage(message.Id));
+    }
+
+    [Fact]
     public void OutboxRoundTripAttemptAndRecovery()
     {
         var account = CreateAccount();

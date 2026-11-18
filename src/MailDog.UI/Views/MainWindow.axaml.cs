@@ -129,6 +129,30 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnCreateFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: AccountViewModel account })
+        {
+            _viewModel.BeginCreateFolder(account.Id);
+        }
+    }
+
+    private void OnRenameFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: FolderViewModel folder })
+        {
+            _viewModel.BeginRenameFolder(folder);
+        }
+    }
+
+    private void OnDeleteFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: FolderViewModel folder })
+        {
+            _viewModel.RequestDeleteFolder(folder);
+        }
+    }
+
     /// <summary>把账户的展开状态同步到 TreeViewItem（框架容器不直接支持双向绑定）。</summary>
     private void OnFolderTreeContainerPrepared(object? sender, ContainerPreparedEventArgs e)
     {

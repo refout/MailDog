@@ -29,11 +29,16 @@ public static class IpcCodecRegistry
 
         Register(IpcMessageTypes.GetFolders, IpcJsonContext.Default.GetFoldersRequest);
         Register(IpcMessageTypes.Folders, IpcJsonContext.Default.FoldersResponse);
+        Register(IpcMessageTypes.CreateFolder, IpcJsonContext.Default.CreateFolderRequest);
+        Register(IpcMessageTypes.RenameFolder, IpcJsonContext.Default.RenameFolderRequest);
+        Register(IpcMessageTypes.DeleteFolder, IpcJsonContext.Default.DeleteFolderRequest);
 
         Register(IpcMessageTypes.GetMessages, IpcJsonContext.Default.GetMessagesRequest);
         Register(IpcMessageTypes.MessagesPage, IpcJsonContext.Default.MessagesPageResponse);
         Register(IpcMessageTypes.GetMessageBody, IpcJsonContext.Default.GetMessageBodyRequest);
         Register(IpcMessageTypes.MessageBody, IpcJsonContext.Default.MessageBodyResponse);
+        Register(IpcMessageTypes.MoveMessage, IpcJsonContext.Default.MoveMessageRequest);
+        Register(IpcMessageTypes.DeleteMessage, IpcJsonContext.Default.DeleteMessageRequest);
         Register(IpcMessageTypes.DownloadAttachment, IpcJsonContext.Default.DownloadAttachmentRequest);
         Register(IpcMessageTypes.AttachmentSaved, IpcJsonContext.Default.AttachmentSavedResponse);
         Register(IpcMessageTypes.SendMail, IpcJsonContext.Default.SendMailRequest);

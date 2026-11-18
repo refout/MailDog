@@ -87,6 +87,18 @@ public sealed class RequestRouter
             case GetFoldersRequest request:
                 return GetFolders(request);
 
+            case CreateFolderRequest request:
+                await _sync.CreateFolderAsync(request.AccountId, request.Name, cancellationToken).ConfigureAwait(false);
+                return new OkResponse { Affected = 1 };
+
+            case RenameFolderRequest request:
+                await _sync.RenameFolderAsync(request.FolderId, request.Name, cancellationToken).ConfigureAwait(false);
+                return new OkResponse { Affected = 1 };
+
+            case DeleteFolderRequest request:
+                await _sync.DeleteFolderAsync(request.FolderId, cancellationToken).ConfigureAwait(false);
+                return new OkResponse { Affected = 1 };
+
             case GetMessagesRequest request:
                 return GetMessages(request);
 
@@ -95,6 +107,14 @@ public sealed class RequestRouter
                 {
                     Body = await _sync.GetBodyAsync(request.MessageId, cancellationToken).ConfigureAwait(false)
                 };
+
+            case MoveMessageRequest request:
+                await _sync.MoveMessageAsync(request.MessageId, request.TargetFolderId, cancellationToken).ConfigureAwait(false);
+                return new OkResponse { Affected = 1 };
+
+            case DeleteMessageRequest request:
+                await _sync.DeleteMessageAsync(request.MessageId, request.Permanent, cancellationToken).ConfigureAwait(false);
+                return new OkResponse { Affected = 1 };
 
             case DownloadAttachmentRequest request:
             {

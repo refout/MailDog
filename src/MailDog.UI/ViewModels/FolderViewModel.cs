@@ -10,6 +10,7 @@ public sealed partial class FolderViewModel : ObservableObject
     public FolderViewModel(FolderDto folder)
     {
         Id = folder.Id;
+        AccountId = folder.AccountId;
         Name = Localize(folder);
         FullName = folder.FullName;
         Role = folder.Role;
@@ -35,11 +36,15 @@ public sealed partial class FolderViewModel : ObservableObject
 
     public long Id { get; }
 
+    public string AccountId { get; }
+
     public string Name { get; }
 
     public string FullName { get; }
 
     public FolderRole Role { get; }
+
+    public bool IsCustomFolder => Role == FolderRole.Other;
 
     public Icon IconKind => Role switch
     {

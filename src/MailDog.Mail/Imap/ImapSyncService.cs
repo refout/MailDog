@@ -451,6 +451,221 @@ public sealed class ImapSyncService : IAsyncDisposable
         }
     }
 
+    public async Task MoveMessageAsync(long messageId, long targetFolderId, CancellationToken cancellationToken)
+    {
+        var message = _store.GetMessage(messageId)
+            ?? throw new KeyNotFoundException("邮件不存在。");
+        var source = _store.GetFolder(message.FolderId)
+            ?? throw new KeyNotFoundException("邮件所在文件夹不存在。");
+        var target = _store.GetFolder(targetFolderId)
+            ?? throw new KeyNotFoundException("目标文件夹不存在。");
+
+        if (!string.Equals(source.AccountId, target.AccountId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("不能把邮件移动到其他账户的文件夹。");
+        }
+
+        if (source.Id == target.Id)
+        {
+            return;
+        }
+
+        var account = _accounts.GetRecord(source.AccountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var uid = ToUniqueId(message.Uid);
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var sourceFolder = session.Client!.GetFolder(source.FullName);
+            await sourceFolder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                var destination = session.Client.GetFolder(target.FullName);
+                await sourceFolder.MoveToAsync(
+                    new[] { uid },
+                    new MoveRequest(destination),
+                    cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await sourceFolder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+            }
+
+            _store.MoveMessageToFolder(messageId, targetFolderId);
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    public async Task DeleteMessageAsync(long messageId, bool permanent, CancellationToken cancellationToken)
+    {
+        var message = _store.GetMessage(messageId)
+            ?? throw new KeyNotFoundException("邮件不存在。");
+        var source = _store.GetFolder(message.FolderId)
+            ?? throw new KeyNotFoundException("邮件所在文件夹不存在。");
+
+        if (!permanent && source.Role != FolderRole.Trash)
+        {
+            var trash = _store.GetFolders(source.AccountId)
+                .FirstOrDefault(folder => folder.Role == FolderRole.Trash);
+            if (trash is null)
+            {
+                throw new InvalidOperationException("该账户没有已删除文件夹，无法移动邮件。");
+            }
+
+            await MoveMessageAsync(messageId, trash.Id, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        var account = _accounts.GetRecord(source.AccountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var uid = ToUniqueId(message.Uid);
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var folder = session.Client!.GetFolder(source.FullName);
+            await folder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await folder.StoreAsync(
+                    uid,
+                    new StoreFlagsRequest(StoreAction.Add, MessageFlags.Deleted) { Silent = true },
+                    cancellationToken).ConfigureAwait(false);
+                await folder.ExpungeAsync(
+                    new[] { uid },
+                    new ExpungeRequest(),
+                    cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await folder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+            }
+
+            _store.DeleteMessage(messageId);
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    public async Task<string> CreateFolderAsync(string accountId, string name, CancellationToken cancellationToken)
+    {
+        name = name.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("文件夹名称不能为空。", nameof(name));
+        }
+
+        var account = _accounts.GetRecord(accountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var session = await GetSessionAsync(accountId, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var root = session.Client!.GetFolder(session.Client.PersonalNamespaces[0]);
+            var created = await root.CreateAsync(name, true, cancellationToken).ConfigureAwait(false);
+            var folders = await LoadFoldersAsync(session.Client, accountId, cancellationToken).ConfigureAwait(false);
+            _store.UpsertFolders(accountId, folders);
+
+            return created?.FullName ?? name;
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    public async Task RenameFolderAsync(long folderId, string name, CancellationToken cancellationToken)
+    {
+        name = name.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("文件夹名称不能为空。", nameof(name));
+        }
+
+        var folder = _store.GetFolder(folderId)
+            ?? throw new KeyNotFoundException("文件夹不存在。");
+        if (folder.Role != FolderRole.Other)
+        {
+            throw new InvalidOperationException("系统文件夹不能重命名。");
+        }
+
+        var account = _accounts.GetRecord(folder.AccountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var mailFolder = session.Client!.GetFolder(folder.FullName);
+            var parent = mailFolder.ParentFolder
+                ?? throw new InvalidOperationException("无法确定文件夹的父目录。");
+            await mailFolder.RenameAsync(parent, name, cancellationToken).ConfigureAwait(false);
+
+            var delimiter = mailFolder.DirectorySeparator;
+            var fullName = string.IsNullOrEmpty(parent.FullName)
+                ? name
+                : $"{parent.FullName}{delimiter}{name}";
+            _store.RenameFolder(folderId, fullName, name);
+
+            var folders = await LoadFoldersAsync(session.Client, account.Id, cancellationToken).ConfigureAwait(false);
+            _store.UpsertFolders(account.Id, folders);
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    public async Task DeleteFolderAsync(long folderId, CancellationToken cancellationToken)
+    {
+        var folder = _store.GetFolder(folderId)
+            ?? throw new KeyNotFoundException("文件夹不存在。");
+        if (folder.Role != FolderRole.Other)
+        {
+            throw new InvalidOperationException("系统文件夹不能删除。");
+        }
+
+        var account = _accounts.GetRecord(folder.AccountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var mailFolder = session.Client!.GetFolder(folder.FullName);
+            await mailFolder.DeleteAsync(cancellationToken).ConfigureAwait(false);
+            _store.DeleteFolder(folderId);
+
+            var folders = await LoadFoldersAsync(session.Client, account.Id, cancellationToken).ConfigureAwait(false);
+            _store.UpsertFolders(account.Id, folders);
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
     private static MailAttachment[] BuildDraftAttachments(IReadOnlyList<string> paths)
     {
         if (paths.Count == 0)

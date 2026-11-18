@@ -113,6 +113,25 @@ public sealed class FoldersResponse : Ipc.IIpcMessage
     public FolderDto[] Items { get; init; } = [];
 }
 
+public sealed class CreateFolderRequest : Ipc.IIpcMessage
+{
+    public string AccountId { get; init; } = string.Empty;
+
+    public string Name { get; init; } = string.Empty;
+}
+
+public sealed class RenameFolderRequest : Ipc.IIpcMessage
+{
+    public long FolderId { get; init; }
+
+    public string Name { get; init; } = string.Empty;
+}
+
+public sealed class DeleteFolderRequest : Ipc.IIpcMessage
+{
+    public long FolderId { get; init; }
+}
+
 // 邮件
 
 public sealed class GetMessagesRequest : Ipc.IIpcMessage
@@ -148,6 +167,20 @@ public sealed class GetMessageBodyRequest : Ipc.IIpcMessage
 public sealed class MessageBodyResponse : Ipc.IIpcMessage
 {
     public MailBodyDto Body { get; init; } = new();
+}
+
+public sealed class MoveMessageRequest : Ipc.IIpcMessage
+{
+    public long MessageId { get; init; }
+
+    public long TargetFolderId { get; init; }
+}
+
+public sealed class DeleteMessageRequest : Ipc.IIpcMessage
+{
+    public long MessageId { get; init; }
+
+    public bool Permanent { get; init; }
 }
 
 public sealed class DownloadAttachmentRequest : Ipc.IIpcMessage

@@ -29,11 +29,16 @@ public static class IpcMessageTypes
 
     public const string GetFolders = "getFolders";
     public const string Folders = "folders";
+    public const string CreateFolder = "createFolder";
+    public const string RenameFolder = "renameFolder";
+    public const string DeleteFolder = "deleteFolder";
 
     public const string GetMessages = "getMessages";
     public const string MessagesPage = "messagesPage";
     public const string GetMessageBody = "getMessageBody";
     public const string MessageBody = "messageBody";
+    public const string MoveMessage = "moveMessage";
+    public const string DeleteMessage = "deleteMessage";
     public const string MarkRead = "markRead";
     public const string MarkReadBatch = "markReadBatch";
     public const string SetFlag = "setFlag";

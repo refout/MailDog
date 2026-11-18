@@ -154,8 +154,9 @@
             </Grid>
           </StackPanel>
 
-          <TreeView x:Name="FolderTree"
-                    Grid.Row="1"
+          <Grid Grid.Row="1" RowDefinitions="*,Auto">
+            <TreeView x:Name="FolderTree"
+                    Grid.Row="0"
                     Background="Transparent"
                     BorderThickness="0"
                     Padding="0"
@@ -179,6 +180,16 @@
                       MinHeight="44"
                       Margin="0,2"
                       ToolTip.Tip="{Binding Email}">
+                  <Grid.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="新建文件夹"
+                                Click="OnCreateFolderClick">
+                        <MenuItem.Icon>
+                          <ic:FluentIcon Icon="FolderAdd" IconSize="Size16" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                    </ContextMenu>
+                  </Grid.ContextMenu>
                   <Border Grid.Column="0"
                           Width="26"
                           Height="26"
@@ -223,6 +234,24 @@
               <!-- 二级：账户下的文件夹 -->
               <DataTemplate DataType="{x:Type vm:FolderViewModel}" x:DataType="vm:FolderViewModel">
                 <Grid ColumnDefinitions="Auto,*,Auto" Height="30">
+                  <Grid.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="重命名"
+                                IsVisible="{Binding IsCustomFolder}"
+                                Click="OnRenameFolderClick">
+                        <MenuItem.Icon>
+                          <ic:FluentIcon Icon="Edit" IconSize="Size16" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <MenuItem Header="删除文件夹"
+                                IsVisible="{Binding IsCustomFolder}"
+                                Click="OnDeleteFolderClick">
+                        <MenuItem.Icon>
+                          <ic:FluentIcon Icon="Delete" IconSize="Size16" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                    </ContextMenu>
+                  </Grid.ContextMenu>
                   <ic:FluentIcon Grid.Column="0"
                                  Icon="{Binding IconKind}"
                                  IconSize="Size16"
@@ -252,6 +281,58 @@
               </DataTemplate>
             </TreeView.DataTemplates>
           </TreeView>
+
+            <Border Grid.Row="1"
+                    Margin="4,8,4,0"
+                    Padding="10"
+                    CornerRadius="8"
+                    Background="{DynamicResource MailDogBrushBgLayer}"
+                    BorderBrush="{DynamicResource MailDogBrushStroke}"
+                    BorderThickness="1"
+                    IsVisible="{Binding IsFolderEditorOpen}">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding FolderEditorTitle}"
+                           FontSize="12.5"
+                           FontWeight="SemiBold" />
+                <TextBox Classes="single-line"
+                         Text="{Binding FolderEditorName, Mode=TwoWay}"
+                         PlaceholderText="文件夹名称" />
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8"
+                            HorizontalAlignment="Right">
+                  <Button Content="取消"
+                          Command="{Binding CancelFolderEditCommand}" />
+                  <Button Content="保存"
+                          Classes="accent"
+                          Command="{Binding SubmitFolderEditCommand}"
+                          IsEnabled="{Binding CanSubmitFolderEdit}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Row="1"
+                    Margin="4,8,4,0"
+                    Padding="10"
+                    CornerRadius="8"
+                    Background="{DynamicResource MailDogBrushWarningTint}"
+                    BorderBrush="{DynamicResource MailDogBrushWarning}"
+                    BorderThickness="1"
+                    IsVisible="{Binding IsFolderDeleteConfirmOpen}">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding FolderDeletePrompt}"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8"
+                            HorizontalAlignment="Right">
+                  <Button Content="取消"
+                          Command="{Binding CancelFolderDeleteCommand}" />
+                  <Button Content="删除"
+                          Command="{Binding ConfirmDeleteFolderCommand}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </Grid>
 
           <Button Grid.Row="2"
                   Command="{Binding OpenSettingsCommand}"
@@ -781,6 +862,37 @@
                     ToolTip.Tip="旗标"
                     AutomationProperties.Name="旗标">
               <ic:FluentIcon Icon="Flag" IconSize="Size16" />
+            </Button>
+            <Button Command="{Binding ArchiveSelectedCommand}"
+                    Padding="8,4"
+                    ToolTip.Tip="归档"
+                    AutomationProperties.Name="归档">
+              <ic:FluentIcon Icon="Archive" IconSize="Size16" />
+            </Button>
+            <Button x:Name="MoveButton"
+                    Padding="8,4"
+                    IsEnabled="{Binding HasMoveTargets}"
+                    ToolTip.Tip="移动到文件夹"
+                    AutomationProperties.Name="移动到文件夹">
+              <ic:FluentIcon Icon="Folder" IconSize="Size16" />
+              <Button.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedLeft"
+                            ItemsSource="{Binding MoveTargets}">
+                  <MenuFlyout.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MoveTargetViewModel">
+                      <MenuItem Header="{Binding Name}"
+                                Command="{Binding Command}"
+                                CommandParameter="{Binding FolderId}" />
+                    </DataTemplate>
+                  </MenuFlyout.ItemTemplate>
+                </MenuFlyout>
+              </Button.Flyout>
+            </Button>
+            <Button Command="{Binding DeleteSelectedCommand}"
+                    Padding="8,4"
+                    ToolTip.Tip="{Binding DeleteActionText}"
+                    AutomationProperties.Name="{Binding DeleteActionText}">
+              <ic:FluentIcon Icon="Delete" IconSize="Size16" />
             </Button>
             <Button Command="{Binding ShowImagesCommand}"
                     IsVisible="{Binding Reader.ImagesBlocked}"

@@ -704,6 +704,169 @@ public sealed class SqliteStore : IDisposable
         }
     }
 
+    public void MoveMessageToFolder(long messageId, long targetFolderId)
+    {
+        lock (_gate)
+        {
+            long sourceFolderId;
+            string accountId;
+
+            using (var lookup = _connection.CreateCommand())
+            {
+                lookup.CommandText = "SELECT folder_id, account_id FROM messages WHERE id = $id;";
+                lookup.Parameters.AddWithValue("$id", messageId);
+                using var reader = lookup.ExecuteReader();
+                if (!reader.Read())
+                {
+                    throw new KeyNotFoundException("邮件不存在。");
+                }
+
+                sourceFolderId = reader.GetInt64(0);
+                accountId = reader.GetString(1);
+            }
+
+            if (sourceFolderId == targetFolderId)
+            {
+                return;
+            }
+
+            using (var lookup = _connection.CreateCommand())
+            {
+                lookup.CommandText = "SELECT account_id FROM folders WHERE id = $id;";
+                lookup.Parameters.AddWithValue("$id", targetFolderId);
+                var targetAccount = lookup.ExecuteScalar() as string;
+                if (targetAccount is null)
+                {
+                    throw new KeyNotFoundException("目标文件夹不存在。");
+                }
+
+                if (!string.Equals(targetAccount, accountId, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException("不能把邮件移动到其他账户的文件夹。");
+                }
+            }
+
+            using var transaction = _connection.BeginTransaction();
+
+            using (var move = _connection.CreateCommand())
+            {
+                move.Transaction = transaction;
+                move.CommandText = """
+                    UPDATE messages
+                    SET folder_id = $targetFolderId,
+                        uid = -id
+                    WHERE id = $id;
+                    """;
+                move.Parameters.AddWithValue("$targetFolderId", targetFolderId);
+                move.Parameters.AddWithValue("$id", messageId);
+                move.ExecuteNonQuery();
+            }
+
+            using (var flags = _connection.CreateCommand())
+            {
+                flags.Transaction = transaction;
+                flags.CommandText = "DELETE FROM pending_flags WHERE message_id = $id;";
+                flags.Parameters.AddWithValue("$id", messageId);
+                flags.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+
+            RecountFolder(sourceFolderId);
+            RecountFolder(targetFolderId);
+        }
+    }
+
+    public void DeleteMessage(long messageId)
+    {
+        lock (_gate)
+        {
+            long folderId;
+
+            using (var lookup = _connection.CreateCommand())
+            {
+                lookup.CommandText = "SELECT folder_id FROM messages WHERE id = $id;";
+                lookup.Parameters.AddWithValue("$id", messageId);
+                var result = lookup.ExecuteScalar();
+                if (result is null)
+                {
+                    throw new KeyNotFoundException("邮件不存在。");
+                }
+
+                folderId = Convert.ToInt64(result, CultureInfo.InvariantCulture);
+            }
+
+            using var transaction = _connection.BeginTransaction();
+
+            using (var flags = _connection.CreateCommand())
+            {
+                flags.Transaction = transaction;
+                flags.CommandText = "DELETE FROM pending_flags WHERE message_id = $id;";
+                flags.Parameters.AddWithValue("$id", messageId);
+                flags.ExecuteNonQuery();
+            }
+
+            using (var delete = _connection.CreateCommand())
+            {
+                delete.Transaction = transaction;
+                delete.CommandText = "DELETE FROM messages WHERE id = $id;";
+                delete.Parameters.AddWithValue("$id", messageId);
+                delete.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+
+            RecountFolder(folderId);
+        }
+    }
+
+    public void RenameFolder(long folderId, string fullName, string displayName)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                UPDATE folders
+                SET full_name = $fullName,
+                    display_name = $displayName
+                WHERE id = $id;
+                """;
+            command.Parameters.AddWithValue("$id", folderId);
+            command.Parameters.AddWithValue("$fullName", fullName);
+            command.Parameters.AddWithValue("$displayName", displayName);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    public void DeleteFolder(long folderId)
+    {
+        lock (_gate)
+        {
+            using var transaction = _connection.BeginTransaction();
+
+            using (var flags = _connection.CreateCommand())
+            {
+                flags.Transaction = transaction;
+                flags.CommandText = """
+                    DELETE FROM pending_flags
+                    WHERE message_id IN (SELECT id FROM messages WHERE folder_id = $id);
+                    """;
+                flags.Parameters.AddWithValue("$id", folderId);
+                flags.ExecuteNonQuery();
+            }
+
+            using (var delete = _connection.CreateCommand())
+            {
+                delete.Transaction = transaction;
+                delete.CommandText = "DELETE FROM folders WHERE id = $id;";
+                delete.Parameters.AddWithValue("$id", folderId);
+                delete.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+        }
+    }
+
     public void UpdateSeen(long messageId, bool isRead)
     {
         UpdateFlag(messageId, MailFlags.Seen, isRead);

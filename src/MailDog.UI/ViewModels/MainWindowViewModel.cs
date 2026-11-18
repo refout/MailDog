@@ -76,6 +76,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<FolderViewModel> Folders { get; } = [];
 
+    /// <summary>阅读区“移动到”菜单项，仅包含当前邮件同账户的其他可写文件夹。</summary>
+    public ObservableCollection<MoveTargetViewModel> MoveTargets { get; } = [];
+
+    public bool HasMoveTargets => MoveTargets.Count > 0;
+
     public ObservableCollection<MailSummaryViewModel> Messages { get; } = [];
 
     public ReaderViewModel Reader { get; } = new();
@@ -128,7 +133,43 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private FolderViewModel? _selectedFolder;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedMessageFolder))]
+    [NotifyPropertyChangedFor(nameof(SelectedMessageInTrash))]
+    [NotifyPropertyChangedFor(nameof(DeleteActionText))]
     private MailSummaryViewModel? _selectedMessage;
+
+    public FolderViewModel? SelectedMessageFolder => SelectedMessage is null
+        ? null
+        : _foldersById.GetValueOrDefault(SelectedMessage.FolderId);
+
+    public bool SelectedMessageInTrash => SelectedMessageFolder?.Role == FolderRole.Trash;
+
+    public string DeleteActionText => SelectedMessageInTrash ? "永久删除" : "删除";
+
+    [ObservableProperty]
+    private bool _isFolderEditorOpen;
+
+    [ObservableProperty]
+    private string _folderEditorTitle = "新建文件夹";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSubmitFolderEdit))]
+    private string _folderEditorName = string.Empty;
+
+    [ObservableProperty]
+    private bool _isFolderDeleteConfirmOpen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FolderDeletePrompt))]
+    private string _folderDeleteName = string.Empty;
+
+    private string? _folderEditorAccountId;
+    private FolderViewModel? _folderEditorTarget;
+    private FolderViewModel? _folderDeleteTarget;
+
+    public bool CanSubmitFolderEdit => !string.IsNullOrWhiteSpace(FolderEditorName);
+
+    public string FolderDeletePrompt => $"删除文件夹“{FolderDeleteName}”？服务器上的该文件夹和邮件也会被删除。";
 
     [ObservableProperty]
     private string _searchText = string.Empty;
@@ -1435,6 +1476,295 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task DeleteSelectedAsync()
+    {
+        if (SelectedMessage is null)
+        {
+            return;
+        }
+
+        var message = SelectedMessage;
+        var permanent = SelectedMessageInTrash;
+        StatusMessage = permanent ? "正在永久删除邮件…" : "正在删除邮件…";
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.DeleteMessage,
+                new DeleteMessageRequest { MessageId = message.Id, Permanent = permanent });
+
+            RemoveMessageFromView(message);
+            await ReloadCurrentFolderAsync();
+            StatusMessage = permanent ? "邮件已永久删除。" : "邮件已移至已删除。";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ArchiveSelectedAsync()
+    {
+        if (SelectedMessage is null)
+        {
+            return;
+        }
+
+        var source = SelectedMessageFolder;
+        if (source is null)
+        {
+            StatusMessage = "找不到邮件所在的文件夹。";
+            return;
+        }
+
+        var archive = Folders.FirstOrDefault(folder =>
+            string.Equals(folder.AccountId, source.AccountId, StringComparison.Ordinal)
+            && folder.Role == FolderRole.Archive
+            && folder.Id != source.Id);
+
+        if (archive is null)
+        {
+            StatusMessage = "当前账户没有归档文件夹，请先在服务器上创建归档文件夹。";
+            return;
+        }
+
+        await MoveSelectedToFolderAsync(archive.Id);
+    }
+
+    [RelayCommand]
+    private async Task MoveSelectedToFolderAsync(long targetFolderId)
+    {
+        if (SelectedMessage is null)
+        {
+            return;
+        }
+
+        var message = SelectedMessage;
+        var target = Folders.FirstOrDefault(folder => folder.Id == targetFolderId
+            && string.Equals(folder.AccountId, message.AccountId, StringComparison.Ordinal));
+        if (target is null)
+        {
+            StatusMessage = "只能把邮件移动到同一账户的文件夹。";
+            return;
+        }
+
+        StatusMessage = $"正在移动到“{target.Name}”…";
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.MoveMessage,
+                new MoveMessageRequest { MessageId = message.Id, TargetFolderId = targetFolderId });
+
+            RemoveMessageFromView(message);
+            await ReloadCurrentFolderAsync();
+            StatusMessage = $"邮件已移动到“{target.Name}”。";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    private void RemoveMessageFromView(MailSummaryViewModel message)
+    {
+        _allMessages.Remove(message);
+        Messages.Remove(message);
+        if (ReferenceEquals(SelectedMessage, message))
+        {
+            SelectedMessage = null;
+            _currentBody = null;
+            Reader.Reset();
+        }
+
+        ApplyFilter();
+    }
+
+    private void RebuildMoveTargets()
+    {
+        MoveTargets.Clear();
+        if (SelectedMessage is null)
+        {
+            OnPropertyChanged(nameof(HasMoveTargets));
+            return;
+        }
+
+        var targets = Folders
+            .Where(folder => string.Equals(folder.AccountId, SelectedMessage.AccountId, StringComparison.Ordinal)
+                             && folder.Id != SelectedMessage.FolderId
+                             && folder.Role != FolderRole.Drafts)
+            .OrderBy(folder => folder.Role == FolderRole.Other ? 1 : 0)
+            .ThenBy(folder => folder.Name, StringComparer.CurrentCulture);
+
+        foreach (var folder in targets)
+        {
+            MoveTargets.Add(new MoveTargetViewModel(folder, MoveSelectedToFolderCommand));
+        }
+
+        OnPropertyChanged(nameof(HasMoveTargets));
+        OnPropertyChanged(nameof(SelectedMessageFolder));
+        OnPropertyChanged(nameof(SelectedMessageInTrash));
+        OnPropertyChanged(nameof(DeleteActionText));
+    }
+
+    public void BeginCreateFolder(string accountId)
+    {
+        if (string.IsNullOrWhiteSpace(accountId))
+        {
+            return;
+        }
+
+        _folderEditorAccountId = accountId;
+        _folderEditorTarget = null;
+        FolderEditorTitle = "新建文件夹";
+        FolderEditorName = string.Empty;
+        IsFolderDeleteConfirmOpen = false;
+        IsFolderEditorOpen = true;
+    }
+
+    public void BeginRenameFolder(FolderViewModel folder)
+    {
+        if (folder.Role != FolderRole.Other)
+        {
+            StatusMessage = "系统文件夹不能重命名。";
+            return;
+        }
+
+        _folderEditorAccountId = folder.AccountId;
+        _folderEditorTarget = folder;
+        FolderEditorTitle = $"重命名“{folder.Name}”";
+        FolderEditorName = folder.Name;
+        IsFolderDeleteConfirmOpen = false;
+        IsFolderEditorOpen = true;
+    }
+
+    public void RequestDeleteFolder(FolderViewModel folder)
+    {
+        if (folder.Role != FolderRole.Other)
+        {
+            StatusMessage = "系统文件夹不能删除。";
+            return;
+        }
+
+        _folderDeleteTarget = folder;
+        FolderDeleteName = folder.Name;
+        IsFolderEditorOpen = false;
+        IsFolderDeleteConfirmOpen = true;
+    }
+
+    [RelayCommand]
+    private void CancelFolderEdit()
+    {
+        IsFolderEditorOpen = false;
+        _folderEditorTarget = null;
+    }
+
+    [RelayCommand]
+    private void CancelFolderDelete()
+    {
+        IsFolderDeleteConfirmOpen = false;
+        _folderDeleteTarget = null;
+    }
+
+    [RelayCommand]
+    private async Task SubmitFolderEditAsync()
+    {
+        var name = FolderEditorName.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            StatusMessage = "文件夹名称不能为空。";
+            return;
+        }
+
+        var target = _folderEditorTarget;
+        if (target is null && string.IsNullOrWhiteSpace(_folderEditorAccountId))
+        {
+            StatusMessage = "找不到要创建文件夹的账户。";
+            return;
+        }
+
+        try
+        {
+            if (target is null)
+            {
+                await _engine.RequestAsync<OkResponse>(
+                    IpcMessageTypes.CreateFolder,
+                    new CreateFolderRequest { AccountId = _folderEditorAccountId!, Name = name });
+                StatusMessage = $"文件夹“{name}”已创建。";
+            }
+            else
+            {
+                await _engine.RequestAsync<OkResponse>(
+                    IpcMessageTypes.RenameFolder,
+                    new RenameFolderRequest { FolderId = target.Id, Name = name });
+                StatusMessage = $"文件夹已重命名为“{name}”。";
+            }
+
+            IsFolderEditorOpen = false;
+            _folderEditorTarget = null;
+            await RefreshFolderTreeAsync();
+            await RefreshMessagesAsync();
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ConfirmDeleteFolderAsync()
+    {
+        var folder = _folderDeleteTarget;
+        if (folder is null)
+        {
+            return;
+        }
+
+        var wasSelected = SelectedFolder?.Id == folder.Id;
+        StatusMessage = $"正在删除文件夹“{folder.Name}”…";
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.DeleteFolder,
+                new DeleteFolderRequest { FolderId = folder.Id });
+
+            IsFolderDeleteConfirmOpen = false;
+            _folderDeleteTarget = null;
+
+            if (wasSelected)
+            {
+                SelectedFolder = null;
+                SelectedMessage = null;
+                _currentBody = null;
+                Reader.Reset();
+                _allMessages.Clear();
+                Messages.Clear();
+            }
+
+            await RefreshFolderTreeAsync();
+            StatusMessage = $"文件夹“{folder.Name}”已删除。";
+
+            if (wasSelected)
+            {
+                var account = Accounts.FirstOrDefault(item => item.Id == folder.AccountId);
+                if (account is not null)
+                {
+                    SelectedAccount = account;
+                    SelectedUnifiedFolder = null;
+                    SelectedFolder = account.Folders.FirstOrDefault(item => item.Role == FolderRole.Inbox)
+                                     ?? account.Folders.FirstOrDefault();
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    [RelayCommand]
     private void NewMail() => OpenCompose(ComposeMode.New);
 
     [RelayCommand]
@@ -2474,6 +2804,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     partial void OnSelectedMessageChanged(MailSummaryViewModel? value)
     {
+        RebuildMoveTargets();
+
         if (_suppressSelectionHandlers)
         {
             return;
@@ -2682,6 +3014,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
             RecalculateUnifiedCounts();
             UpdateActiveStates();
+            RebuildMoveTargets();
 
             if (Accounts.Count == 0)
             {
@@ -3485,7 +3818,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task ReloadCurrentFolderAsync()
     {
-        if (SelectedAccount is null)
+        if (SelectedAccount is null && SelectedUnifiedFolder is null)
         {
             return;
         }
