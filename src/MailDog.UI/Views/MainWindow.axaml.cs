@@ -87,6 +87,44 @@ public partial class MainWindow : Window
         });
     }
 
+    private void OnUnifiedFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: UnifiedFolderViewModel folder })
+        {
+            _viewModel.SelectedUnifiedFolder = folder;
+        }
+    }
+
+    private void OnAccountNodeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            account.IsExpanded = !account.IsExpanded;
+
+            if (account.IsExpanded)
+            {
+                _viewModel.SelectedAccount = account;
+            }
+        }
+    }
+
+    private void OnFolderNodeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: FolderViewModel folder })
+        {
+            return;
+        }
+
+        _viewModel.SelectedFolder = folder;
+
+        var owner = _viewModel.Accounts.FirstOrDefault(account => account.Folders.Contains(folder));
+        if (owner is not null)
+        {
+            owner.IsExpanded = true;
+            _viewModel.SelectedAccount = owner;
+        }
+    }
+
     private void OnScrollToMessageRequested(MailSummaryViewModel message)
     {
         Avalonia.Threading.Dispatcher.UIThread.Post(() => MailList.ScrollIntoView(message));

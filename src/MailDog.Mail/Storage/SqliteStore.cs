@@ -478,28 +478,64 @@ public sealed class SqliteStore : IDisposable
             command.Parameters.AddWithValue("$beforeId", beforeId ?? 0);
             command.Parameters.AddWithValue("$limit", pageSize + 1);
 
-            using var reader = command.ExecuteReader();
-            var items = new List<MailSummaryDto>();
-            while (reader.Read())
-            {
-                items.Add(ToSummary(ReadMessage(reader)));
-            }
-
-            var hasMore = items.Count > pageSize;
-            if (hasMore)
-            {
-                items.RemoveAt(items.Count - 1);
-            }
-
-            var last = items.LastOrDefault();
-            return new MailListPage
-            {
-                Items = items.ToArray(),
-                HasMore = hasMore,
-                NextDate = last?.Date,
-                NextId = last?.Id
-            };
+            return ReadPage(command, pageSize);
         }
+    }
+
+    /// <summary>按文件夹角色跨账户查询邮件（统一收件箱等）。</summary>
+    public MailListPage QueryMessagesByRole(FolderRole role, DateTimeOffset? beforeDate, long? beforeId, int limit)
+    {
+        var pageSize = Math.Clamp(limit, 1, 200);
+
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                SELECT m.id, m.account_id, m.folder_id, m.uid, m.message_id, m.subject, m.from_name, m.from_addr,
+                       m.to_addrs, m.cc_addrs, m.date_utc, m.size, m.flags, m.has_attachments, m.preview, m.body_state
+                FROM messages m
+                JOIN folders f ON f.id = m.folder_id
+                WHERE f.role = $role
+                  AND (
+                      $beforeDate IS NULL
+                      OR m.date_utc < $beforeDate
+                      OR (m.date_utc = $beforeDate AND m.id < $beforeId)
+                  )
+                ORDER BY m.date_utc DESC, m.id DESC
+                LIMIT $limit;
+                """;
+            command.Parameters.AddWithValue("$role", role.ToString());
+            command.Parameters.AddWithValue("$beforeDate", (object?)ToDbNullable(beforeDate) ?? DBNull.Value);
+            command.Parameters.AddWithValue("$beforeId", beforeId ?? 0);
+            command.Parameters.AddWithValue("$limit", pageSize + 1);
+
+            return ReadPage(command, pageSize);
+        }
+    }
+
+    private static MailListPage ReadPage(SqliteCommand command, int pageSize)
+    {
+        using var reader = command.ExecuteReader();
+        var items = new List<MailSummaryDto>();
+        while (reader.Read())
+        {
+            items.Add(ToSummary(ReadMessage(reader)));
+        }
+
+        var hasMore = items.Count > pageSize;
+        if (hasMore)
+        {
+            items.RemoveAt(items.Count - 1);
+        }
+
+        var last = items.LastOrDefault();
+        return new MailListPage
+        {
+            Items = items.ToArray(),
+            HasMore = hasMore,
+            NextDate = last?.Date,
+            NextId = last?.Id
+        };
     }
 
     public MessageRecord? GetMessage(long messageId)

@@ -1,5 +1,6 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using FluentIcons.Common;
 using MailDog.Contracts.Dto;
 
 namespace MailDog.UI.ViewModels;
@@ -40,9 +41,20 @@ public sealed partial class FolderViewModel : ObservableObject
 
     public FolderRole Role { get; }
 
-    public bool IsInbox => Role == FolderRole.Inbox;
+    public Icon IconKind => Role switch
+    {
+        FolderRole.Inbox => Icon.MailInbox,
+        FolderRole.Sent => Icon.Send,
+        FolderRole.Drafts => Icon.Drafts,
+        FolderRole.Junk => Icon.Warning,
+        FolderRole.Trash => Icon.Delete,
+        FolderRole.Archive => Icon.Archive,
+        _ => Icon.Folder
+    };
 
-    public bool IsNotInbox => !IsInbox;
+    /// <summary>是否是当前正在浏览的文件夹（同一时间只有一个）。</summary>
+    [ObservableProperty]
+    private bool _isActive;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasUnread))]

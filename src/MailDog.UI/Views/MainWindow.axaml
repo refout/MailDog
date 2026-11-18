@@ -19,7 +19,7 @@
               Background="{DynamicResource MailDogBrushBgSubtle}"
               BorderBrush="{DynamicResource MailDogBrushStroke}"
               BorderThickness="0,0,1,0">
-        <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="8,12">
+        <Grid RowDefinitions="Auto,*,Auto" Margin="8,12">
           <StackPanel Grid.Row="0">
             <Button Classes="account-add"
                     Command="{Binding OpenAddAccountCommand}"
@@ -50,115 +50,178 @@
               </Grid>
             </Button>
 
-            <ListBox MaxHeight="200"
-                     Background="Transparent"
-                     Padding="0"
-                     ItemsSource="{Binding Accounts}"
-                     SelectedItem="{Binding SelectedAccount}">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:AccountViewModel">
-                <Grid ColumnDefinitions="Auto,*,Auto" MinHeight="48" Margin="8,4">
-                  <Border Grid.Column="0"
-                          Width="28"
-                          Height="28"
-                          CornerRadius="14"
-                          Background="{DynamicResource MailDogBrushAccent}">
-                    <TextBlock Text="{Binding Initial}"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource MailDogBrushTextOnAccent}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
-                  </Border>
-                  <StackPanel Grid.Column="1"
-                              Margin="8,0"
-                              VerticalAlignment="Center"
-                              Spacing="1">
-                    <TextBlock Text="{Binding DisplayName}"
-                               FontSize="13"
-                               TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding Email}"
-                               Classes="caption"
-                               TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding SyncStatus}"
-                               IsVisible="{Binding HasSyncStatus}"
-                               FontSize="11"
-                               Foreground="{DynamicResource MailDogBrushAccent}"
-                               TextTrimming="CharacterEllipsis" />
-                  </StackPanel>
-                  <Border Grid.Column="2"
-                          Width="8"
-                          Height="8"
-                          CornerRadius="4"
-                          Margin="4,0"
-                          Background="{Binding StatusBrush}"
-                          VerticalAlignment="Center" />
-                </Grid>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+            <TextBlock Classes="section"
+                       Text="所有邮箱"
+                       Margin="10,12,10,4" />
+
+            <!-- 统一文件夹：聚合所有账户 -->
+            <ItemsControl ItemsSource="{Binding UnifiedFolders}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:UnifiedFolderViewModel">
+                  <Button Classes="side-item"
+                          Classes.active="{Binding IsActive}"
+                          AutomationProperties.Name="{Binding Name}"
+                          Click="OnUnifiedFolderClick">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                      <ic:FluentIcon Grid.Column="0"
+                                     Icon="{Binding IconKind}"
+                                     IconSize="Size16"
+                                     Foreground="{DynamicResource MailDogBrushTextSecondary}"
+                                     VerticalAlignment="Center"
+                                     Margin="2,0,8,0" />
+                      <TextBlock Grid.Column="1"
+                                 Text="{Binding Name}"
+                                 FontSize="13"
+                                 VerticalAlignment="Center"
+                                 TextTrimming="CharacterEllipsis" />
+                      <Border Grid.Column="2"
+                              MinWidth="20"
+                              Height="16"
+                              Padding="4,0"
+                              CornerRadius="8"
+                              Background="{DynamicResource MailDogBrushAccent}"
+                              IsVisible="{Binding HasUnread}"
+                              VerticalAlignment="Center">
+                        <TextBlock Text="{Binding UnreadText}"
+                                   FontSize="10.5"
+                                   Foreground="{DynamicResource MailDogBrushTextOnAccent}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                      </Border>
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Grid ColumnDefinitions="*,Auto" Margin="10,12,2,4">
+              <TextBlock Classes="section"
+                         Text="账户"
+                         VerticalAlignment="Center" />
+              <Button Grid.Column="1"
+                      Classes="icon"
+                      Command="{Binding RefreshCommand}"
+                      AutomationProperties.Name="立即同步"
+                      ToolTip.Tip="立即同步">
+                <ic:FluentIcon Icon="ArrowSync" IconSize="Size16" />
+              </Button>
+            </Grid>
           </StackPanel>
 
-          <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="8,12,8,8">
-            <TextBlock Classes="section"
-                       Text="文件夹"
-                       VerticalAlignment="Center" />
-            <Button Grid.Column="1"
-                    Classes="icon"
-                    Command="{Binding RefreshCommand}"
-                    AutomationProperties.Name="立即同步"
-                    ToolTip.Tip="立即同步">
-              <ic:FluentIcon Icon="ArrowSync" IconSize="Size16" />
-            </Button>
-          </Grid>
+          <ScrollViewer Grid.Row="1"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Accounts}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:AccountViewModel">
+                  <StackPanel>
+                    <Button Classes="account-node"
+                            Click="OnAccountNodeClick"
+                            AutomationProperties.Name="{Binding Email}"
+                            ToolTip.Tip="{Binding Email}">
+                      <Grid ColumnDefinitions="14,26,*,Auto" MinHeight="44">
+                        <ic:FluentIcon Grid.Column="0"
+                                       Icon="ChevronDown"
+                                       IconSize="Size12"
+                                       IsVisible="{Binding IsExpanded}"
+                                       Foreground="{DynamicResource MailDogBrushTextTertiary}"
+                                       VerticalAlignment="Center" />
+                        <ic:FluentIcon Grid.Column="0"
+                                       Icon="ChevronRight"
+                                       IconSize="Size12"
+                                       IsVisible="{Binding !IsExpanded}"
+                                       Foreground="{DynamicResource MailDogBrushTextTertiary}"
+                                       VerticalAlignment="Center" />
+                        <Border Grid.Column="1"
+                                Width="26"
+                                Height="26"
+                                CornerRadius="13"
+                                Background="{DynamicResource MailDogBrushAccent}"
+                                Margin="2,0,8,0"
+                                VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Initial}"
+                                     FontSize="11"
+                                     FontWeight="SemiBold"
+                                     Foreground="{DynamicResource MailDogBrushTextOnAccent}"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    Spacing="1"
+                                    Margin="0,0,6,0">
+                          <TextBlock Text="{Binding DisplayName}"
+                                     FontSize="13"
+                                     TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding Email}"
+                                     IsVisible="{Binding ShowEmail}"
+                                     FontSize="11"
+                                     Foreground="{DynamicResource MailDogBrushTextTertiary}"
+                                     TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding SyncStatus}"
+                                     IsVisible="{Binding HasSyncStatus}"
+                                     FontSize="11"
+                                     Foreground="{DynamicResource MailDogBrushAccent}"
+                                     TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <Border Grid.Column="3"
+                                Width="8"
+                                Height="8"
+                                CornerRadius="4"
+                                Margin="4,0"
+                                Background="{Binding StatusBrush}"
+                                VerticalAlignment="Center" />
+                      </Grid>
+                    </Button>
 
-          <ListBox Grid.Row="2"
-                   Background="Transparent"
-                   ItemsSource="{Binding Folders}"
-                   SelectedItem="{Binding SelectedFolder}">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:FolderViewModel">
-                <Grid ColumnDefinitions="Auto,*,Auto" Height="36" Margin="4,0">
-                  <ic:FluentIcon Grid.Column="0"
-                                 Icon="Mail"
-                                 IconSize="Size20"
-                                 Margin="4,0"
-                                 VerticalAlignment="Center"
-                                 IsVisible="{Binding IsInbox}"
-                                 Foreground="{DynamicResource MailDogBrushAccent}" />
-                  <ic:FluentIcon Grid.Column="0"
-                                 Icon="Folder"
-                                 IconSize="Size20"
-                                 Margin="4,0"
-                                 VerticalAlignment="Center"
-                                 IsVisible="{Binding IsNotInbox}"
-                                 Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-                  <TextBlock Grid.Column="1"
-                             Text="{Binding Name}"
-                             FontSize="14"
-                             Margin="8,0"
-                             VerticalAlignment="Center"
-                             TextTrimming="CharacterEllipsis" />
-                  <Border Grid.Column="2"
-                          MinWidth="20"
-                          Height="16"
-                          Padding="4,0"
-                          CornerRadius="6"
-                          Background="{DynamicResource MailDogBrushAccent}"
-                          IsVisible="{Binding HasUnread}"
-                          VerticalAlignment="Center">
-                    <TextBlock Text="{Binding UnreadText}"
-                               FontSize="11"
-                               Foreground="{DynamicResource MailDogBrushTextOnAccent}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
-                  </Border>
-                </Grid>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+                    <!-- 二级：该账户的文件夹 -->
+                    <ItemsControl ItemsSource="{Binding Folders}"
+                                  IsVisible="{Binding IsExpanded}"
+                                  Margin="24,0,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FolderViewModel">
+                          <Button Classes="side-item"
+                                  Classes.active="{Binding IsActive}"
+                                  AutomationProperties.Name="{Binding Name}"
+                                  Click="OnFolderNodeClick">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                              <ic:FluentIcon Grid.Column="0"
+                                             Icon="{Binding IconKind}"
+                                             IconSize="Size16"
+                                             Foreground="{DynamicResource MailDogBrushTextSecondary}"
+                                             VerticalAlignment="Center"
+                                             Margin="2,0,8,0" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding Name}"
+                                         FontSize="13"
+                                         VerticalAlignment="Center"
+                                         TextTrimming="CharacterEllipsis" />
+                              <Border Grid.Column="2"
+                                      MinWidth="20"
+                                      Height="16"
+                                      Padding="4,0"
+                                      CornerRadius="8"
+                                      Background="{DynamicResource MailDogBrushAccent}"
+                                      IsVisible="{Binding HasUnread}"
+                                      VerticalAlignment="Center">
+                                <TextBlock Text="{Binding UnreadText}"
+                                           FontSize="10.5"
+                                           Foreground="{DynamicResource MailDogBrushTextOnAccent}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                              </Border>
+                            </Grid>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
 
-          <Button Grid.Row="3"
+          <Button Grid.Row="2"
                   Command="{Binding OpenSettingsCommand}"
                   AutomationProperties.Name="设置"
                   ToolTip.Tip="设置"

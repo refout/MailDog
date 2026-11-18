@@ -10,6 +10,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using FluentIcons.Common;
 using MailDog.Contracts.Dto;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
@@ -24,11 +25,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly HtmlSanitizer _sanitizer = new();
     private readonly HtmlDocumentBuilder _builder = new();
     private readonly List<MailSummaryViewModel> _allMessages = [];
+    private readonly Dictionary<long, FolderViewModel> _foldersById = [];
+    private readonly Dictionary<long, FolderRole> _folderRoles = [];
     private AppSettingsDto _settings = new();
     private MailBodyDto? _currentBody;
     private DateTimeOffset? _nextDate;
     private long? _nextId;
     private long? _activeFolderId;
+    private FolderRole? _activeRole;
+    private string? _activeScope;
     private bool _allowRemoteImages;
     private bool _initialized;
     private bool _suppressSelectionHandlers;
@@ -48,6 +53,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         Accounts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAccounts));
         RefreshBackgroundPresets();
         BuildCalendar();
+
+        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Inbox, "收件箱", Icon.MailInbox));
+        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Sent, "已发送", Icon.Send));
+        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Drafts, "草稿", Icon.Drafts));
+        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Junk, "垃圾邮件", Icon.Warning));
+        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Trash, "已删除", Icon.Delete));
+        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Archive, "归档", Icon.Archive));
     }
 
     public ObservableCollection<AccountViewModel> Accounts { get; } = [];
@@ -79,6 +91,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public string RuntimeText => $".NET {RuntimeVersion}";
 
     public ObservableCollection<BackgroundPresetViewModel> BackgroundPresets { get; } = [];
+
+    /// <summary>顶部统一文件夹：聚合所有账户的收件箱 / 已发送 / 草稿等。</summary>
+    public ObservableCollection<UnifiedFolderViewModel> UnifiedFolders { get; } = [];
+
+    [ObservableProperty]
+    private UnifiedFolderViewModel? _selectedUnifiedFolder;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
@@ -432,7 +450,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     partial void OnIsBusyChanged(bool value)
     {
-        IsEmpty = Messages.Count == 0 && !value && SelectedFolder is not null;
+        IsEmpty = Messages.Count == 0 && !value && _activeScope is not null;
     }
 
     public bool IsThemeSystem
@@ -1069,16 +1087,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        if (SelectedAccount is null)
+        if (Accounts.Count == 0)
         {
             return;
         }
 
         try
         {
-            await _engine.RequestAsync<OkResponse>(
-                IpcMessageTypes.SyncAccount,
-                new SyncAccountRequest { AccountId = SelectedAccount.Id });
+            // 统一文件夹跨账户，立即同步需要覆盖全部账户。
+            foreach (var account in Accounts)
+            {
+                await _engine.RequestAsync<OkResponse>(
+                    IpcMessageTypes.SyncAccount,
+                    new SyncAccountRequest { AccountId = account.Id });
+            }
+
             StatusMessage = "正在同步…";
             HasError = false;
         }
@@ -1091,28 +1114,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task LoadMoreAsync()
     {
-        if (!HasMore || SelectedFolder is null || IsLoadingMore)
+        if (!HasMore || _activeScope is null || IsLoadingMore)
         {
             return;
         }
 
+        var scope = _activeScope;
         IsLoadingMore = true;
 
         try
         {
-            var folderId = SelectedFolder.Id;
-
             var response = await _engine.RequestAsync<MessagesPageResponse>(
                 IpcMessageTypes.GetMessages,
-                new GetMessagesRequest
-                {
-                    FolderId = folderId,
-                    BeforeDate = _nextDate,
-                    BeforeId = _nextId,
-                    Limit = 50
-                });
+                BuildMessagesRequest(50, _nextDate, _nextId));
 
-            if (_activeFolderId != folderId)
+            if (_activeScope != scope)
             {
                 // 加载期间切换了文件夹，丢弃过期结果。
                 return;
@@ -1311,11 +1327,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 message.IsSelected = false;
             }
 
-            if (SelectedFolder is not null && changed > 0)
+            if (changed > 0)
             {
-                SelectedFolder.UnreadCount = Math.Max(
-                    0,
-                    SelectedFolder.UnreadCount + (isRead ? -changed : changed));
+                foreach (var message in targets)
+                {
+                    AdjustFolderUnread(message.FolderId, isRead ? -1 : 1);
+                }
+
+                RecalculateUnifiedCounts();
             }
 
             if (FilterIndex == 1)
@@ -1605,7 +1624,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _ = LoadFoldersAsync(value);
+        // 账户文件夹已在启动时全部加载；选中账户只负责展开该节点。
+        value.IsExpanded = true;
     }
 
     partial void OnSelectedFolderChanged(FolderViewModel? value)
@@ -1615,7 +1635,60 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // 文件夹与统一文件夹互斥。
+        if (SelectedUnifiedFolder is not null)
+        {
+            _suppressSelectionHandlers = true;
+            try
+            {
+                SelectedUnifiedFolder = null;
+            }
+            finally
+            {
+                _suppressSelectionHandlers = false;
+            }
+        }
+
+        UpdateActiveStates();
         _ = LoadMessagesAsync(value);
+    }
+
+    partial void OnSelectedUnifiedFolderChanged(UnifiedFolderViewModel? value)
+    {
+        if (_suppressSelectionHandlers || value is null)
+        {
+            return;
+        }
+
+        if (SelectedFolder is not null)
+        {
+            _suppressSelectionHandlers = true;
+            try
+            {
+                SelectedFolder = null;
+            }
+            finally
+            {
+                _suppressSelectionHandlers = false;
+            }
+        }
+
+        UpdateActiveStates();
+        _ = LoadRoleMessagesAsync(value.Role, value.Name);
+    }
+
+    private void UpdateActiveStates()
+    {
+        foreach (var folder in Folders)
+        {
+            folder.IsActive = SelectedFolder is not null && folder.Id == SelectedFolder.Id;
+        }
+
+        foreach (var folder in UnifiedFolders)
+        {
+            folder.IsActive = SelectedUnifiedFolder is not null
+                              && folder.Role == SelectedUnifiedFolder.Role;
+        }
     }
 
     partial void OnSelectedMessageChanged(MailSummaryViewModel? value)
@@ -1777,11 +1850,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (SelectedAccount is not null)
         {
-            await LoadFoldersAsync(SelectedAccount);
+            await RefreshFolderTreeAsync();
+            ExpandSelectedAccount();
+
+            // 首次进入默认打开统一收件箱；保留用户当前的文件夹选择。
+            if (SelectedFolder is null && SelectedUnifiedFolder is null)
+            {
+                SelectedUnifiedFolder = UnifiedFolders.FirstOrDefault();
+            }
         }
     }
 
-    private async Task LoadFoldersAsync(AccountViewModel account, long? preserveFolderId = null)
+    /// <summary>加载所有账户的文件夹，构建左侧两级树与统一文件夹计数。</summary>
+    private async Task RefreshFolderTreeAsync()
     {
         if (!IsConnected)
         {
@@ -1794,53 +1875,31 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             HasError = false;
             StatusMessage = "正在加载文件夹…";
 
-            var response = await _engine.RequestAsync<FoldersResponse>(
-                IpcMessageTypes.GetFolders,
-                new GetFoldersRequest { AccountId = account.Id },
-                TimeSpan.FromSeconds(45));
+            Folders.Clear();
+            _foldersById.Clear();
+            _folderRoles.Clear();
 
-            var previousFolderId = SelectedFolder?.Id;
-
-            _suppressSelectionHandlers = true;
-            try
+            foreach (var account in Accounts)
             {
-                Folders.Clear();
-                foreach (var folder in response.Items)
+                var response = await _engine.RequestAsync<FoldersResponse>(
+                    IpcMessageTypes.GetFolders,
+                    new GetFoldersRequest { AccountId = account.Id },
+                    TimeSpan.FromSeconds(45));
+
+                ApplyFolders(account, response.Items);
+
+                foreach (var folder in account.Folders)
                 {
-                    Folders.Add(new FolderViewModel(folder));
-                }
-
-                var target = preserveFolderId is not null
-                    ? Folders.FirstOrDefault(folder => folder.Id == preserveFolderId)
-                    : null;
-
-                target ??= previousFolderId is not null
-                    ? Folders.FirstOrDefault(folder => folder.Id == previousFolderId)
-                    : null;
-
-                target ??= Folders.FirstOrDefault(folder => folder.Role == FolderRole.Inbox)
-                           ?? Folders.FirstOrDefault();
-
-                SelectedFolder = target;
-            }
-            finally
-            {
-                _suppressSelectionHandlers = false;
-            }
-
-            if (SelectedFolder is not null)
-            {
-                // 同一文件夹只增量合并，避免刷新账户/文件夹时把列表清空重载。
-                if (previousFolderId == SelectedFolder.Id)
-                {
-                    await RefreshMessagesAsync(SelectedFolder);
-                }
-                else
-                {
-                    await LoadMessagesAsync(SelectedFolder);
+                    Folders.Add(folder);
+                    _foldersById[folder.Id] = folder;
+                    _folderRoles[folder.Id] = folder.Role;
                 }
             }
-            else
+
+            RecalculateUnifiedCounts();
+            UpdateActiveStates();
+
+            if (Accounts.Count == 0)
             {
                 StatusMessage = "正在同步文件夹…";
             }
@@ -1855,30 +1914,129 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async Task LoadMessagesAsync(FolderViewModel folder)
+    /// <summary>增量合并文件夹，保留已有实例以维持选中项与展开状态。</summary>
+    private static void ApplyFolders(AccountViewModel account, FolderDto[] items)
+    {
+        var existing = account.Folders.ToDictionary(folder => folder.Id);
+        var incoming = items.Select(folder => folder.Id).ToHashSet();
+
+        for (var index = account.Folders.Count - 1; index >= 0; index--)
+        {
+            if (!incoming.Contains(account.Folders[index].Id))
+            {
+                account.Folders.RemoveAt(index);
+            }
+        }
+
+        for (var index = 0; index < items.Length; index++)
+        {
+            var item = items[index];
+
+            if (existing.TryGetValue(item.Id, out var folder))
+            {
+                folder.UnreadCount = item.UnreadCount;
+                var current = account.Folders.IndexOf(folder);
+                var target = Math.Min(index, account.Folders.Count - 1);
+
+                if (current != target)
+                {
+                    account.Folders.Move(current, target);
+                }
+
+                continue;
+            }
+
+            account.Folders.Insert(
+                Math.Min(index, account.Folders.Count),
+                new FolderViewModel(item));
+        }
+
+        account.NotifyFoldersChanged();
+    }
+
+    private void RecalculateUnifiedCounts()
+    {
+        foreach (var unified in UnifiedFolders)
+        {
+            unified.UnreadCount = Folders
+                .Where(folder => folder.Role == unified.Role)
+                .Sum(folder => folder.UnreadCount);
+        }
+    }
+
+    private void ExpandSelectedAccount()
+    {
+        foreach (var account in Accounts)
+        {
+            account.IsExpanded = account == SelectedAccount;
+        }
+    }
+
+    private Task LoadMessagesAsync(FolderViewModel folder)
     {
         if (!IsConnected)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        var sameFolder = _activeFolderId == folder.Id;
-        var previousId = sameFolder ? SelectedMessage?.Id : null;
+        var scope = $"folder:{folder.Id}";
+        var sameScope = _activeScope == scope;
+        var previousId = sameScope ? SelectedMessage?.Id : null;
+
+        _activeScope = scope;
+        _activeRole = null;
         _activeFolderId = folder.Id;
 
+        return LoadScopeAsync(scope, folder.Name, sameScope, previousId);
+    }
+
+    /// <summary>加载统一文件夹：跨账户按角色查询。</summary>
+    private Task LoadRoleMessagesAsync(FolderRole role, string title)
+    {
+        if (!IsConnected)
+        {
+            return Task.CompletedTask;
+        }
+
+        var scope = $"role:{role}";
+        var sameScope = _activeScope == scope;
+        var previousId = sameScope ? SelectedMessage?.Id : null;
+
+        _activeScope = scope;
+        _activeRole = role;
+        _activeFolderId = null;
+
+        return LoadScopeAsync(scope, title, sameScope, previousId);
+    }
+
+    private GetMessagesRequest BuildMessagesRequest(
+        int limit,
+        DateTimeOffset? beforeDate = null,
+        long? beforeId = null)
+        => new()
+        {
+            FolderId = _activeFolderId ?? 0,
+            Role = _activeRole,
+            BeforeDate = beforeDate,
+            BeforeId = beforeId,
+            Limit = limit
+        };
+
+    private async Task LoadScopeAsync(string scope, string title, bool sameScope, long? previousId)
+    {
         try
         {
             IsBusy = true;
             HasError = false;
-            FolderTitle = folder.Name;
+            FolderTitle = title;
             StatusMessage = "正在加载邮件…";
 
             var response = await _engine.RequestAsync<MessagesPageResponse>(
                 IpcMessageTypes.GetMessages,
-                new GetMessagesRequest { FolderId = folder.Id, Limit = 50 });
+                BuildMessagesRequest(50));
 
             // 加载期间切换了文件夹，丢弃过期结果。
-            if (_activeFolderId != folder.Id)
+            if (_activeScope != scope)
             {
                 return;
             }
@@ -1890,7 +2048,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 SelectedMessage = null;
                 Messages.Clear();
 
-                if (!sameFolder)
+                if (!sameScope)
                 {
                     foreach (var message in _allMessages)
                     {
@@ -1900,7 +2058,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
                 _allMessages.Clear();
 
-                if (!sameFolder)
+                if (!sameScope)
                 {
                     _currentBody = null;
                     Reader.Reset();
@@ -1947,21 +2105,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>增量刷新当前文件夹：只合并最新一页，不清空列表，保留滚动位置与选中项。</summary>
-    private async Task RefreshMessagesAsync(FolderViewModel folder)
+    /// <summary>增量刷新当前范围：只合并最新一页，不清空列表，保留滚动位置与选中项。</summary>
+    private async Task RefreshMessagesAsync()
     {
-        if (!IsConnected)
+        if (!IsConnected || _activeScope is null)
         {
             return;
         }
+
+        var scope = _activeScope;
 
         try
         {
             var response = await _engine.RequestAsync<MessagesPageResponse>(
                 IpcMessageTypes.GetMessages,
-                new GetMessagesRequest { FolderId = folder.Id, Limit = 50 });
+                BuildMessagesRequest(50));
 
-            if (_activeFolderId != folder.Id)
+            if (_activeScope != scope)
             {
                 return;
             }
@@ -2066,12 +2226,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
             message.IsRead = isRead;
 
-            if (SelectedFolder is not null)
-            {
-                SelectedFolder.UnreadCount = Math.Max(
-                    0,
-                    SelectedFolder.UnreadCount + (isRead ? -1 : 1));
-            }
+            AdjustFolderUnread(message.FolderId, isRead ? -1 : 1);
+            RecalculateUnifiedCounts();
 
             // 只有“未读”筛选依赖已读状态，其它筛选不需要重建列表。
             if (FilterIndex == 1)
@@ -2082,6 +2238,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         catch (Exception exception)
         {
             ShowError(exception);
+        }
+    }
+
+    private void AdjustFolderUnread(long folderId, int delta)
+    {
+        if (_foldersById.TryGetValue(folderId, out var folder))
+        {
+            folder.UnreadCount = Math.Max(0, folder.UnreadCount + delta);
         }
     }
 
@@ -2129,7 +2293,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         // 集合没有变化时保持原样，避免列表与选中项被重建导致阅读区闪烁。
         if (filtered.Count == Messages.Count && filtered.SequenceEqual(Messages))
         {
-            IsEmpty = Messages.Count == 0 && !IsBusy && SelectedFolder is not null;
+            IsEmpty = Messages.Count == 0 && !IsBusy && _activeScope is not null;
             NotifySelectionState();
             return;
         }
@@ -2182,7 +2346,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _suppressSelectionHandlers = false;
         }
 
-        IsEmpty = Messages.Count == 0 && !IsBusy && SelectedFolder is not null;
+        IsEmpty = Messages.Count == 0 && !IsBusy && _activeScope is not null;
         NotifySelectionState();
     }
 
@@ -2286,6 +2450,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>新邮件所属文件夹是否落在当前浏览范围内（单文件夹或统一文件夹）。</summary>
+    private bool IsFolderInActiveScope(long folderId)
+    {
+        if (_activeFolderId == folderId)
+        {
+            return true;
+        }
+
+        return _activeRole is { } role
+               && _folderRoles.TryGetValue(folderId, out var folderRole)
+               && folderRole == role;
+    }
+
     private void OnEngineEvent(IIpcMessage message)
     {
         _ = Dispatcher.UIThread.InvokeAsync(async () =>
@@ -2293,9 +2470,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             switch (message)
             {
                 case NewMailEvent newMail:
-                    if (SelectedFolder?.Id == newMail.FolderId)
+                    if (IsFolderInActiveScope(newMail.FolderId))
                     {
-                        await RefreshMessagesAsync(SelectedFolder);
+                        await RefreshMessagesAsync();
                     }
 
                     break;
@@ -2381,7 +2558,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                     _suppressSelectionHandlers = false;
                 }
 
-                await LoadFoldersAsync(account);
+                await RefreshFolderTreeAsync();
+                ExpandSelectedAccount();
             }
         }
 
@@ -2394,6 +2572,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 _suppressSelectionHandlers = true;
                 try
                 {
+                    SelectedUnifiedFolder = null;
                     SelectedFolder = folder;
                 }
                 finally
@@ -2401,6 +2580,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                     _suppressSelectionHandlers = false;
                 }
 
+                UpdateActiveStates();
                 await LoadMessagesAsync(folder);
             }
         }
@@ -2467,7 +2647,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         StatusMessage = null;
         HasError = false;
 
-        if (SelectedAccount is not null && SelectedAccount.Id == syncState.AccountId)
+        // 任意账户同步结束后都刷新树与当前范围（统一文件夹可能包含该账户）。
+        if (SelectedAccount is not null)
         {
             _ = ReloadCurrentFolderAsync();
         }
@@ -2507,8 +2688,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var folderId = SelectedFolder?.Id;
-        await LoadFoldersAsync(SelectedAccount, folderId);
+        // 同步完成后只刷新文件夹树与当前列表，不改变用户选择。
+        await RefreshFolderTreeAsync();
+        await RefreshMessagesAsync();
     }
 
     private void OnEngineDisconnected(string reason)

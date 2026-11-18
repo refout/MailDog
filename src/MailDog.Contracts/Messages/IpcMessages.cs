@@ -83,6 +83,9 @@ public sealed class GetMessagesRequest : Ipc.IIpcMessage
 {
     public long FolderId { get; init; }
 
+    /// <summary>按角色跨账户查询（如统一收件箱）；设置后忽略 <see cref="FolderId"/>。</summary>
+    public FolderRole? Role { get; init; }
+
     public DateTimeOffset? BeforeDate { get; init; }
 
     public long? BeforeId { get; init; }

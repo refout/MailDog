@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MailDog.Contracts.Dto;
@@ -36,6 +37,9 @@ public sealed partial class AccountViewModel : ObservableObject
 
     public string DisplayName { get; }
 
+    /// <summary>显示名与邮箱相同时不再重复展示邮箱。</summary>
+    public bool ShowEmail => !string.Equals(DisplayName, Email, StringComparison.OrdinalIgnoreCase);
+
     public string ProviderText { get; }
 
     public string StatusText { get; }
@@ -43,6 +47,16 @@ public sealed partial class AccountViewModel : ObservableObject
     public IBrush StatusBrush { get; }
 
     public string Initial { get; }
+
+    /// <summary>该账户下的文件夹（树的第二级）。</summary>
+    public ObservableCollection<FolderViewModel> Folders { get; } = [];
+
+    [ObservableProperty]
+    private bool _isExpanded;
+
+    public bool HasFolders => Folders.Count > 0;
+
+    public void NotifyFoldersChanged() => OnPropertyChanged(nameof(HasFolders));
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSyncStatus))]

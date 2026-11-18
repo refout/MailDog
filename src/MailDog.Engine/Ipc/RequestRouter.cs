@@ -195,13 +195,11 @@ public sealed class RequestRouter
 
     private IIpcMessage GetMessages(GetMessagesRequest request)
     {
-        var page = _store.QueryMessages(
-            request.FolderId,
-            request.BeforeDate,
-            request.BeforeId,
-            request.Limit);
+        var page = request.Role is { } role
+            ? _store.QueryMessagesByRole(role, request.BeforeDate, request.BeforeId, request.Limit)
+            : _store.QueryMessages(request.FolderId, request.BeforeDate, request.BeforeId, request.Limit);
 
-        if (page.Items.Length == 0)
+        if (page.Items.Length == 0 && request.Role is null)
         {
             var folder = _store.GetFolder(request.FolderId);
             if (folder is not null)
