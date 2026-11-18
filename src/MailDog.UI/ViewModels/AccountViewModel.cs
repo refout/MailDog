@@ -50,6 +50,8 @@ public sealed partial class AccountViewModel : ObservableObject
 
     public string ProviderText { get; }
 
+    public bool CanReauthorize => Provider == MailProvider.Outlook;
+
     public string StatusText { get; }
 
     public IBrush StatusBrush { get; }
@@ -61,6 +63,9 @@ public sealed partial class AccountViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isExpanded;
+
+    [ObservableProperty]
+    private bool _isDefault;
 
     public bool HasFolders => Folders.Count > 0;
 

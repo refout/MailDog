@@ -1190,6 +1190,16 @@ public sealed class SqliteStore : IDisposable
         }
     }
 
+    public void SetSetting(string key, string value)
+    {
+        lock (_gate)
+        {
+            using var transaction = _connection.BeginTransaction();
+            UpsertSetting(transaction, key, value);
+            transaction.Commit();
+        }
+    }
+
     // Outbox
 
     public long InsertOutbox(OutboxRecord record, IReadOnlyList<OutboxAttachmentRecord> attachments)

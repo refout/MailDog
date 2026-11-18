@@ -106,6 +106,38 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void OnReauthorizeAccountClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            await _viewModel.ReauthorizeAccountAsync(account);
+        }
+    }
+
+    private async void OnSetDefaultAccountClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            await _viewModel.SetDefaultAccountAsync(account);
+        }
+    }
+
+    private async void OnMoveAccountUpClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            await _viewModel.MoveAccountAsync(account, -1);
+        }
+    }
+
+    private async void OnMoveAccountDownClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            await _viewModel.MoveAccountAsync(account, 1);
+        }
+    }
+
     private void OnDeleteAccountClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is Button { DataContext: AccountViewModel account })

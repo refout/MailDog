@@ -16,6 +16,15 @@ public sealed class AccountDto
     public AccountServerDto? Server { get; init; }
 }
 
+/// <summary>账户显示顺序与默认发信账户；账户本身仍由账户表管理。</summary>
+public sealed class AccountPreferencesDto
+{
+    public string? DefaultAccountId { get; init; }
+
+    /// <summary>逗号分隔的账户 ID，按用户调整后的顺序排列。</summary>
+    public string AccountOrder { get; init; } = string.Empty;
+}
+
 public sealed class AccountServerDto
 {
     public string ImapHost { get; init; } = string.Empty;

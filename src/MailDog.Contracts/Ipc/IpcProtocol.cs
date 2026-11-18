@@ -20,6 +20,9 @@ public static class IpcMessageTypes
 
     public const string GetAccounts = "getAccounts";
     public const string Accounts = "accounts";
+    public const string GetAccountPreferences = "getAccountPreferences";
+    public const string AccountPreferences = "accountPreferences";
+    public const string UpdateAccountPreferences = "updateAccountPreferences";
     public const string AddPasswordAccount = "addPasswordAccount";
     public const string Account = "account";
     public const string StartOAuth = "startOAuth";

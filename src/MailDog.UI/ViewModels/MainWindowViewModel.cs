@@ -1810,9 +1810,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         var draft = SelectedMessage;
-        var accounts = Accounts
-            .Select(account => new ComposeAccount(account.Id, account.Email, account.DisplayName))
-            .ToArray();
+        var accounts = BuildComposeAccounts();
 
         try
         {
@@ -1875,9 +1873,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var accounts = Accounts
-            .Select(account => new ComposeAccount(account.Id, account.Email, account.DisplayName))
-            .ToArray();
+        var accounts = BuildComposeAccounts();
 
         var compose = new ComposeViewModel(
             _engine,
@@ -2395,6 +2391,92 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         ResetAccountForm();
         ShowAddAccountForm = true;
+    }
+
+    public async Task ReauthorizeAccountAsync(AccountViewModel account)
+    {
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.StartOAuth,
+                new StartOAuthRequest
+                {
+                    Provider = account.Provider,
+                    LoginHint = account.Email
+                },
+                TimeSpan.FromSeconds(15));
+
+            StatusMessage = $"已在浏览器中打开 {account.Email} 的重新授权页面，完成后账户会自动更新。";
+            HasError = false;
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    public async Task SetDefaultAccountAsync(AccountViewModel account)
+    {
+        try
+        {
+            var response = await _engine.RequestAsync<AccountPreferencesResponse>(
+                IpcMessageTypes.UpdateAccountPreferences,
+                new UpdateAccountPreferencesRequest
+                {
+                    Preferences = new AccountPreferencesDto
+                    {
+                        DefaultAccountId = account.Id,
+                        AccountOrder = string.Join(',', Accounts.Select(item => item.Id))
+                    }
+                });
+
+            foreach (var item in Accounts)
+            {
+                item.IsDefault = string.Equals(
+                    response.Preferences.DefaultAccountId,
+                    item.Id,
+                    StringComparison.Ordinal);
+            }
+
+            StatusMessage = $"已将 {account.Email} 设为默认发信账户。";
+            HasError = false;
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    public async Task MoveAccountAsync(AccountViewModel account, int offset)
+    {
+        var index = Accounts.IndexOf(account);
+        var target = index + offset;
+        if (index < 0 || target < 0 || target >= Accounts.Count)
+        {
+            return;
+        }
+
+        Accounts.Move(index, target);
+        try
+        {
+            await _engine.RequestAsync<AccountPreferencesResponse>(
+                IpcMessageTypes.UpdateAccountPreferences,
+                new UpdateAccountPreferencesRequest
+                {
+                    Preferences = new AccountPreferencesDto
+                    {
+                        DefaultAccountId = Accounts.FirstOrDefault(item => item.IsDefault)?.Id,
+                        AccountOrder = string.Join(',', Accounts.Select(item => item.Id))
+                    }
+                });
+            StatusMessage = "账户顺序已保存。";
+            HasError = false;
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+            await LoadAccountsAsync();
+        }
     }
 
     public void BeginEditAccount(AccountViewModel account)
@@ -3284,11 +3366,24 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    private ComposeAccount[] BuildComposeAccounts()
+    {
+        var ordered = Accounts
+            .OrderBy(account => account.IsDefault ? 0 : 1)
+            .Select(account => new ComposeAccount(account.Id, account.Email, account.DisplayName))
+            .ToArray();
+        return ordered;
+    }
+
     private async Task LoadAccountsAsync()
     {
         var response = await _engine.RequestAsync<AccountsResponse>(
             IpcMessageTypes.GetAccounts,
             new GetAccountsRequest());
+        var preferencesResponse = await _engine.RequestAsync<AccountPreferencesResponse>(
+            IpcMessageTypes.GetAccountPreferences,
+            new GetAccountPreferencesRequest());
+        var preferences = preferencesResponse.Preferences;
 
         var selectedId = SelectedAccount?.Id;
 
@@ -3296,9 +3391,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             Accounts.Clear();
-            foreach (var account in response.Items)
+            var orderIds = preferences.AccountOrder.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            var orderedItems = response.Items
+                .OrderBy(account =>
+                {
+                    var index = Array.IndexOf(orderIds, account.Id);
+                    return index < 0 ? int.MaxValue : index;
+                })
+                .ToArray();
+
+            foreach (var account in orderedItems)
             {
-                Accounts.Add(new AccountViewModel(account));
+                Accounts.Add(new AccountViewModel(account)
+                {
+                    IsDefault = string.Equals(preferences.DefaultAccountId, account.Id, StringComparison.Ordinal)
+                });
             }
 
             ShowWelcome = Accounts.Count == 0;

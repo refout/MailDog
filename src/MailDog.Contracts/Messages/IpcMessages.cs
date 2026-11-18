@@ -31,6 +31,20 @@ public sealed class AccountsResponse : Ipc.IIpcMessage
     public AccountDto[] Items { get; init; } = [];
 }
 
+public sealed class GetAccountPreferencesRequest : Ipc.IIpcMessage
+{
+}
+
+public sealed class AccountPreferencesResponse : Ipc.IIpcMessage
+{
+    public AccountPreferencesDto Preferences { get; init; } = new();
+}
+
+public sealed class UpdateAccountPreferencesRequest : Ipc.IIpcMessage
+{
+    public AccountPreferencesDto Preferences { get; init; } = new();
+}
+
 public sealed class AddPasswordAccountRequest : Ipc.IIpcMessage
 {
     public MailProvider Provider { get; init; }

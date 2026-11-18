@@ -160,6 +160,68 @@ public sealed class AccountService
     public void SetStatus(string accountId, AccountStatus status, DateTimeOffset? lastSyncUtc = null)
         => _store.UpdateAccountStatus(accountId, status, lastSyncUtc);
 
+    public AccountPreferencesDto GetPreferences()
+    {
+        var accounts = _store.GetAccounts();
+        var order = NormalizeOrder(_store.GetSetting("accountOrder"), accounts);
+        var defaultId = _store.GetSetting("defaultAccountId");
+        if (string.IsNullOrWhiteSpace(defaultId) || accounts.All(account => account.Id != defaultId))
+        {
+            defaultId = accounts.FirstOrDefault()?.Id;
+        }
+
+        return new AccountPreferencesDto
+        {
+            DefaultAccountId = defaultId,
+            AccountOrder = string.Join(',', order)
+        };
+    }
+
+    public AccountPreferencesDto UpdatePreferences(AccountPreferencesDto preferences)
+    {
+        var accounts = _store.GetAccounts();
+        var defaultId = preferences.DefaultAccountId;
+        if (string.IsNullOrWhiteSpace(defaultId) || accounts.All(account => account.Id != defaultId))
+        {
+            defaultId = accounts.FirstOrDefault()?.Id;
+        }
+
+        var order = NormalizeOrder(preferences.AccountOrder, accounts);
+        if (!string.IsNullOrWhiteSpace(defaultId))
+        {
+            _store.SetSetting("defaultAccountId", defaultId);
+        }
+
+        _store.SetSetting("accountOrder", string.Join(',', order));
+        return new AccountPreferencesDto
+        {
+            DefaultAccountId = defaultId,
+            AccountOrder = string.Join(',', order)
+        };
+    }
+
+    private static List<string> NormalizeOrder(string? rawOrder, IReadOnlyList<AccountRecord> accounts)
+    {
+        var ordered = new List<string>();
+        foreach (var id in (rawOrder ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (accounts.Any(account => account.Id == id) && !ordered.Contains(id, StringComparer.Ordinal))
+            {
+                ordered.Add(id);
+            }
+        }
+
+        foreach (var account in accounts)
+        {
+            if (!ordered.Contains(account.Id, StringComparer.Ordinal))
+            {
+                ordered.Add(account.Id);
+            }
+        }
+
+        return ordered;
+    }
+
     public void RemoveAccount(string accountId)
     {
         var account = _store.GetAccount(accountId);

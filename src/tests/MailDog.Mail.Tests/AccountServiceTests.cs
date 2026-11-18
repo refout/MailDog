@@ -162,6 +162,26 @@ public sealed class AccountServiceTests : IDisposable
         Assert.False(Directory.Exists(attachmentDirectory));
     }
 
+    [Fact]
+    public void AccountPreferencesPersistOrderAndDefault()
+    {
+        var first = _accounts.AddPasswordAccount(MailProvider.QQ, "first@qq.com", "secret-1", "First");
+        var second = _accounts.AddPasswordAccount(MailProvider.QQ, "second@qq.com", "secret-2", "Second");
+
+        var updated = _accounts.UpdatePreferences(new AccountPreferencesDto
+        {
+            DefaultAccountId = second.Id,
+            AccountOrder = $"{second.Id},{first.Id}"
+        });
+
+        Assert.Equal(second.Id, updated.DefaultAccountId);
+        Assert.Equal($"{second.Id},{first.Id}", updated.AccountOrder);
+
+        var loaded = _accounts.GetPreferences();
+        Assert.Equal(second.Id, loaded.DefaultAccountId);
+        Assert.Equal($"{second.Id},{first.Id}", loaded.AccountOrder);
+    }
+
     public void Dispose()
     {
         _store.Dispose();

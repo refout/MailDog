@@ -64,6 +64,15 @@ public sealed class RequestRouter
             case GetAccountsRequest:
                 return new AccountsResponse { Items = _accounts.GetAccounts().ToArray() };
 
+            case GetAccountPreferencesRequest:
+                return new AccountPreferencesResponse { Preferences = _accounts.GetPreferences() };
+
+            case UpdateAccountPreferencesRequest request:
+                return new AccountPreferencesResponse
+                {
+                    Preferences = _accounts.UpdatePreferences(request.Preferences)
+                };
+
             case AddPasswordAccountRequest request:
                 return await AddPasswordAccountAsync(request, cancellationToken).ConfigureAwait(false);
 

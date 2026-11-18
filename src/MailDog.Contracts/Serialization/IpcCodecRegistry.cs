@@ -20,6 +20,9 @@ public static class IpcCodecRegistry
 
         Register(IpcMessageTypes.GetAccounts, IpcJsonContext.Default.GetAccountsRequest);
         Register(IpcMessageTypes.Accounts, IpcJsonContext.Default.AccountsResponse);
+        Register(IpcMessageTypes.GetAccountPreferences, IpcJsonContext.Default.GetAccountPreferencesRequest);
+        Register(IpcMessageTypes.AccountPreferences, IpcJsonContext.Default.AccountPreferencesResponse);
+        Register(IpcMessageTypes.UpdateAccountPreferences, IpcJsonContext.Default.UpdateAccountPreferencesRequest);
         Register(IpcMessageTypes.AddPasswordAccount, IpcJsonContext.Default.AddPasswordAccountRequest);
         Register(IpcMessageTypes.Account, IpcJsonContext.Default.AccountResponse);
         Register(IpcMessageTypes.StartOAuth, IpcJsonContext.Default.StartOAuthRequest);
