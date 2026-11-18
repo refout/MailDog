@@ -69,7 +69,7 @@ public sealed class HtmlDocumentBuilder
         bool allowRemoteImages,
         string? bodyBackground = null)
     {
-        var imageSource = allowRemoteImages ? "https:" : "'none'";
+        var imageSource = allowRemoteImages ? "https: data:" : "data:";
         var css = darkMode ? DarkCss : LightCss;
 
         var builder = new StringBuilder(sanitizedHtml.Length + css.Length + 1024);

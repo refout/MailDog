@@ -21,7 +21,12 @@ public sealed class AccountService
 
     public AccountRecord? FindByEmail(string email) => _store.FindAccountByEmail(email);
 
-    public AccountDto AddPasswordAccount(MailProvider provider, string email, string secret, string? displayName)
+    public AccountDto AddPasswordAccount(
+        MailProvider provider,
+        string email,
+        string secret,
+        string? displayName,
+        ProviderConfig? serverConfig = null)
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(normalizedEmail) || !normalizedEmail.Contains('@', StringComparison.Ordinal))
@@ -32,6 +37,16 @@ public sealed class AccountService
         if (string.IsNullOrWhiteSpace(secret))
         {
             throw new ArgumentException("授权码不能为空。", nameof(secret));
+        }
+
+        if (provider == MailProvider.Custom)
+        {
+            if (serverConfig is null)
+            {
+                throw new ArgumentException("请填写自定义服务器地址。");
+            }
+
+            ValidateServerConfig(serverConfig);
         }
 
         if (_store.FindAccountByEmail(normalizedEmail) is not null)
@@ -56,7 +71,50 @@ public sealed class AccountService
             null);
 
         _store.UpsertAccount(record);
+
+        if (serverConfig is not null)
+        {
+            _store.UpsertAccountServer(new AccountServerRecord(
+                id,
+                serverConfig.ImapHost,
+                serverConfig.ImapPort,
+                serverConfig.ImapStartTls,
+                serverConfig.SmtpHost,
+                serverConfig.SmtpPort,
+                serverConfig.SmtpStartTls));
+        }
+
         return ToDto(record);
+    }
+
+    public ProviderConfig GetServerConfig(AccountRecord account)
+    {
+        var stored = _store.GetAccountServer(account.Id);
+        if (stored is null)
+        {
+            return ProviderCatalog.Get(account.Provider);
+        }
+
+        return new ProviderConfig(
+            stored.ImapHost,
+            stored.ImapPort,
+            stored.ImapStartTls,
+            stored.SmtpHost,
+            stored.SmtpPort,
+            stored.SmtpStartTls);
+    }
+
+    private static void ValidateServerConfig(ProviderConfig config)
+    {
+        if (string.IsNullOrWhiteSpace(config.ImapHost) || string.IsNullOrWhiteSpace(config.SmtpHost))
+        {
+            throw new ArgumentException("IMAP 与 SMTP 服务器地址不能为空。");
+        }
+
+        if (config.ImapPort is < 1 or > 65535 || config.SmtpPort is < 1 or > 65535)
+        {
+            throw new ArgumentException("端口必须在 1 到 65535 之间。");
+        }
     }
 
     public AccountDto AddOAuthAccount(MailProvider provider, string email, string displayName, string refreshSecretReference)
@@ -118,13 +176,96 @@ public sealed class AccountService
         }
     }
 
-    public static AccountDto ToDto(AccountRecord account)
-        => new()
+    /// <summary>更新密码账户的显示名、授权码或自定义服务器；邮箱地址与登录方式不可在此修改。</summary>
+    public AccountDto UpdatePasswordAccount(
+        string accountId,
+        string? displayName,
+        string? secret,
+        ProviderConfig? serverConfig)
+    {
+        var account = _store.GetAccount(accountId)
+            ?? throw new ArgumentException("账户不存在。", nameof(accountId));
+
+        if (account.AuthKind != "password")
+        {
+            throw new InvalidOperationException("该账户不是密码登录账户，请重新完成授权。");
+        }
+
+        if (!string.IsNullOrWhiteSpace(secret))
+        {
+            if (account.SecretRef is null)
+            {
+                throw new InvalidOperationException("账户缺少凭据引用，无法保存授权码。");
+            }
+
+            _secrets.Save(account.SecretRef, "imap_password", secret.Trim());
+        }
+
+        if (serverConfig is not null)
+        {
+            if (account.Provider != MailProvider.Custom)
+            {
+                throw new InvalidOperationException("只有自定义服务器账户可以修改服务器地址。");
+            }
+
+            ValidateServerConfig(serverConfig);
+            _store.UpsertAccountServer(new AccountServerRecord(
+                account.Id,
+                serverConfig.ImapHost,
+                serverConfig.ImapPort,
+                serverConfig.ImapStartTls,
+                serverConfig.SmtpHost,
+                serverConfig.SmtpPort,
+                serverConfig.SmtpStartTls));
+        }
+
+        var updated = account with
+        {
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? account.Email : displayName.Trim(),
+            Status = AccountStatus.Ok
+        };
+
+        _store.UpsertAccount(updated);
+        return ToDto(updated);
+    }
+
+    /// <summary>更新 OAuth 账户的显示名。</summary>
+    public AccountDto UpdateDisplayName(string accountId, string? displayName)
+    {
+        var account = _store.GetAccount(accountId)
+            ?? throw new ArgumentException("账户不存在。", nameof(accountId));
+
+        var updated = account with
+        {
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? account.Email : displayName.Trim(),
+            Status = AccountStatus.Ok
+        };
+
+        _store.UpsertAccount(updated);
+        return ToDto(updated);
+    }
+
+    public AccountDto ToDto(AccountRecord account)
+    {
+        var server = _store.GetAccountServer(account.Id);
+        return new AccountDto
         {
             Id = account.Id,
             Provider = account.Provider,
             Email = account.Email,
             DisplayName = account.DisplayName,
-            Status = account.Status
+            Status = account.Status,
+            Server = server is null
+                ? null
+                : new AccountServerDto
+                {
+                    ImapHost = server.ImapHost,
+                    ImapPort = server.ImapPort,
+                    ImapStartTls = server.ImapStartTls,
+                    SmtpHost = server.SmtpHost,
+                    SmtpPort = server.SmtpPort,
+                    SmtpStartTls = server.SmtpStartTls
+                }
         };
+    }
 }

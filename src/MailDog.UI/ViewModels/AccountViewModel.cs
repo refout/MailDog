@@ -12,7 +12,14 @@ public sealed partial class AccountViewModel : ObservableObject
         Id = account.Id;
         Email = account.Email;
         DisplayName = account.DisplayName;
-        ProviderText = account.Provider == MailProvider.Outlook ? "Outlook" : "QQ 邮箱";
+        Provider = account.Provider;
+        Server = account.Server;
+        ProviderText = account.Provider switch
+        {
+            MailProvider.Outlook => "Outlook",
+            MailProvider.Custom => "自定义",
+            _ => "QQ 邮箱"
+        };
         StatusText = account.Status switch
         {
             AccountStatus.AuthRequired => "需重新登录",
@@ -36,6 +43,10 @@ public sealed partial class AccountViewModel : ObservableObject
     public string Email { get; }
 
     public string DisplayName { get; }
+
+    public MailProvider Provider { get; }
+
+    public AccountServerDto? Server { get; }
 
     public string ProviderText { get; }
 

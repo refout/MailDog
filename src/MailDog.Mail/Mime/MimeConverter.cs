@@ -97,17 +97,69 @@ public static class MimeConverter
         => string.Equals(part.ContentDisposition?.Disposition, "inline", StringComparison.OrdinalIgnoreCase)
            || part.ContentId is not null;
 
+    /// <summary>把正文中的 cid: 内嵌图片替换为 data URI，避免依赖 WebView 的 cid 协议。</summary>
+    public static string? InlineCidImages(MimeMessage message, string? html)
+    {
+        if (string.IsNullOrEmpty(html) || !html.Contains("cid:", StringComparison.OrdinalIgnoreCase))
+        {
+            return html;
+        }
+
+        const long maxImageBytes = 5 * 1024 * 1024;
+        const long maxTotalBytes = 10 * 1024 * 1024;
+        long total = 0;
+
+        foreach (var part in GetAttachmentParts(message))
+        {
+            if (part.ContentId is null
+                || !string.Equals(part.ContentType.MediaType, "image", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var contentId = part.ContentId.Trim().Trim('<', '>');
+            if (string.IsNullOrEmpty(contentId))
+            {
+                continue;
+            }
+
+            var marker = "cid:" + contentId;
+            if (!html.Contains(marker, StringComparison.OrdinalIgnoreCase)
+                && !html.Contains("cid:" + Uri.EscapeDataString(contentId), StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            using var buffer = new MemoryStream();
+            part.Content?.DecodeTo(buffer);
+            var length = buffer.Length;
+            if (length <= 0 || length > maxImageBytes || total + length > maxTotalBytes)
+            {
+                continue;
+            }
+
+            total += length;
+            var dataUri = $"data:{part.ContentType.MimeType};base64,{Convert.ToBase64String(buffer.ToArray())}";
+            html = html.Replace(marker, dataUri, StringComparison.OrdinalIgnoreCase);
+            html = html.Replace(
+                "cid:" + Uri.EscapeDataString(contentId),
+                dataUri,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        return html;
+    }
+
     public static MailBodyDto ToDto(
-        long messageId,
-        string subject,
+        MessageRecord message,
         string? html,
         string? plainText,
         bool truncated,
         IReadOnlyList<AttachmentRecord> attachments)
         => new()
         {
-            MessageId = messageId,
-            Subject = subject,
+            MessageId = message.Id,
+            Subject = message.Subject,
             Html = html,
             PlainText = plainText,
             Truncated = truncated,
@@ -118,8 +170,19 @@ public static class MimeConverter
                 Size = attachment.Size,
                 ContentId = attachment.ContentId,
                 IsInline = attachment.IsInline
-            }).ToArray()
+            }).ToArray(),
+            FromName = message.FromName,
+            FromAddress = message.FromAddress,
+            ToAddresses = MimeConverter.SplitAddresses(message.ToAddresses),
+            CcAddresses = MimeConverter.SplitAddresses(message.CcAddresses),
+            Date = message.Date,
+            RfcMessageId = message.MessageId
         };
+
+    public static string[] SplitAddresses(string value)
+        => string.IsNullOrWhiteSpace(value)
+            ? []
+            : value.Split([';', ','], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
     private static MailFlags ToFlags(MessageFlags flags)
     {

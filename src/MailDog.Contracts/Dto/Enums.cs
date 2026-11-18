@@ -3,7 +3,8 @@ namespace MailDog.Contracts.Dto;
 public enum MailProvider
 {
     Outlook,
-    QQ
+    QQ,
+    Custom
 }
 
 public enum FolderRole

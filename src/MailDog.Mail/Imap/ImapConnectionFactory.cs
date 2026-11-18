@@ -15,15 +15,18 @@ internal static class ImapConnectionFactory
         IAccessTokenProvider tokens,
         CancellationToken cancellationToken)
     {
-        var config = ProviderCatalog.Get(account.Provider);
+        var config = accounts.GetServerConfig(account);
         var client = new ImapClient { Timeout = 30000 };
+        var socketOptions = config.ImapStartTls
+            ? SecureSocketOptions.StartTls
+            : SecureSocketOptions.SslOnConnect;
 
         try
         {
             await client.ConnectAsync(
                 config.ImapHost,
                 config.ImapPort,
-                SecureSocketOptions.SslOnConnect,
+                socketOptions,
                 cancellationToken).ConfigureAwait(false);
 
             if (account.AuthKind == "oauth2")
@@ -38,9 +41,7 @@ internal static class ImapConnectionFactory
                 var password = accounts.GetPassword(account)
                     ?? throw new AuthenticationException("未找到账户授权码，请重新添加账户。");
 
-                await client.AuthenticateAsync(
-                    new SaslMechanismPlain(account.Email, password),
-                    cancellationToken).ConfigureAwait(false);
+                await client.AuthenticateAsync(account.Email, password, cancellationToken).ConfigureAwait(false);
             }
 
             return client;

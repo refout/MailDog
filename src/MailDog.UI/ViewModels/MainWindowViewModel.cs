@@ -50,6 +50,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _engine.EngineStarting += OnEngineStarting;
         Reader.PropertyChanged += OnReaderPropertyChanged;
         Reader.DownloadAttachment = DownloadAttachmentAsync;
+        Reader.PreviewAttachment = OpenAttachmentAsync;
         Accounts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAccounts));
         RefreshBackgroundPresets();
         BuildCalendar();
@@ -78,7 +79,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public ReaderViewModel Reader { get; } = new();
 
-    public string[] ProviderOptions { get; } = ["Outlook", "QQ 邮箱"];
+    public string[] ProviderOptions { get; } = ["Outlook", "QQ 邮箱", "自定义服务器"];
 
     public static int[] SyncIntervalValues { get; } = [1, 5, 15, 30, 60];
 
@@ -117,7 +118,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public string OverlayTitle => "设置";
 
-    public bool IsReaderHtmlVisible => Reader.UseHtml && !IsOverlayOpen;
+    public bool IsReaderHtmlVisible => Reader.UseHtml && !IsOverlayOpen && !IsComposeOpen;
 
     [ObservableProperty]
     private AccountViewModel? _selectedAccount;
@@ -206,7 +207,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasStatusMessage))]
     private string? _statusMessage;
+
+    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
+    private bool _isComposeOpen;
+
+    [ObservableProperty]
+    private ComposeViewModel? _compose;
 
     [ObservableProperty]
     private bool _hasError;
@@ -236,13 +247,76 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsQqProvider))]
     [NotifyPropertyChangedFor(nameof(IsOutlookProvider))]
+    [NotifyPropertyChangedFor(nameof(IsCustomProvider))]
+    [NotifyPropertyChangedFor(nameof(IsPasswordProvider))]
+    [NotifyPropertyChangedFor(nameof(IsOAuthLoginVisible))]
+    [NotifyPropertyChangedFor(nameof(IsAccountSaveVisible))]
+    [NotifyPropertyChangedFor(nameof(AccountFormDescription))]
     private int _selectedProviderIndex;
 
     [ObservableProperty]
     private string _addAccountEmail = string.Empty;
 
     [ObservableProperty]
+    private string _addAccountDisplayName = string.Empty;
+
+    [ObservableProperty]
     private string _addAccountSecret = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEditingAccount))]
+    [NotifyPropertyChangedFor(nameof(AccountFormTitle))]
+    [NotifyPropertyChangedFor(nameof(AccountFormDescription))]
+    [NotifyPropertyChangedFor(nameof(AccountSubmitText))]
+    [NotifyPropertyChangedFor(nameof(IsProviderSelectorEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsOAuthLoginVisible))]
+    [NotifyPropertyChangedFor(nameof(IsAccountSaveVisible))]
+    [NotifyPropertyChangedFor(nameof(AccountSecretPlaceholder))]
+    private string? _editingAccountId;
+
+    public bool IsEditingAccount => EditingAccountId is not null;
+
+    public string AccountFormTitle => IsEditingAccount ? "编辑账户" : "添加账户";
+
+    public string AccountFormDescription => IsEditingAccount
+        ? IsPasswordProvider
+            ? "修改发件人名称、授权码或自定义服务器。邮箱地址和登录方式不可更改。"
+            : "修改发件人名称。邮箱地址和登录方式不可更改。"
+        : "连接 Outlook、QQ 或自定义 IMAP/SMTP 服务器。";
+
+    public string AccountSubmitText => IsEditingAccount ? "保存修改" : "连接";
+
+    public bool IsProviderSelectorEnabled => !IsEditingAccount;
+
+    public bool IsOAuthLoginVisible => IsOutlookProvider && !IsEditingAccount;
+
+    public bool IsAccountSaveVisible => IsEditingAccount || IsPasswordProvider;
+
+    public string AccountSecretPlaceholder => IsEditingAccount
+        ? "留空则保持当前授权码"
+        : "邮箱授权码或密码";
+
+    [ObservableProperty]
+    private string _customImapHost = string.Empty;
+
+    [ObservableProperty]
+    private string _customImapPortText = "993";
+
+    [ObservableProperty]
+    private bool _customImapStartTls;
+
+    [ObservableProperty]
+    private string _customSmtpHost = string.Empty;
+
+    [ObservableProperty]
+    private string _customSmtpPortText = "465";
+
+    [ObservableProperty]
+    private bool _customSmtpStartTls;
+
+    public bool IsCustomProvider => SelectedProviderIndex == 2;
+
+    public bool IsPasswordProvider => SelectedProviderIndex is 1 or 2;
 
     [ObservableProperty]
     private string? _addAccountStatus;
@@ -304,6 +378,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (value != 4)
         {
             ShowAddAccountForm = false;
+            EditingAccountId = null;
         }
 
         OnPropertyChanged(nameof(IsAppearanceSection));
@@ -340,6 +415,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _markReadOnOpen = true;
+
+    [ObservableProperty]
+    private bool _runAtStartup;
 
     [ObservableProperty]
     private bool _showRemoteImages;
@@ -418,6 +496,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     partial void OnMarkReadOnOpenChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnRunAtStartupChanged(bool value)
     {
         QueueSettingsSave();
     }
@@ -1193,6 +1276,100 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void NewMail() => OpenCompose(ComposeMode.New);
+
+    [RelayCommand]
+    private void Reply() => OpenCompose(ComposeMode.Reply);
+
+    [RelayCommand]
+    private void ReplyAll() => OpenCompose(ComposeMode.ReplyAll);
+
+    [RelayCommand]
+    private void Forward() => OpenCompose(ComposeMode.Forward);
+
+    private void OpenCompose(ComposeMode mode)
+    {
+        if (Accounts.Count == 0)
+        {
+            StatusMessage = "请先添加邮箱账户，再撰写邮件。";
+            return;
+        }
+
+        if (mode != ComposeMode.New && _currentBody is null)
+        {
+            StatusMessage = "正文尚未加载完成，请稍后再试。";
+            return;
+        }
+
+        var accounts = Accounts
+            .Select(account => new ComposeAccount(account.Id, account.Email, account.DisplayName))
+            .ToArray();
+
+        var compose = new ComposeViewModel(
+            _engine,
+            accounts,
+            mode,
+            mode == ComposeMode.New ? null : _currentBody);
+
+        compose.Completed += (viewModel, message) =>
+        {
+            StatusMessage = message;
+            _ = SyncAfterComposeAsync(viewModel.SelectedAccount?.Id);
+        };
+
+        compose.CloseRequested += CloseComposeInternal;
+
+        Compose = compose;
+        IsComposeOpen = true;
+    }
+
+    [RelayCommand]
+    private async Task CloseComposeAsync()
+    {
+        var compose = Compose;
+        if (compose is null)
+        {
+            return;
+        }
+
+        if (!compose.CanCloseSilently && !compose.IsEmpty)
+        {
+            if (!await compose.SaveDraftAsync())
+            {
+                return;
+            }
+        }
+
+        CloseComposeInternal();
+    }
+
+    private void CloseComposeInternal()
+    {
+        Compose = null;
+        IsComposeOpen = false;
+    }
+
+    private async Task SyncAfterComposeAsync(string? accountId)
+    {
+        if (string.IsNullOrEmpty(accountId))
+        {
+            return;
+        }
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.SyncAccount,
+                new SyncAccountRequest { AccountId = accountId },
+                TimeSpan.FromSeconds(10));
+        }
+        catch
+        {
+            // 同步失败不影响发送/保存草稿结果，下次轮询会补齐。
+        }
+    }
+
+    [RelayCommand]
     private void ShowImages()
     {
         _allowRemoteImages = true;
@@ -1242,6 +1419,44 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
             HasError = false;
             StatusMessage = $"附件已保存：{response.Path}";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    private async Task OpenAttachmentAsync(AttachmentViewModel attachment)
+    {
+        if (!IsConnected)
+        {
+            return;
+        }
+
+        try
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "MailDog", "attachments");
+            Directory.CreateDirectory(directory);
+
+            var fileName = Path.GetFileName(attachment.FileName);
+            var path = Path.Combine(directory, $"{attachment.MessageId}-{attachment.Index}-{fileName}");
+
+            var response = await _engine.RequestAsync<AttachmentSavedResponse>(
+                IpcMessageTypes.DownloadAttachment,
+                new DownloadAttachmentRequest
+                {
+                    MessageId = attachment.MessageId,
+                    Index = attachment.Index,
+                    DestinationPath = path
+                },
+                TimeSpan.FromSeconds(120));
+
+            Process.Start(new ProcessStartInfo(response.Path)
+            {
+                UseShellExecute = true
+            });
+
+            StatusMessage = $"已打开附件：{response.FileName}";
         }
         catch (Exception exception)
         {
@@ -1428,6 +1643,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var isCustom = SelectedProviderIndex == 2;
+        if (isCustom
+            && (string.IsNullOrWhiteSpace(CustomImapHost)
+                || string.IsNullOrWhiteSpace(CustomSmtpHost)
+                || !int.TryParse(CustomImapPortText, out var imapPort)
+                || !int.TryParse(CustomSmtpPortText, out var smtpPort)
+                || imapPort is < 1 or > 65535
+                || smtpPort is < 1 or > 65535))
+        {
+            AddAccountStatus = "请填写有效的服务器地址和端口（1-65535）。";
+            return;
+        }
+
         IsAddingAccount = true;
         AddAccountStatus = "正在验证授权码…";
 
@@ -1437,15 +1665,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 IpcMessageTypes.AddPasswordAccount,
                 new AddPasswordAccountRequest
                 {
-                    Provider = MailProvider.QQ,
+                    Provider = isCustom ? MailProvider.Custom : MailProvider.QQ,
                     Email = AddAccountEmail.Trim(),
-                    Secret = AddAccountSecret.Trim()
+                    Secret = AddAccountSecret.Trim(),
+                    DisplayName = string.IsNullOrWhiteSpace(AddAccountDisplayName)
+                        ? null
+                        : AddAccountDisplayName.Trim(),
+                    ImapHost = isCustom ? CustomImapHost.Trim() : null,
+                    ImapPort = isCustom ? int.Parse(CustomImapPortText) : 0,
+                    ImapStartTls = isCustom && CustomImapStartTls,
+                    SmtpHost = isCustom ? CustomSmtpHost.Trim() : null,
+                    SmtpPort = isCustom ? int.Parse(CustomSmtpPortText) : 0,
+                    SmtpStartTls = isCustom && CustomSmtpStartTls
                 },
-                TimeSpan.FromSeconds(45));
+                TimeSpan.FromSeconds(60));
 
             AddAccountStatus = $"账户 {response.Account.Email} 已添加。";
             AddAccountEmail = string.Empty;
+            AddAccountDisplayName = string.Empty;
             AddAccountSecret = string.Empty;
+            CustomImapHost = string.Empty;
+            CustomSmtpHost = string.Empty;
 
             await LoadAccountsAsync();
             CloseOverlay();
@@ -1497,6 +1737,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             SyncIntervalMinutes = SyncIntervalValues[Math.Clamp(SyncIntervalIndex, 0, SyncIntervalValues.Length - 1)],
             CacheDays = _settings.CacheDays,
             MarkReadOnOpen = MarkReadOnOpen,
+            RunAtStartup = RunAtStartup,
             ShowRemoteImages = ShowRemoteImages,
             RenderMode = RenderModeIndex == 1 ? "plain" : "html"
         };
@@ -1555,19 +1796,147 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenAddAccount()
     {
+        ResetAccountForm();
         ShowAddAccountForm = true;
         SettingsSectionIndex = 4;
         IsSettingsOpen = true;
     }
 
     [RelayCommand]
-    private void BeginAddAccount() => ShowAddAccountForm = true;
+    private void BeginAddAccount()
+    {
+        ResetAccountForm();
+        ShowAddAccountForm = true;
+    }
+
+    public void BeginEditAccount(AccountViewModel account)
+    {
+        EditingAccountId = account.Id;
+        AddAccountEmail = account.Email;
+        AddAccountDisplayName = account.DisplayName;
+        AddAccountSecret = string.Empty;
+        SelectedProviderIndex = account.Provider switch
+        {
+            MailProvider.Outlook => 0,
+            MailProvider.Custom => 2,
+            _ => 1
+        };
+
+        if (account.Server is { } server)
+        {
+            CustomImapHost = server.ImapHost;
+            CustomImapPortText = server.ImapPort.ToString();
+            CustomImapStartTls = server.ImapStartTls;
+            CustomSmtpHost = server.SmtpHost;
+            CustomSmtpPortText = server.SmtpPort.ToString();
+            CustomSmtpStartTls = server.SmtpStartTls;
+        }
+        else
+        {
+            CustomImapHost = string.Empty;
+            CustomImapPortText = "993";
+            CustomImapStartTls = false;
+            CustomSmtpHost = string.Empty;
+            CustomSmtpPortText = "465";
+            CustomSmtpStartTls = false;
+        }
+
+        AddAccountStatus = null;
+        ShowAddAccountForm = true;
+        SettingsSectionIndex = 4;
+        IsSettingsOpen = true;
+    }
+
+    private void ResetAccountForm()
+    {
+        EditingAccountId = null;
+        AddAccountEmail = string.Empty;
+        AddAccountDisplayName = string.Empty;
+        AddAccountSecret = string.Empty;
+        CustomImapHost = string.Empty;
+        CustomImapPortText = "993";
+        CustomImapStartTls = false;
+        CustomSmtpHost = string.Empty;
+        CustomSmtpPortText = "465";
+        CustomSmtpStartTls = false;
+        AddAccountStatus = null;
+    }
 
     [RelayCommand]
     private void ShowAccountList()
     {
         ShowAddAccountForm = false;
+        EditingAccountId = null;
         AddAccountStatus = null;
+    }
+
+    [RelayCommand]
+    private async Task SaveAccountAsync()
+    {
+        if (IsAddingAccount)
+        {
+            return;
+        }
+
+        if (IsEditingAccount)
+        {
+            await UpdateAccountAsync();
+            return;
+        }
+
+        await AddPasswordAccountAsync();
+    }
+
+    private async Task UpdateAccountAsync()
+    {
+        var isCustom = SelectedProviderIndex == 2;
+        if (isCustom
+            && (string.IsNullOrWhiteSpace(CustomImapHost)
+                || string.IsNullOrWhiteSpace(CustomSmtpHost)
+                || !int.TryParse(CustomImapPortText, out var imapPort)
+                || !int.TryParse(CustomSmtpPortText, out var smtpPort)
+                || imapPort is < 1 or > 65535
+                || smtpPort is < 1 or > 65535))
+        {
+            AddAccountStatus = "请填写有效的服务器地址和端口（1-65535）。";
+            return;
+        }
+
+        IsAddingAccount = true;
+        AddAccountStatus = "正在保存账户设置…";
+
+        try
+        {
+            var response = await _engine.RequestAsync<AccountResponse>(
+                IpcMessageTypes.UpdateAccount,
+                new UpdateAccountRequest
+                {
+                    AccountId = EditingAccountId ?? string.Empty,
+                    DisplayName = string.IsNullOrWhiteSpace(AddAccountDisplayName)
+                        ? null
+                        : AddAccountDisplayName.Trim(),
+                    Secret = string.IsNullOrWhiteSpace(AddAccountSecret) ? null : AddAccountSecret.Trim(),
+                    ImapHost = isCustom ? CustomImapHost.Trim() : null,
+                    ImapPort = isCustom ? int.Parse(CustomImapPortText) : 0,
+                    ImapStartTls = isCustom && CustomImapStartTls,
+                    SmtpHost = isCustom ? CustomSmtpHost.Trim() : null,
+                    SmtpPort = isCustom ? int.Parse(CustomSmtpPortText) : 0,
+                    SmtpStartTls = isCustom && CustomSmtpStartTls
+                },
+                TimeSpan.FromSeconds(60));
+
+            AddAccountStatus = $"账户 {response.Account.Email} 已更新。";
+            await LoadAccountsAsync();
+            ShowAccountList();
+        }
+        catch (Exception exception)
+        {
+            AddAccountStatus = GetErrorMessage(exception);
+        }
+        finally
+        {
+            IsAddingAccount = false;
+        }
     }
 
     [RelayCommand]
@@ -1846,6 +2215,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             var intervalIndex = Array.IndexOf(SyncIntervalValues, _settings.SyncIntervalMinutes);
             SyncIntervalIndex = intervalIndex >= 0 ? intervalIndex : 0;
             MarkReadOnOpen = _settings.MarkReadOnOpen;
+            RunAtStartup = _settings.RunAtStartup;
             ShowRemoteImages = _settings.ShowRemoteImages;
             RenderModeIndex = _settings.RenderMode == "plain" ? 1 : 0;
             _allowRemoteImages = _settings.ShowRemoteImages;

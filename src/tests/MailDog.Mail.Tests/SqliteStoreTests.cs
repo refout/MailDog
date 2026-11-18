@@ -3,6 +3,7 @@ using MailDog.Mail.Storage;
 
 namespace MailDog.Mail.Tests;
 
+[Collection("Sqlite")]
 public sealed class SqliteStoreTests : IDisposable
 {
     private readonly string _directory;
@@ -33,6 +34,7 @@ public sealed class SqliteStoreTests : IDisposable
             CacheDays = 30,
             MarkReadOnOpen = false,
             ShowRemoteImages = true,
+            RunAtStartup = true,
             RenderMode = "plain"
         };
 
@@ -50,6 +52,7 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.Equal(30, loaded.CacheDays);
         Assert.False(loaded.MarkReadOnOpen);
         Assert.True(loaded.ShowRemoteImages);
+        Assert.True(loaded.RunAtStartup);
         Assert.Equal("plain", loaded.RenderMode);
     }
 
@@ -238,6 +241,141 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.Equal(5, folder.UnreadCount);
         Assert.Equal(20, folder.TotalCount);
         Assert.Equal("Inbox", folder.DisplayName);
+    }
+
+    [Fact]
+    public void OutboxRoundTripAttemptAndRecovery()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+
+        var now = DateTimeOffset.UtcNow;
+        var record = new OutboxRecord(
+            0,
+            account.Id,
+            "to@example.com",
+            "cc@example.com",
+            string.Empty,
+            "主题",
+            "正文",
+            "<original@example.com>",
+            "<outbox@example.com>",
+            OutboxStatuses.Pending,
+            0,
+            now,
+            null,
+            now,
+            null,
+            [],
+            IsMarkdown: true);
+
+        var id = _store.InsertOutbox(record,
+        [
+            new OutboxAttachmentRecord(0, "a.txt", "C:\\tmp\\a.txt", "text/plain", 10)
+        ]);
+
+        var loaded = Assert.IsType<OutboxRecord>(_store.GetOutbox(id));
+        Assert.Equal("to@example.com", loaded.ToAddresses);
+        Assert.Equal("<outbox@example.com>", loaded.MessageId);
+        Assert.True(loaded.IsMarkdown);
+        Assert.Single(loaded.Attachments);
+
+        var due = _store.GetDueOutbox(now.AddSeconds(1), 5);
+        Assert.Single(due);
+
+        Assert.Equal(1, _store.BeginOutboxAttempt(id, now.AddMinutes(1)));
+        Assert.Equal(OutboxStatuses.Sending, _store.GetOutbox(id)!.Status);
+
+        Assert.Equal(1, _store.RecoverInterruptedOutbox());
+        Assert.Equal(OutboxStatuses.Pending, _store.GetOutbox(id)!.Status);
+
+        _store.CompleteOutbox(id, now.AddMinutes(2));
+        Assert.Equal(OutboxStatuses.Sent, _store.GetOutbox(id)!.Status);
+        Assert.NotNull(_store.GetOutbox(id)!.SentUtc);
+
+        Assert.Empty(_store.GetDueOutbox(now.AddMinutes(10), 5));
+    }
+
+    [Fact]
+    public void AccountServerRoundTrip()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+
+        _store.UpsertAccountServer(new AccountServerRecord(
+            account.Id,
+            "imap.example.com",
+            143,
+            true,
+            "smtp.example.com",
+            587,
+            true));
+
+        var server = Assert.IsType<AccountServerRecord>(_store.GetAccountServer(account.Id));
+        Assert.Equal("imap.example.com", server.ImapHost);
+        Assert.Equal(143, server.ImapPort);
+        Assert.True(server.ImapStartTls);
+        Assert.Equal("smtp.example.com", server.SmtpHost);
+        Assert.Equal(587, server.SmtpPort);
+        Assert.True(server.SmtpStartTls);
+    }
+
+    [Fact]
+    public void PruneMessagesKeepsFlaggedAndRecentMail()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+        _store.UpsertFolders(account.Id,
+        [
+            new FolderRecord(0, account.Id, "INBOX", "收件箱", FolderRole.Inbox, 0, 0, 0, 0)
+        ]);
+
+        var folder = Assert.Single(_store.GetFolders(account.Id));
+        var now = DateTimeOffset.UtcNow;
+        var old = now.AddDays(-120);
+
+        _store.UpsertMessages(account.Id, folder.Id,
+        [
+            new MessageRecord(0, account.Id, folder.Id, 1, "old", "旧邮件", "A", "a@example.com",
+                "me@example.com", string.Empty, old, 1, MailFlags.None, false, string.Empty, BodyStates.NotFetched),
+            new MessageRecord(0, account.Id, folder.Id, 2, "flagged", "已加旗标", "A", "a@example.com",
+                "me@example.com", string.Empty, old, 1, MailFlags.Flagged, false, string.Empty, BodyStates.NotFetched),
+            new MessageRecord(0, account.Id, folder.Id, 3, "new", "新邮件", "A", "a@example.com",
+                "me@example.com", string.Empty, now, 1, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        Assert.Equal(1, _store.PruneMessages(90));
+
+        var remaining = _store.QueryMessages(folder.Id, null, null, 10).Items;
+        Assert.Equal(2, remaining.Length);
+        Assert.DoesNotContain(remaining, message => message.Subject == "旧邮件");
+        Assert.Contains(remaining, message => message.Subject == "已加旗标");
+        Assert.Contains(remaining, message => message.Subject == "新邮件");
+    }
+
+    [Fact]
+    public void PendingFlagsSupersedeAndRetry()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        _store.QueuePendingFlag(42, "Seen", true, now);
+        _store.QueuePendingFlag(42, "Seen", false, now);
+
+        var first = Assert.Single(_store.GetDuePendingFlags(now.AddSeconds(1), 10));
+        Assert.Equal("Seen", first.Flag);
+        Assert.False(first.Value);
+        Assert.Equal(0, first.Attempts);
+
+        _store.FailPendingFlag(first.Id, now.AddMinutes(5), "网络错误");
+
+        Assert.Empty(_store.GetDuePendingFlags(now.AddMinutes(1), 10));
+
+        var retry = Assert.Single(_store.GetDuePendingFlags(now.AddMinutes(6), 10));
+        Assert.Equal(1, retry.Attempts);
+        Assert.Equal("网络错误", retry.LastError);
+
+        _store.CompletePendingFlag(retry.Id);
+        Assert.Empty(_store.GetDuePendingFlags(now.AddMinutes(10), 10));
     }
 
     private static AccountRecord CreateAccount()

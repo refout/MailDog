@@ -10,6 +10,7 @@ using MailKit.Net.Imap;
 using MailKit.Search;
 using MailKit.Security;
 using MimeKit;
+using MimeKit.Utils;
 
 namespace MailDog.Mail.Imap;
 
@@ -113,11 +114,10 @@ public sealed class ImapSyncService : IAsyncDisposable
             ?? throw new KeyNotFoundException("邮件不存在。");
 
         var cached = _store.GetBody(messageId);
-        if (cached is not null)
+        if (cached is not null && cached.Html?.Contains("cid:", StringComparison.OrdinalIgnoreCase) != true)
         {
             return MimeConverter.ToDto(
-                messageId,
-                message.Subject,
+                message,
                 cached.Html,
                 cached.PlainText,
                 cached.Truncated,
@@ -132,7 +132,13 @@ public sealed class ImapSyncService : IAsyncDisposable
                 MessageId = messageId,
                 Subject = message.Subject,
                 PlainText = "邮件内容超过 10 MiB，已跳过正文下载。",
-                Truncated = true
+                Truncated = true,
+                FromName = message.FromName,
+                FromAddress = message.FromAddress,
+                ToAddresses = MimeConverter.SplitAddresses(message.ToAddresses),
+                CcAddresses = MimeConverter.SplitAddresses(message.CcAddresses),
+                Date = message.Date,
+                RfcMessageId = message.MessageId
             };
         }
 
@@ -157,11 +163,12 @@ public sealed class ImapSyncService : IAsyncDisposable
                     ToUniqueId(message.Uid),
                     cancellationToken).ConfigureAwait(false);
                 var body = MimeConverter.ExtractBody(mime);
+                var html = MimeConverter.InlineCidImages(mime, body.Html);
+                body = (html, body.PlainText, body.Truncated, body.Attachments);
                 _store.SaveBody(messageId, body.Html, body.PlainText, body.Truncated, body.Attachments);
 
                 return MimeConverter.ToDto(
-                    messageId,
-                    message.Subject,
+                    message,
                     body.Html,
                     body.PlainText,
                     body.Truncated,
@@ -337,8 +344,16 @@ public sealed class ImapSyncService : IAsyncDisposable
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                // 本地状态已更新；远端失败不阻塞 UI，下次同步会以服务器状态为准。
+                // 本地状态已更新；远端失败进入重试队列，避免下次同步被服务器旧状态覆盖。
                 Diagnostic?.Invoke($"批量更新邮件标记失败：{exception.Message}");
+                foreach (var message in group)
+                {
+                    _store.QueuePendingFlag(
+                        message.Id,
+                        FlagName(flag),
+                        value,
+                        DateTimeOffset.UtcNow.AddMinutes(1));
+                }
             }
             finally
             {
@@ -350,17 +365,19 @@ public sealed class ImapSyncService : IAsyncDisposable
     }
 
     public async Task TestPasswordConnectionAsync(
-        MailProvider provider,
+        ProviderConfig config,
         string email,
         string secret,
         CancellationToken cancellationToken)
     {
-        var config = ProviderCatalog.Get(provider);
-
         using var client = new ImapClient { Timeout = 30000 };
-        await client.ConnectAsync(config.ImapHost, config.ImapPort, SecureSocketOptions.SslOnConnect, cancellationToken)
+        var socketOptions = config.ImapStartTls
+            ? SecureSocketOptions.StartTls
+            : SecureSocketOptions.SslOnConnect;
+
+        await client.ConnectAsync(config.ImapHost, config.ImapPort, socketOptions, cancellationToken)
             .ConfigureAwait(false);
-        await client.AuthenticateAsync(new SaslMechanismPlain(email, secret), cancellationToken).ConfigureAwait(false);
+        await client.AuthenticateAsync(email, secret, cancellationToken).ConfigureAwait(false);
         await client.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
     }
 
@@ -371,6 +388,98 @@ public sealed class ImapSyncService : IAsyncDisposable
 
     private static MailFlags ToLocalFlag(MessageFlags flag)
         => flag.HasFlag(MessageFlags.Flagged) ? MailFlags.Flagged : MailFlags.Seen;
+
+    public async Task<DraftSavedResponse> SaveDraftAsync(
+        SaveDraftRequest request,
+        CancellationToken cancellationToken)
+    {
+        var account = _accounts.GetRecord(request.AccountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+
+        MailComposer.ParseAddresses(request.To, "收件人");
+
+        var attachments = BuildDraftAttachments(request.AttachmentPaths);
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var drafts = _store.GetFolders(account.Id).FirstOrDefault(folder => folder.Role == FolderRole.Drafts);
+            if (drafts is null)
+            {
+                var folders = await LoadFoldersAsync(session.Client!, account.Id, cancellationToken).ConfigureAwait(false);
+                _store.UpsertFolders(account.Id, folders);
+                drafts = _store.GetFolders(account.Id).FirstOrDefault(folder => folder.Role == FolderRole.Drafts);
+            }
+
+            if (drafts is null)
+            {
+                throw new InvalidOperationException("未找到草稿箱，请确认邮箱已启用 IMAP 并同步后再试。");
+            }
+
+            using var message = MailComposer.Build(
+                account,
+                request.To,
+                request.Cc,
+                request.Bcc,
+                request.Subject,
+                request.BodyText,
+                null,
+                MimeUtils.GenerateMessageId(),
+                attachments,
+                request.IsMarkdown,
+                requireRecipients: false);
+
+            var folder = session.Client!.GetFolder(drafts.FullName);
+            await folder.AppendAsync(
+                message,
+                MessageFlags.Draft | MessageFlags.Seen,
+                cancellationToken).ConfigureAwait(false);
+
+            return new DraftSavedResponse
+            {
+                FolderId = drafts.Id,
+                FolderName = drafts.DisplayName
+            };
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    private static MailAttachment[] BuildDraftAttachments(IReadOnlyList<string> paths)
+    {
+        if (paths.Count == 0)
+        {
+            return [];
+        }
+
+        const long maxTotal = 25 * 1024 * 1024;
+        var result = new List<MailAttachment>(paths.Count);
+        long total = 0;
+
+        foreach (var path in paths)
+        {
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException($"附件不存在：{path}", path);
+            }
+
+            var info = new FileInfo(path);
+            total += info.Length;
+            if (total > maxTotal)
+            {
+                throw new InvalidOperationException("附件总大小不能超过 25 MiB。");
+            }
+
+            result.Add(MailComposer.ToAttachment(path));
+        }
+
+        return result.ToArray();
+    }
 
     private async Task StoreFlagAsync(long messageId, MessageFlags flag, bool value, CancellationToken cancellationToken)
     {
@@ -411,13 +520,99 @@ public sealed class ImapSyncService : IAsyncDisposable
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            // 本地状态已更新；远端失败不阻塞 UI，下次同步会以服务器状态为准。
+            // 本地状态已更新；远端失败进入重试队列。
             Diagnostic?.Invoke($"更新邮件标记失败：{exception.Message}");
+            _store.QueuePendingFlag(
+                messageId,
+                FlagName(flag),
+                value,
+                DateTimeOffset.UtcNow.AddMinutes(1));
         }
         finally
         {
             session.Gate.Release();
         }
+    }
+
+    public async Task<bool> TryApplyPendingFlagAsync(
+        PendingFlagRecord pending,
+        CancellationToken cancellationToken)
+    {
+        var message = _store.GetMessage(pending.MessageId);
+        if (message is null)
+        {
+            _store.CompletePendingFlag(pending.Id);
+            return true;
+        }
+
+        var account = _accounts.GetRecord(message.AccountId);
+        var folderRecord = _store.GetFolder(message.FolderId);
+        if (account is null || folderRecord is null || message.Uid is <= 0 or > uint.MaxValue)
+        {
+            _store.CompletePendingFlag(pending.Id);
+            return true;
+        }
+
+        var flag = pending.Flag == "Flagged" ? MessageFlags.Flagged : MessageFlags.Seen;
+        var session = await GetSessionAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var folder = session.Client!.GetFolder(folderRecord.FullName);
+            await folder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await folder.StoreAsync(
+                    ToUniqueId(message.Uid),
+                    new StoreFlagsRequest(pending.Value ? StoreAction.Add : StoreAction.Remove, flag) { Silent = true },
+                    cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await folder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+            }
+
+            _store.CompletePendingFlag(pending.Id);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            Diagnostic?.Invoke($"重试邮件标记失败：{exception.Message}");
+            _store.FailPendingFlag(
+                pending.Id,
+                DateTimeOffset.UtcNow.Add(PendingFlagBackoff(pending.Attempts + 1)),
+                exception.Message);
+            return false;
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    private static string FlagName(MessageFlags flag)
+        => flag.HasFlag(MessageFlags.Flagged) ? "Flagged" : "Seen";
+
+    private static TimeSpan PendingFlagBackoff(int attempts)
+    {
+        var minutes = attempts switch
+        {
+            <= 1 => 1,
+            2 => 2,
+            3 => 5,
+            4 => 10,
+            _ => 30
+        };
+
+        return TimeSpan.FromMinutes(minutes);
     }
 
     private async Task EnsureConnectedAsync(Session session, AccountRecord account, CancellationToken cancellationToken)

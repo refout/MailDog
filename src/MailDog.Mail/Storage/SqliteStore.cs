@@ -138,6 +138,62 @@ public sealed class SqliteStore : IDisposable
         }
     }
 
+    public void UpsertAccountServer(AccountServerRecord server)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                INSERT INTO account_servers
+                    (account_id, imap_host, imap_port, imap_starttls, smtp_host, smtp_port, smtp_starttls)
+                VALUES
+                    ($accountId, $imapHost, $imapPort, $imapStartTls, $smtpHost, $smtpPort, $smtpStartTls)
+                ON CONFLICT(account_id) DO UPDATE SET
+                    imap_host = excluded.imap_host,
+                    imap_port = excluded.imap_port,
+                    imap_starttls = excluded.imap_starttls,
+                    smtp_host = excluded.smtp_host,
+                    smtp_port = excluded.smtp_port,
+                    smtp_starttls = excluded.smtp_starttls;
+                """;
+            command.Parameters.AddWithValue("$accountId", server.AccountId);
+            command.Parameters.AddWithValue("$imapHost", server.ImapHost);
+            command.Parameters.AddWithValue("$imapPort", server.ImapPort);
+            command.Parameters.AddWithValue("$imapStartTls", server.ImapStartTls ? 1 : 0);
+            command.Parameters.AddWithValue("$smtpHost", server.SmtpHost);
+            command.Parameters.AddWithValue("$smtpPort", server.SmtpPort);
+            command.Parameters.AddWithValue("$smtpStartTls", server.SmtpStartTls ? 1 : 0);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    public AccountServerRecord? GetAccountServer(string accountId)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                SELECT account_id, imap_host, imap_port, imap_starttls, smtp_host, smtp_port, smtp_starttls
+                FROM account_servers WHERE account_id = $accountId;
+                """;
+            command.Parameters.AddWithValue("$accountId", accountId);
+
+            using var reader = command.ExecuteReader();
+            if (!reader.Read())
+            {
+                return null;
+            }
+
+            return new AccountServerRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetInt32(2),
+                reader.GetInt32(3) != 0,
+                reader.GetString(4),
+                reader.GetInt32(5),
+                reader.GetInt32(6) != 0);
+        }
+    }
     public void UpdateAccountStatus(string accountId, AccountStatus status, DateTimeOffset? lastSyncUtc = null)
     {
         lock (_gate)
@@ -337,6 +393,25 @@ public sealed class SqliteStore : IDisposable
             }
 
             return uids;
+        }
+    }
+
+    /// <summary>删除超出本地缓存天数的邮件，跳过已加旗标与草稿。</summary>
+    public int PruneMessages(int cacheDays)
+    {
+        var days = Math.Clamp(cacheDays, 1, 3650);
+        var cutoff = ToDb(DateTimeOffset.UtcNow.AddDays(-days));
+
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                DELETE FROM messages
+                WHERE date_utc < $cutoff
+                  AND (flags & 18) = 0;
+                """;
+            command.Parameters.AddWithValue("$cutoff", cutoff);
+            return command.ExecuteNonQuery();
         }
     }
 
@@ -826,6 +901,7 @@ public sealed class SqliteStore : IDisposable
                 : 1,
             CacheDays = int.TryParse(values.GetValueOrDefault("cacheDays"), out var days) ? days : 90,
             MarkReadOnOpen = !values.TryGetValue("markReadOnOpen", out var markRead) || markRead != "0",
+            RunAtStartup = values.GetValueOrDefault("runAtStartup") == "1",
             ShowRemoteImages = values.GetValueOrDefault("showRemoteImages") == "1",
             RenderMode = values.GetValueOrDefault("renderMode") == "plain" ? "plain" : "html"
         };
@@ -846,6 +922,7 @@ public sealed class SqliteStore : IDisposable
             UpsertSetting(transaction, "syncIntervalMinutes", settings.SyncIntervalMinutes.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "cacheDays", settings.CacheDays.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "markReadOnOpen", settings.MarkReadOnOpen ? "1" : "0");
+            UpsertSetting(transaction, "runAtStartup", settings.RunAtStartup ? "1" : "0");
             UpsertSetting(transaction, "showRemoteImages", settings.ShowRemoteImages ? "1" : "0");
             UpsertSetting(transaction, "renderMode", settings.RenderMode == "plain" ? "plain" : "html");
             transaction.Commit();
@@ -861,6 +938,364 @@ public sealed class SqliteStore : IDisposable
             command.Parameters.AddWithValue("$key", key);
             return command.ExecuteScalar() as string;
         }
+    }
+
+    // Outbox
+
+    public long InsertOutbox(OutboxRecord record, IReadOnlyList<OutboxAttachmentRecord> attachments)
+    {
+        lock (_gate)
+        {
+            using var transaction = _connection.BeginTransaction();
+
+            long id;
+            using (var command = _connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText = """
+                    INSERT INTO outbox
+                        (account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
+                         message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
+                         is_markdown)
+                    VALUES
+                        ($accountId, $toAddrs, $ccAddrs, $bccAddrs, $subject, $bodyText, $inReplyTo,
+                         $messageId, $status, $attempts, $nextAttemptUtc, $lastError, $createdUtc, $sentUtc,
+                         $isMarkdown)
+                    RETURNING id;
+                    """;
+                command.Parameters.AddWithValue("$accountId", record.AccountId);
+                command.Parameters.AddWithValue("$toAddrs", record.ToAddresses);
+                command.Parameters.AddWithValue("$ccAddrs", record.CcAddresses);
+                command.Parameters.AddWithValue("$bccAddrs", record.BccAddresses);
+                command.Parameters.AddWithValue("$subject", record.Subject);
+                command.Parameters.AddWithValue("$bodyText", record.BodyText);
+                command.Parameters.AddWithValue("$inReplyTo", (object?)record.InReplyTo ?? DBNull.Value);
+                command.Parameters.AddWithValue("$messageId", record.MessageId);
+                command.Parameters.AddWithValue("$status", record.Status);
+                command.Parameters.AddWithValue("$attempts", record.Attempts);
+                command.Parameters.AddWithValue("$nextAttemptUtc", ToDb(record.NextAttemptUtc));
+                command.Parameters.AddWithValue("$lastError", (object?)record.LastError ?? DBNull.Value);
+                command.Parameters.AddWithValue("$createdUtc", ToDb(record.CreatedUtc));
+                command.Parameters.AddWithValue("$sentUtc", record.SentUtc is { } sent ? ToDb(sent) : DBNull.Value);
+                command.Parameters.AddWithValue("$isMarkdown", record.IsMarkdown ? 1 : 0);
+                id = Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+            }
+
+            foreach (var attachment in attachments)
+            {
+                using var command = _connection.CreateCommand();
+                command.Transaction = transaction;
+                command.CommandText = """
+                    INSERT INTO outbox_attachments (outbox_id, file_name, stored_path, mime_type, size)
+                    VALUES ($outboxId, $fileName, $storedPath, $mimeType, $size);
+                    """;
+                command.Parameters.AddWithValue("$outboxId", id);
+                command.Parameters.AddWithValue("$fileName", attachment.FileName);
+                command.Parameters.AddWithValue("$storedPath", attachment.StoredPath);
+                command.Parameters.AddWithValue("$mimeType", attachment.MimeType);
+                command.Parameters.AddWithValue("$size", attachment.Size);
+                command.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+            return id;
+        }
+    }
+
+    public OutboxRecord? GetOutbox(long id)
+    {
+        lock (_gate)
+        {
+            OutboxRecord? result = null;
+
+            using (var command = _connection.CreateCommand())
+            {
+                command.CommandText = """
+                    SELECT id, account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
+                           message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
+                           is_markdown
+                    FROM outbox WHERE id = $id;
+                    """;
+                command.Parameters.AddWithValue("$id", id);
+
+                using var reader = command.ExecuteReader();
+                if (reader.Read())
+                {
+                    result = ReadOutbox(reader);
+                }
+            }
+
+            return result is null
+                ? null
+                : result with { Attachments = LoadOutboxAttachments(result.Id) };
+        }
+    }
+
+    public IReadOnlyList<OutboxRecord> GetDueOutbox(DateTimeOffset now, int limit)
+    {
+        lock (_gate)
+        {
+            var rows = new List<OutboxRecord>();
+            using (var command = _connection.CreateCommand())
+            {
+                command.CommandText = """
+                    SELECT id, account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
+                           message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
+                           is_markdown
+                    FROM outbox
+                    WHERE status = 'pending' AND next_attempt_utc <= $now
+                    ORDER BY next_attempt_utc
+                    LIMIT $limit;
+                    """;
+                command.Parameters.AddWithValue("$now", ToDb(now));
+                command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 50));
+
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    rows.Add(ReadOutbox(reader));
+                }
+            }
+
+            return rows
+                .Select(row => row with { Attachments = LoadOutboxAttachments(row.Id) })
+                .ToArray();
+        }
+    }
+
+    /// <summary>标记一次发送尝试，返回累计尝试次数。</summary>
+    public int BeginOutboxAttempt(long id, DateTimeOffset nextAttemptUtc)
+    {
+        lock (_gate)
+        {
+            using (var command = _connection.CreateCommand())
+            {
+                command.CommandText = """
+                    UPDATE outbox
+                    SET status = 'sending', attempts = attempts + 1, next_attempt_utc = $next
+                    WHERE id = $id;
+                    """;
+                command.Parameters.AddWithValue("$id", id);
+                command.Parameters.AddWithValue("$next", ToDb(nextAttemptUtc));
+                command.ExecuteNonQuery();
+            }
+
+            using (var command = _connection.CreateCommand())
+            {
+                command.CommandText = "SELECT attempts FROM outbox WHERE id = $id;";
+                command.Parameters.AddWithValue("$id", id);
+                var value = command.ExecuteScalar();
+                return value is null ? 0 : Convert.ToInt32(value, CultureInfo.InvariantCulture);
+            }
+        }
+    }
+
+    public void CompleteOutbox(long id, DateTimeOffset sentUtc)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                UPDATE outbox
+                SET status = 'sent', sent_utc = $sent, last_error = NULL
+                WHERE id = $id;
+                """;
+            command.Parameters.AddWithValue("$id", id);
+            command.Parameters.AddWithValue("$sent", ToDb(sentUtc));
+            command.ExecuteNonQuery();
+        }
+    }
+
+    public void FailOutbox(long id, DateTimeOffset nextAttemptUtc, string error)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                UPDATE outbox
+                SET status = 'pending', next_attempt_utc = $next, last_error = $error
+                WHERE id = $id;
+                """;
+            command.Parameters.AddWithValue("$id", id);
+            command.Parameters.AddWithValue("$next", ToDb(nextAttemptUtc));
+            command.Parameters.AddWithValue("$error", error);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    public void MarkOutboxFailed(long id, string error)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                UPDATE outbox
+                SET status = 'failed', last_error = $error
+                WHERE id = $id;
+                """;
+            command.Parameters.AddWithValue("$id", id);
+            command.Parameters.AddWithValue("$error", error);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>进程崩溃时可能留下 sending 状态，启动后重新排队。</summary>
+    public int RecoverInterruptedOutbox()
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                UPDATE outbox
+                SET status = 'pending', next_attempt_utc = $now
+                WHERE status = 'sending';
+                """;
+            command.Parameters.AddWithValue("$now", ToDb(DateTimeOffset.UtcNow));
+            return command.ExecuteNonQuery();
+        }
+    }
+
+    // Pending flags
+
+    public void QueuePendingFlag(long messageId, string flag, bool value, DateTimeOffset nextAttemptUtc)
+    {
+        lock (_gate)
+        {
+            using var transaction = _connection.BeginTransaction();
+
+            using (var delete = _connection.CreateCommand())
+            {
+                delete.Transaction = transaction;
+                delete.CommandText = "DELETE FROM pending_flags WHERE message_id = $messageId AND flag = $flag;";
+                delete.Parameters.AddWithValue("$messageId", messageId);
+                delete.Parameters.AddWithValue("$flag", flag);
+                delete.ExecuteNonQuery();
+            }
+
+            using (var insert = _connection.CreateCommand())
+            {
+                insert.Transaction = transaction;
+                insert.CommandText = """
+                    INSERT INTO pending_flags
+                        (message_id, flag, value, attempts, next_attempt_utc, last_error, created_utc)
+                    VALUES ($messageId, $flag, $value, 0, $next, NULL, $created);
+                    """;
+                insert.Parameters.AddWithValue("$messageId", messageId);
+                insert.Parameters.AddWithValue("$flag", flag);
+                insert.Parameters.AddWithValue("$value", value ? 1 : 0);
+                insert.Parameters.AddWithValue("$next", ToDb(nextAttemptUtc));
+                insert.Parameters.AddWithValue("$created", ToDb(DateTimeOffset.UtcNow));
+                insert.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+        }
+    }
+
+    public IReadOnlyList<PendingFlagRecord> GetDuePendingFlags(DateTimeOffset now, int limit)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                SELECT id, message_id, flag, value, attempts, next_attempt_utc, last_error, created_utc
+                FROM pending_flags
+                WHERE next_attempt_utc <= $now
+                ORDER BY next_attempt_utc
+                LIMIT $limit;
+                """;
+            command.Parameters.AddWithValue("$now", ToDb(now));
+            command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 100));
+
+            using var reader = command.ExecuteReader();
+            var items = new List<PendingFlagRecord>();
+            while (reader.Read())
+            {
+                items.Add(new PendingFlagRecord(
+                    reader.GetInt64(0),
+                    reader.GetInt64(1),
+                    reader.GetString(2),
+                    reader.GetInt32(3) != 0,
+                    reader.GetInt32(4),
+                    FromDb(reader.GetString(5)),
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    FromDb(reader.GetString(7))));
+            }
+
+            return items;
+        }
+    }
+
+    public void CompletePendingFlag(long id)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = "DELETE FROM pending_flags WHERE id = $id;";
+            command.Parameters.AddWithValue("$id", id);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    public void FailPendingFlag(long id, DateTimeOffset nextAttemptUtc, string error)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                UPDATE pending_flags
+                SET attempts = attempts + 1, next_attempt_utc = $next, last_error = $error
+                WHERE id = $id;
+                """;
+            command.Parameters.AddWithValue("$id", id);
+            command.Parameters.AddWithValue("$next", ToDb(nextAttemptUtc));
+            command.Parameters.AddWithValue("$error", error);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    private OutboxRecord ReadOutbox(SqliteDataReader reader)
+        => new(
+            reader.GetInt64(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetString(5),
+            reader.GetString(6),
+            reader.IsDBNull(7) ? null : reader.GetString(7),
+            reader.GetString(8),
+            reader.GetString(9),
+            reader.GetInt32(10),
+            FromDb(reader.GetString(11)),
+            reader.IsDBNull(12) ? null : reader.GetString(12),
+            FromDb(reader.GetString(13)),
+            reader.IsDBNull(14) ? null : FromDb(reader.GetString(14)),
+            [],
+            reader.GetInt32(15) != 0);
+
+    private OutboxAttachmentRecord[] LoadOutboxAttachments(long outboxId)
+    {
+        using var command = _connection.CreateCommand();
+        command.CommandText = """
+            SELECT id, file_name, stored_path, mime_type, size
+            FROM outbox_attachments WHERE outbox_id = $id ORDER BY id;
+            """;
+        command.Parameters.AddWithValue("$id", outboxId);
+
+        using var reader = command.ExecuteReader();
+        var result = new List<OutboxAttachmentRecord>();
+        while (reader.Read())
+        {
+            result.Add(new OutboxAttachmentRecord(
+                reader.GetInt64(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.GetInt64(4)));
+        }
+
+        return result.ToArray();
     }
 
     public void SaveSecret(string reference, string kind, byte[] protectedBlob)
@@ -970,6 +1405,90 @@ public sealed class SqliteStore : IDisposable
                 UPDATE messages SET body_state = 0, preview = '';
                 UPDATE folders SET last_seen_uid = 0;
                 PRAGMA user_version = 2;
+                """);
+            version = 2;
+        }
+
+        if (version < 3)
+        {
+            Execute("""
+                CREATE TABLE IF NOT EXISTS outbox (
+                    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                    account_id       TEXT NOT NULL,
+                    to_addrs         TEXT NOT NULL DEFAULT '',
+                    cc_addrs         TEXT NOT NULL DEFAULT '',
+                    bcc_addrs        TEXT NOT NULL DEFAULT '',
+                    subject          TEXT NOT NULL DEFAULT '',
+                    body_text        TEXT NOT NULL DEFAULT '',
+                    in_reply_to      TEXT,
+                    message_id       TEXT NOT NULL,
+                    status           TEXT NOT NULL DEFAULT 'pending',
+                    attempts         INTEGER NOT NULL DEFAULT 0,
+                    next_attempt_utc TEXT NOT NULL,
+                    last_error       TEXT,
+                    created_utc      TEXT NOT NULL,
+                    sent_utc         TEXT
+                );
+
+                CREATE INDEX IF NOT EXISTS ix_outbox_status_next
+                    ON outbox(status, next_attempt_utc);
+
+                CREATE TABLE IF NOT EXISTS outbox_attachments (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    outbox_id  INTEGER NOT NULL REFERENCES outbox(id) ON DELETE CASCADE,
+                    file_name  TEXT NOT NULL,
+                    stored_path TEXT NOT NULL,
+                    mime_type  TEXT NOT NULL,
+                    size       INTEGER NOT NULL DEFAULT 0
+                );
+
+                PRAGMA user_version = 3;
+                """);
+        }
+
+        if (version < 4)
+        {
+            Execute("""
+                CREATE TABLE IF NOT EXISTS pending_flags (
+                    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                    message_id       INTEGER NOT NULL,
+                    flag             TEXT NOT NULL,
+                    value            INTEGER NOT NULL,
+                    attempts         INTEGER NOT NULL DEFAULT 0,
+                    next_attempt_utc TEXT NOT NULL,
+                    last_error       TEXT,
+                    created_utc      TEXT NOT NULL
+                );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS ix_pending_flags_message_flag
+                    ON pending_flags(message_id, flag);
+
+                PRAGMA user_version = 4;
+                """);
+        }
+
+        if (version < 5)
+        {
+            Execute("""
+                CREATE TABLE IF NOT EXISTS account_servers (
+                    account_id     TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+                    imap_host      TEXT NOT NULL,
+                    imap_port      INTEGER NOT NULL,
+                    imap_starttls  INTEGER NOT NULL DEFAULT 0,
+                    smtp_host      TEXT NOT NULL,
+                    smtp_port      INTEGER NOT NULL,
+                    smtp_starttls  INTEGER NOT NULL DEFAULT 0
+                );
+
+                PRAGMA user_version = 5;
+                """);
+        }
+
+        if (version < 6)
+        {
+            Execute("""
+                ALTER TABLE outbox ADD COLUMN is_markdown INTEGER NOT NULL DEFAULT 0;
+                PRAGMA user_version = 6;
                 """);
         }
     }
@@ -1151,6 +1670,7 @@ public sealed class SqliteStore : IDisposable
         => value switch
         {
             "QQ" => MailProvider.QQ,
+            "Custom" => MailProvider.Custom,
             _ => MailProvider.Outlook
         };
 

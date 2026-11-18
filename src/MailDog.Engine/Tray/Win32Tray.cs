@@ -136,6 +136,27 @@ public sealed class Win32Tray : IDisposable
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
     }
 
+    public void UpdateUnreadCount(int unreadCount)
+    {
+        if (!_iconAdded)
+        {
+            return;
+        }
+
+        var badge = unreadCount > 0 ? _avatars.GetBadgeIcon(unreadCount) : IntPtr.Zero;
+        var icon = badge != IntPtr.Zero ? badge : _icon;
+
+        if (icon == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var data = CreateData();
+        data.uFlags = NativeMethods.NIF_ICON;
+        data.hIcon = icon;
+        NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
+    }
+
     public void ShowNotification(
         string title,
         string message,

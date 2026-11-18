@@ -70,8 +70,7 @@ public partial class MainWindow : Window
     }
 
     private void OnShowRequested()
-    {
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+    {        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             if (!IsVisible)
             {
@@ -95,6 +94,14 @@ public partial class MainWindow : Window
         if (sender is Button { DataContext: UnifiedFolderViewModel folder })
         {
             _viewModel.SelectedUnifiedFolder = folder;
+        }
+    }
+
+    private void OnEditAccountClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: AccountViewModel account })
+        {
+            _viewModel.BeginEditAccount(account);
         }
     }
 

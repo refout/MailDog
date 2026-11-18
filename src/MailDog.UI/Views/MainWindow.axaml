@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ic="using:FluentIcons.Avalonia"
         xmlns:vm="using:MailDog.UI.ViewModels"
+        xmlns:views="using:MailDog.UI.Views"
         x:Class="MailDog.UI.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="MailDog"
@@ -11,7 +12,7 @@
         MinHeight="600"
         TransparencyLevelHint="Mica, Blur"
         Background="Transparent">
-  <Grid>
+  <Grid RowDefinitions="*,Auto">
     <!-- 三栏内容 -->
     <Grid ColumnDefinitions="240,360,*" IsVisible="{Binding !IsOverlayOpen}">
       <!-- 文件夹栏 -->
@@ -21,6 +22,20 @@
               BorderThickness="0,0,1,0">
         <Grid RowDefinitions="Auto,*,Auto" Margin="8,12">
           <StackPanel Grid.Row="0">
+            <Button Command="{Binding NewMailCommand}"
+                    Classes="accent"
+                    IsEnabled="{Binding HasAccounts}"
+                    HorizontalAlignment="Stretch"
+                    Height="40"
+                    Margin="4,0,4,10"
+                    ToolTip.Tip="写邮件"
+                    AutomationProperties.Name="写邮件">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <ic:FluentIcon Icon="Edit" IconSize="Size16" />
+                <TextBlock Text="写邮件" FontSize="13" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+
             <Button Classes="account-add"
                     Command="{Binding OpenAddAccountCommand}"
                     IsVisible="{Binding !HasAccounts}"
@@ -491,10 +506,8 @@
 
           <TextBox x:Name="SearchBox"
                    Grid.Row="1"
-                   Height="32"
+                   Classes="single-line"
                    Margin="16,0,16,8"
-                   Padding="10,0"
-                   VerticalContentAlignment="Center"
                    VerticalAlignment="Center"
                    AutomationProperties.Name="搜索邮件"
                    Text="{Binding SearchText}"
@@ -672,6 +685,13 @@
                       <TextBlock Text="{Binding SizeText}"
                                  Classes="caption"
                                  VerticalAlignment="Center" />
+                      <Button Content="打开"
+                              FontSize="11"
+                              Padding="8,2"
+                              Margin="4,0,0,0"
+                              Command="{Binding PreviewCommand}"
+                              ToolTip.Tip="下载并用默认程序打开"
+                              AutomationProperties.Name="打开附件" />
                       <Button Content="下载"
                               FontSize="11"
                               Padding="8,2"
@@ -690,6 +710,24 @@
                       Spacing="4"
                       VerticalAlignment="Top"
                       Margin="12,0,0,0">
+            <Button Command="{Binding ReplyCommand}"
+                    Padding="8,4"
+                    ToolTip.Tip="回复"
+                    AutomationProperties.Name="回复">
+              <ic:FluentIcon Icon="ArrowReply" IconSize="Size16" />
+            </Button>
+            <Button Command="{Binding ReplyAllCommand}"
+                    Padding="8,4"
+                    ToolTip.Tip="全部回复"
+                    AutomationProperties.Name="全部回复">
+              <ic:FluentIcon Icon="ArrowReplyAll" IconSize="Size16" />
+            </Button>
+            <Button Command="{Binding ForwardCommand}"
+                    Padding="8,4"
+                    ToolTip.Tip="转发"
+                    AutomationProperties.Name="转发">
+              <ic:FluentIcon Icon="ArrowForward" IconSize="Size16" />
+            </Button>
             <Button Command="{Binding ToggleReadCommand}"
                     Padding="8,4"
                     ToolTip.Tip="标记为已读/未读"
@@ -766,6 +804,15 @@
                        Foreground="{DynamicResource MailDogBrushDanger}" />
           </Border>
         </StackPanel>
+
+        <!-- 写邮件：占据右侧阅读区，左侧文件夹与中间邮件列表保持可见 -->
+        <Border Grid.Row="0"
+                Grid.RowSpan="3"
+                ZIndex="10"
+                IsVisible="{Binding IsComposeOpen}"
+                Background="{DynamicResource MailDogBrushBgLayer}">
+          <views:ComposeView DataContext="{Binding Compose}" />
+        </Border>
       </Grid>
     </Grid>
 
@@ -1102,12 +1149,14 @@
                                          IsChecked="{Binding IsSync60Minutes}" />
                           </WrapPanel>
                         </StackPanel>
+                        <CheckBox Content="登录 Windows 时自动启动"
+                                  IsChecked="{Binding RunAtStartup}" />
                       </StackPanel>
 
                       <StackPanel IsVisible="{Binding IsAccountListVisible}" Spacing="16">
                         <StackPanel Spacing="4">
                           <TextBlock Text="账户管理" FontSize="20" FontWeight="SemiBold" />
-                          <TextBlock Text="查看已添加的邮箱账户，或继续添加新账户。" Classes="caption" />
+                          <TextBlock Text="查看、编辑已添加的邮箱账户，或继续添加新账户。" Classes="caption" />
                         </StackPanel>
 
                         <ItemsControl ItemsSource="{Binding Accounts}">
@@ -1145,11 +1194,20 @@
                                                TextTrimming="CharacterEllipsis"
                                                IsVisible="{Binding HasSyncStatus}" />
                                   </StackPanel>
-                                  <TextBlock Grid.Column="2"
-                                             Text="{Binding StatusText}"
-                                             FontSize="12"
-                                             VerticalAlignment="Center"
-                                             Foreground="{Binding StatusBrush}" />
+                                  <StackPanel Grid.Column="2"
+                                              Orientation="Horizontal"
+                                              Spacing="10"
+                                              VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding StatusText}"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Foreground="{Binding StatusBrush}" />
+                                    <Button Content="编辑"
+                                            Click="OnEditAccountClick"
+                                            Padding="10,4"
+                                            FontSize="12"
+                                            AutomationProperties.Name="编辑账户" />
+                                  </StackPanel>
                                 </Grid>
                               </Border>
                             </DataTemplate>
@@ -1168,8 +1226,8 @@
 
                       <StackPanel IsVisible="{Binding IsAddAccountFormVisible}" Spacing="16">
                         <StackPanel Spacing="4">
-                          <TextBlock Text="添加账户" FontSize="20" FontWeight="SemiBold" />
-                          <TextBlock Text="连接 Outlook 或 QQ 邮箱。" Classes="caption" />
+                          <TextBlock Text="{Binding AccountFormTitle}" FontSize="20" FontWeight="SemiBold" />
+                          <TextBlock Text="{Binding AccountFormDescription}" Classes="caption" />
                         </StackPanel>
 
                         <Button Content="返回账户列表"
@@ -1180,30 +1238,66 @@
 
                         <ComboBox ItemsSource="{Binding ProviderOptions}"
                                   SelectedIndex="{Binding SelectedProviderIndex}"
+                                  IsEnabled="{Binding IsProviderSelectorEnabled}"
                                   HorizontalAlignment="Stretch" />
 
                         <TextBox Text="{Binding AddAccountEmail}"
-                                 PlaceholderText="邮箱地址" />
+                                 Classes="single-line"
+                                 PlaceholderText="邮箱地址"
+                                 IsReadOnly="{Binding IsEditingAccount}" />
+
+                        <TextBox Text="{Binding AddAccountDisplayName}"
+                                 Classes="single-line"
+                                 PlaceholderText="发件人名称（可选，默认使用邮箱地址）" />
 
                         <TextBox Text="{Binding AddAccountSecret}"
-                                 PlaceholderText="QQ 邮箱授权码"
+                                 Classes="single-line"
+                                 PlaceholderText="{Binding AccountSecretPlaceholder}"
                                  PasswordChar="●"
-                                 IsVisible="{Binding IsQqProvider}" />
+                                 IsVisible="{Binding IsPasswordProvider}" />
 
                         <TextBlock Text="授权码不是 QQ 密码。请先在 QQ 邮箱设置中开启 IMAP/SMTP 并生成授权码。"
                                    Classes="caption"
                                    TextWrapping="Wrap"
                                    IsVisible="{Binding IsQqProvider}" />
 
-                        <Button Content="连接"
-                                Command="{Binding AddPasswordAccountCommand}"
-                                IsVisible="{Binding IsQqProvider}"
+                        <StackPanel IsVisible="{Binding IsCustomProvider}" Spacing="8">
+                          <Grid ColumnDefinitions="*,90" ColumnSpacing="8">
+                            <TextBox Text="{Binding CustomImapHost}"
+                                     Classes="single-line"
+                                     PlaceholderText="IMAP 服务器，如 imap.example.com" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding CustomImapPortText}"
+                                     Classes="single-line"
+                                     PlaceholderText="993" />
+                          </Grid>
+                          <CheckBox Content="IMAP 使用 STARTTLS（端口通常为 143）"
+                                    IsChecked="{Binding CustomImapStartTls}" />
+                          <Grid ColumnDefinitions="*,90" ColumnSpacing="8">
+                            <TextBox Text="{Binding CustomSmtpHost}"
+                                     Classes="single-line"
+                                     PlaceholderText="SMTP 服务器，如 smtp.example.com" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding CustomSmtpPortText}"
+                                     Classes="single-line"
+                                     PlaceholderText="465" />
+                          </Grid>
+                          <CheckBox Content="SMTP 使用 STARTTLS（端口通常为 587）"
+                                    IsChecked="{Binding CustomSmtpStartTls}" />
+                          <TextBlock Text="不勾选 STARTTLS 时使用 SSL 直连，常用端口 IMAP 993、SMTP 465。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <Button Content="{Binding AccountSubmitText}"
+                                Command="{Binding SaveAccountCommand}"
+                                IsVisible="{Binding IsAccountSaveVisible}"
                                 HorizontalAlignment="Stretch"
                                 Padding="12,8" />
 
                         <Button Content="使用浏览器登录"
                                 Command="{Binding StartOAuthCommand}"
-                                IsVisible="{Binding IsOutlookProvider}"
+                                IsVisible="{Binding IsOAuthLoginVisible}"
                                 HorizontalAlignment="Stretch"
                                 Padding="12,8" />
 
@@ -1292,6 +1386,18 @@
 
         </Grid>
       </Grid>
+    </Border>
+
+    <Border Grid.Row="1"
+            IsVisible="{Binding HasStatusMessage}"
+            Background="{DynamicResource MailDogBrushBgSubtle}"
+            BorderBrush="{DynamicResource MailDogBrushStroke}"
+            BorderThickness="0,1,0,0"
+            Padding="16,5">
+      <TextBlock Text="{Binding StatusMessage}"
+                 FontSize="12"
+                 Foreground="{DynamicResource MailDogBrushTextSecondary}"
+                 TextTrimming="CharacterEllipsis" />
     </Border>
 
   </Grid>

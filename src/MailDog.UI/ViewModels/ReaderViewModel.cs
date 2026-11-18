@@ -8,8 +8,14 @@ namespace MailDog.UI.ViewModels;
 public sealed partial class AttachmentViewModel : ObservableObject
 {
     private readonly Func<AttachmentViewModel, Task> _download;
+    private readonly Func<AttachmentViewModel, Task>? _preview;
 
-    public AttachmentViewModel(long messageId, int index, AttachmentDto attachment, Func<AttachmentViewModel, Task> download)
+    public AttachmentViewModel(
+        long messageId,
+        int index,
+        AttachmentDto attachment,
+        Func<AttachmentViewModel, Task> download,
+        Func<AttachmentViewModel, Task>? preview = null)
     {
         MessageId = messageId;
         Index = index;
@@ -17,6 +23,7 @@ public sealed partial class AttachmentViewModel : ObservableObject
         SizeText = FormatSize(attachment.Size);
         IsInline = attachment.IsInline;
         _download = download;
+        _preview = preview;
     }
 
     public long MessageId { get; }
@@ -31,6 +38,9 @@ public sealed partial class AttachmentViewModel : ObservableObject
 
     [RelayCommand]
     private Task DownloadAsync() => _download(this);
+
+    [RelayCommand]
+    private Task PreviewAsync() => _preview?.Invoke(this) ?? Task.CompletedTask;
 
     private static string FormatSize(long bytes)
     {
@@ -101,6 +111,8 @@ public sealed partial class ReaderViewModel : ObservableObject
     /// <summary>由主视图模型注入：保存附件到用户选择的路径。</summary>
     public Func<AttachmentViewModel, Task>? DownloadAttachment { get; set; }
 
+    public Func<AttachmentViewModel, Task>? PreviewAttachment { get; set; }
+
     public bool HasError => !string.IsNullOrEmpty(Error);
 
     public bool HasAttachments => Attachments.Length > 0;
@@ -144,7 +156,8 @@ public sealed partial class ReaderViewModel : ObservableObject
                 body.MessageId,
                 index,
                 attachment,
-                DownloadAttachment ?? (_ => Task.CompletedTask)))
+                DownloadAttachment ?? (_ => Task.CompletedTask),
+                PreviewAttachment))
             .ToArray();
         Notice = body.Truncated ? "邮件内容较大，已截断。" : null;
         Error = null;

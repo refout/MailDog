@@ -1,0 +1,220 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MailDog.UI.ViewModels"
+             xmlns:ic="using:FluentIcons.Avalonia"
+             x:Class="MailDog.UI.Views.ComposeView"
+             x:DataType="vm:ComposeViewModel">
+
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto"
+        Margin="24,18,24,18"
+        RowSpacing="10"
+        Background="{DynamicResource MailDogBrushBgLayer}">
+
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+      <TextBlock Text="{Binding WindowTitle}"
+                 FontSize="20"
+                 FontWeight="SemiBold"
+                 VerticalAlignment="Center" />
+      <StackPanel Grid.Column="1"
+                  Orientation="Horizontal"
+                  Spacing="4"
+                  VerticalAlignment="Center">
+        <TextBlock Text="MailDog"
+                   Classes="caption"
+                   VerticalAlignment="Center" />
+        <Button Classes="icon"
+                Command="{Binding DiscardCommand}"
+                ToolTip.Tip="关闭并保存草稿"
+                AutomationProperties.Name="关闭撰写">
+          <ic:FluentIcon Icon="Dismiss" IconSize="Size16" />
+        </Button>
+      </StackPanel>
+    </Grid>
+
+    <Grid Grid.Row="1" ColumnDefinitions="64,*">
+      <TextBlock Text="发件人"
+                 Classes="caption"
+                 VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1"
+                ItemsSource="{Binding Accounts}"
+                SelectedItem="{Binding SelectedAccount, Mode=TwoWay}"
+                IsEnabled="{Binding CanEdit}"
+                HorizontalAlignment="Stretch">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:ComposeAccount">
+            <TextBlock Text="{Binding Label}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+    </Grid>
+
+    <Grid Grid.Row="2" ColumnDefinitions="64,*">
+      <TextBlock Text="收件人"
+                 Classes="caption"
+                 VerticalAlignment="Center" />
+      <TextBox Grid.Column="1"
+               Classes="single-line"
+               Text="{Binding ToText, Mode=TwoWay}"
+               PlaceholderText="多个地址用分号或逗号分隔"
+               IsEnabled="{Binding CanEdit}" />
+    </Grid>
+
+    <Grid Grid.Row="3" ColumnDefinitions="64,*">
+      <TextBlock Text="抄送"
+                 Classes="caption"
+                 VerticalAlignment="Center" />
+      <TextBox Grid.Column="1"
+               Classes="single-line"
+               Text="{Binding CcText, Mode=TwoWay}"
+               PlaceholderText="可选"
+               IsEnabled="{Binding CanEdit}" />
+    </Grid>
+
+    <Grid Grid.Row="4" ColumnDefinitions="64,*">
+      <TextBlock Text="密送"
+                 Classes="caption"
+                 VerticalAlignment="Center" />
+      <TextBox Grid.Column="1"
+               Classes="single-line"
+               Text="{Binding BccText, Mode=TwoWay}"
+               PlaceholderText="可选"
+               IsEnabled="{Binding CanEdit}" />
+    </Grid>
+
+    <Grid Grid.Row="5" ColumnDefinitions="64,*">
+      <TextBlock Text="主题"
+                 Classes="caption"
+                 VerticalAlignment="Center" />
+      <TextBox Grid.Column="1"
+               Classes="single-line"
+               Text="{Binding SubjectText, Mode=TwoWay}"
+               PlaceholderText="邮件主题"
+               IsEnabled="{Binding CanEdit}" />
+    </Grid>
+
+    <Grid Grid.Row="6" ColumnDefinitions="*,Auto">
+      <TextBlock Text="正文"
+                 Classes="caption"
+                 VerticalAlignment="Center" />
+      <CheckBox Grid.Column="1"
+                Content="Markdown 格式"
+                IsChecked="{Binding IsMarkdown}"
+                IsEnabled="{Binding CanEdit}" />
+    </Grid>
+
+    <TextBox Grid.Row="7"
+             x:Name="BodyBox"
+             Text="{Binding BodyText, Mode=TwoWay}"
+             AcceptsReturn="True"
+             TextWrapping="Wrap"
+             VerticalContentAlignment="Top"
+             ScrollViewer.VerticalScrollBarVisibility="Auto"
+             Padding="14,12"
+             FontSize="14"
+             IsEnabled="{Binding CanEdit}"
+             PlaceholderText="{Binding BodyPlaceholder}" />
+
+    <Grid Grid.Row="8" RowDefinitions="Auto,Auto" RowSpacing="6">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="附件"
+                   Classes="caption"
+                   VerticalAlignment="Center" />
+        <Button Grid.Column="1"
+                Classes="icon"
+                Click="AddAttachment_Click"
+                IsEnabled="{Binding CanEdit}"
+                AutomationProperties.Name="添加附件"
+                ToolTip.Tip="添加附件">
+          <ic:FluentIcon Icon="Attach" IconSize="Size16" />
+        </Button>
+      </Grid>
+
+      <ItemsControl Grid.Row="1" ItemsSource="{Binding Attachments}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:ComposeAttachmentViewModel">
+            <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                    BorderBrush="{DynamicResource MailDogBrushStroke}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="8,4"
+                    Margin="0,0,8,6">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <ic:FluentIcon Icon="Document" IconSize="Size16" />
+                <TextBlock Text="{Binding FileName}"
+                           FontSize="12"
+                           MaxWidth="260"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="{Binding SizeText}"
+                           Classes="caption"
+                           VerticalAlignment="Center" />
+                <Button Classes="icon"
+                        Width="22"
+                        Height="22"
+                        Command="{Binding RemoveCommand}"
+                        ToolTip.Tip="移除附件">
+                  <TextBlock Text="×" FontSize="14" />
+                </Button>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Grid>
+
+    <StackPanel Grid.Row="9" Spacing="6">
+      <Border IsVisible="{Binding HasError}"
+              Background="{DynamicResource MailDogBrushDangerTint}"
+              CornerRadius="6"
+              Padding="10,7">
+        <TextBlock Text="{Binding Error}"
+                   Foreground="{DynamicResource MailDogBrushDanger}"
+                   FontSize="12"
+                   TextWrapping="Wrap" />
+      </Border>
+
+      <Border IsVisible="{Binding HasStatus}"
+              Background="{DynamicResource MailDogBrushAccentTint}"
+              CornerRadius="6"
+              Padding="10,7">
+        <TextBlock Text="{Binding Status}"
+                   Foreground="{DynamicResource MailDogBrushAccent}"
+                   FontSize="12"
+                   TextWrapping="Wrap" />
+      </Border>
+    </StackPanel>
+
+    <Grid Grid.Row="10" ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+      <TextBlock Text="附件总大小不超过 25 MiB；退出撰写会自动保存草稿。"
+                 Classes="caption"
+                 TextTrimming="CharacterEllipsis"
+                 Margin="0,0,12,0"
+                 VerticalAlignment="Center" />
+
+      <StackPanel Grid.Column="1"
+                  Orientation="Horizontal"
+                  Spacing="8">
+        <Button Content="保存草稿"
+                Command="{Binding SaveDraftCommand}"
+                IsEnabled="{Binding CanEdit}" />
+        <Button Content="关闭"
+                Command="{Binding DiscardCommand}" />
+        <Button Classes="accent"
+                Command="{Binding SendCommand}"
+                IsEnabled="{Binding CanSend}">
+          <Button.Content>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <ic:FluentIcon Icon="Send" IconSize="Size16" />
+              <TextBlock Text="发送" />
+            </StackPanel>
+          </Button.Content>
+        </Button>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>

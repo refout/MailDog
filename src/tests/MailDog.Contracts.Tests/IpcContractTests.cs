@@ -1,5 +1,6 @@
 using MailDog.Contracts.Dto;
 using MailDog.Contracts.Ipc;
+using MailDog.Contracts.Messages;
 using MailDog.Contracts.Serialization;
 
 namespace MailDog.Contracts.Tests;
@@ -41,6 +42,47 @@ public sealed class IpcContractTests
             Assert.Equal(42, parsed.RequestId);
             Assert.IsType(type, IpcCodecRegistry.Read(parsed));
         }
+    }
+
+    [Fact]
+    public void AccountServerConfigurationRoundTrips()
+    {
+        var response = new AccountsResponse
+        {
+            Items =
+            [
+                new AccountDto
+                {
+                    Id = "acc-1",
+                    Provider = MailProvider.Custom,
+                    Email = "user@example.com",
+                    DisplayName = "自定义邮箱",
+                    Status = AccountStatus.Ok,
+                    Server = new AccountServerDto
+                    {
+                        ImapHost = "imap.example.com",
+                        ImapPort = 143,
+                        ImapStartTls = true,
+                        SmtpHost = "smtp.example.com",
+                        SmtpPort = 587,
+                        SmtpStartTls = true
+                    }
+                }
+            ]
+        };
+
+        var envelope = IpcCodecRegistry.Create(IpcMessageTypes.Accounts, response);
+        var parsed = Assert.IsType<AccountsResponse>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(envelope))));
+        var account = Assert.Single(parsed.Items);
+
+        Assert.Equal(MailProvider.Custom, account.Provider);
+        Assert.NotNull(account.Server);
+        Assert.Equal("imap.example.com", account.Server.ImapHost);
+        Assert.Equal(143, account.Server.ImapPort);
+        Assert.True(account.Server.ImapStartTls);
+        Assert.Equal(587, account.Server.SmtpPort);
+        Assert.True(account.Server.SmtpStartTls);
     }
 
     [Fact]

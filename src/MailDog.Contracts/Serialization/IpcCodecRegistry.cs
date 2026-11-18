@@ -25,6 +25,7 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.StartOAuth, IpcJsonContext.Default.StartOAuthRequest);
         Register(IpcMessageTypes.CancelOAuth, IpcJsonContext.Default.CancelOAuthRequest);
         Register(IpcMessageTypes.RemoveAccount, IpcJsonContext.Default.RemoveAccountRequest);
+        Register(IpcMessageTypes.UpdateAccount, IpcJsonContext.Default.UpdateAccountRequest);
 
         Register(IpcMessageTypes.GetFolders, IpcJsonContext.Default.GetFoldersRequest);
         Register(IpcMessageTypes.Folders, IpcJsonContext.Default.FoldersResponse);
@@ -35,6 +36,10 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.MessageBody, IpcJsonContext.Default.MessageBodyResponse);
         Register(IpcMessageTypes.DownloadAttachment, IpcJsonContext.Default.DownloadAttachmentRequest);
         Register(IpcMessageTypes.AttachmentSaved, IpcJsonContext.Default.AttachmentSavedResponse);
+        Register(IpcMessageTypes.SendMail, IpcJsonContext.Default.SendMailRequest);
+        Register(IpcMessageTypes.SendMailResult, IpcJsonContext.Default.SendMailResponse);
+        Register(IpcMessageTypes.SaveDraft, IpcJsonContext.Default.SaveDraftRequest);
+        Register(IpcMessageTypes.DraftSaved, IpcJsonContext.Default.DraftSavedResponse);
         Register(IpcMessageTypes.MarkRead, IpcJsonContext.Default.MarkReadRequest);
         Register(IpcMessageTypes.MarkReadBatch, IpcJsonContext.Default.MarkReadBatchRequest);
         Register(IpcMessageTypes.SetFlag, IpcJsonContext.Default.SetFlagRequest);

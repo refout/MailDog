@@ -8,6 +8,7 @@ using MailDog.Engine.Tray;
 using MailDog.Mail.Accounts;
 using MailDog.Mail.Auth;
 using MailDog.Mail.Imap;
+using MailDog.Mail.Smtp;
 using MailDog.Mail.Storage;
 using MailKit.Security;
 
@@ -23,6 +24,9 @@ public sealed class EngineHost : IAsyncDisposable
     private readonly ImapSyncService _sync;
     private readonly ImapIdleWatcher _idle;
     private readonly OutlookAuthService _outlookAuth;
+    private readonly SmtpSendService _smtp;
+    private readonly OutboxWorker _outbox;
+    private readonly FlagSyncWorker _flagSync;
     private readonly RequestRouter _router;
     private readonly IpcServer _ipc;
     private readonly CancellationTokenSource _cts = new();
@@ -32,6 +36,7 @@ public sealed class EngineHost : IAsyncDisposable
     private readonly Dictionary<string, int> _syncFailures = new(StringComparer.Ordinal);
     private readonly object _syncStateGate = new();
     private Task? _scheduler;
+    private DateTimeOffset _lastPruneUtc = DateTimeOffset.MinValue;
     private Win32Tray? _tray;
     private (long MessageId, string AccountId, long FolderId)? _lastNotification;
     private (long MessageId, string AccountId, long FolderId)? _pendingNavigation;
@@ -47,17 +52,26 @@ public sealed class EngineHost : IAsyncDisposable
         _outlookAuth = new OutlookAuthService(_store, _accounts, _secrets);
         _sync = new ImapSyncService(_store, _accounts, _outlookAuth);
         _idle = new ImapIdleWatcher(_accounts, _outlookAuth);
-        _router = new RequestRouter(_store, _accounts, _sync, _outlookAuth);
+        var dataDirectory = Path.GetDirectoryName(_databasePath)
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailDog");
+        _smtp = new SmtpSendService(_store, _accounts, _outlookAuth, dataDirectory);
+        _outbox = new OutboxWorker(_store, _smtp);
+        _flagSync = new FlagSyncWorker(_store, _sync);
+        _router = new RequestRouter(_store, _accounts, _sync, _outlookAuth, _smtp);
         _ipc = new IpcServer(_router, message => _log.Warn(message));
 
         _router.Diagnostic += message => _log.Warn(message);
         _router.TakePendingNavigation = TakePendingNavigation;
         _sync.Diagnostic += message => _log.Warn(message);
+        _smtp.Diagnostic += message => _log.Warn(message);
+        _outbox.Diagnostic += message => _log.Info(message);
+        _flagSync.Diagnostic += message => _log.Info(message);
         _idle.Diagnostic += message => _log.Info(message);
         _idle.MailArrived += accountId => _ = SyncFromIdleAsync(accountId);
         _sync.NewMail += message =>
         {
             _ipc.Broadcast(IpcMessageTypes.NewMail, message);
+            _tray?.UpdateUnreadCount(TotalUnread());
 
             if (message.Latest is not null)
             {
@@ -86,9 +100,12 @@ public sealed class EngineHost : IAsyncDisposable
     public Task RunAsync()
     {
         _log.Info($"Engine 启动，数据库：{_databasePath}");
+        StartupRegistration.Apply(_store.GetSettings().RunAtStartup);
 
         _ipc.Start();
         _scheduler = SchedulerLoopAsync(_cts.Token);
+        _outbox.Start();
+        _flagSync.Start();
 
         _tray = new Win32Tray(
             OpenUi,
@@ -99,6 +116,7 @@ public sealed class EngineHost : IAsyncDisposable
             IsDarkTheme);
 
         _tray.UpdateTooltip(BuildTooltip());
+        _tray.UpdateUnreadCount(TotalUnread());
 
         Console.CancelKeyPress += OnCancelKeyPress;
 
@@ -214,9 +232,11 @@ public sealed class EngineHost : IAsyncDisposable
     private string BuildTooltip()
     {
         var accounts = _store.GetAccounts();
-        var unread = accounts.Sum(account => _store.GetFolders(account.Id).Sum(folder => folder.UnreadCount));
-        return $"MailDog — {accounts.Count} 个账户，{unread} 封未读";
+        return $"MailDog — {accounts.Count} 个账户，{TotalUnread()} 封未读";
     }
+
+    private int TotalUnread()
+        => _store.GetAccounts().Sum(account => _store.GetFolders(account.Id).Sum(folder => folder.UnreadCount));
 
     private void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs args)
     {
@@ -227,6 +247,7 @@ public sealed class EngineHost : IAsyncDisposable
 
     private async Task SchedulerLoopAsync(CancellationToken cancellationToken)
     {
+        PruneCacheIfDue();
         await SyncAllAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -235,11 +256,38 @@ public sealed class EngineHost : IAsyncDisposable
             {
                 // 每 30 秒检查一次：到期的账户才同步，失败账户按退避时间重试。
                 await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
+                PruneCacheIfDue();
                 await SyncAllAsync(cancellationToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
         {
+        }
+    }
+
+    private void PruneCacheIfDue()
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (now - _lastPruneUtc < TimeSpan.FromHours(24))
+        {
+            return;
+        }
+
+        _lastPruneUtc = now;
+
+        try
+        {
+            var days = _store.GetSettings().CacheDays;
+            var removed = _store.PruneMessages(days);
+
+            if (removed > 0)
+            {
+                _log.Info($"已清理 {removed} 封超过 {Math.Clamp(days, 1, 3650)} 天的本地缓存邮件。");
+            }
+        }
+        catch (Exception exception)
+        {
+            _log.Warn($"清理本地缓存失败：{exception.Message}");
         }
     }
 
@@ -271,6 +319,7 @@ public sealed class EngineHost : IAsyncDisposable
         if (synced)
         {
             _tray?.UpdateTooltip(BuildTooltip());
+            _tray?.UpdateUnreadCount(TotalUnread());
         }
     }
 
@@ -311,6 +360,7 @@ public sealed class EngineHost : IAsyncDisposable
             if (await TrySyncAccountAsync(accountId, _cts.Token).ConfigureAwait(false))
             {
                 _tray?.UpdateTooltip(BuildTooltip());
+                _tray?.UpdateUnreadCount(TotalUnread());
             }
         }
         catch (OperationCanceledException)
@@ -398,6 +448,8 @@ public sealed class EngineHost : IAsyncDisposable
         }
 
         await _idle.DisposeAsync().ConfigureAwait(false);
+        await _outbox.DisposeAsync().ConfigureAwait(false);
+        await _flagSync.DisposeAsync().ConfigureAwait(false);
         await _sync.DisposeAsync().ConfigureAwait(false);
         await _ipc.DisposeAsync().ConfigureAwait(false);
         _tray?.Dispose();

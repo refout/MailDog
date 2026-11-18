@@ -25,6 +25,7 @@ public static class IpcMessageTypes
     public const string StartOAuth = "startOAuth";
     public const string CancelOAuth = "cancelOAuth";
     public const string RemoveAccount = "removeAccount";
+    public const string UpdateAccount = "updateAccount";
 
     public const string GetFolders = "getFolders";
     public const string Folders = "folders";
@@ -39,6 +40,10 @@ public static class IpcMessageTypes
     public const string SetFlagBatch = "setFlagBatch";
     public const string DownloadAttachment = "downloadAttachment";
     public const string AttachmentSaved = "attachmentSaved";
+    public const string SendMail = "sendMail";
+    public const string SendMailResult = "sendMailResult";
+    public const string SaveDraft = "saveDraft";
+    public const string DraftSaved = "draftSaved";
     public const string SyncAccount = "syncAccount";
     public const string Ok = "ok";
 

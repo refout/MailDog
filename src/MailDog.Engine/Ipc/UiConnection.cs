@@ -205,6 +205,7 @@ public sealed class UiConnection : IAsyncDisposable
             IpcMessageTypes.SetFlagBatch => IpcMessageTypes.Ok,
             IpcMessageTypes.SyncAccount => IpcMessageTypes.Ok,
             IpcMessageTypes.RemoveAccount => IpcMessageTypes.Ok,
+            IpcMessageTypes.UpdateAccount => IpcMessageTypes.Account,
             IpcMessageTypes.StartOAuth => IpcMessageTypes.Ok,
             IpcMessageTypes.CancelOAuth => IpcMessageTypes.Ok,
             IpcMessageTypes.UpdateSettings => IpcMessageTypes.Ok,

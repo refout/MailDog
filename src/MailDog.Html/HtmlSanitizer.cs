@@ -757,7 +757,23 @@ public sealed class HtmlSanitizer
 
             if (isImage)
             {
-                return lower.StartsWith("https://", StringComparison.Ordinal) ? cleaned : null;
+                if (lower.StartsWith("https://", StringComparison.Ordinal))
+                {
+                    return cleaned;
+                }
+
+                if (cleaned.Length <= 6 * 1024 * 1024
+                    && (lower.StartsWith("data:image/png;base64,", StringComparison.Ordinal)
+                        || lower.StartsWith("data:image/jpeg;base64,", StringComparison.Ordinal)
+                        || lower.StartsWith("data:image/jpg;base64,", StringComparison.Ordinal)
+                        || lower.StartsWith("data:image/gif;base64,", StringComparison.Ordinal)
+                        || lower.StartsWith("data:image/webp;base64,", StringComparison.Ordinal)
+                        || lower.StartsWith("data:image/bmp;base64,", StringComparison.Ordinal)))
+                {
+                    return cleaned;
+                }
+
+                return null;
             }
 
             if (lower.StartsWith("http://", StringComparison.Ordinal)

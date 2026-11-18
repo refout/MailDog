@@ -12,6 +12,7 @@ internal sealed class AvatarIconFactory : IDisposable
     private const int FontWeightSemiBold = 600;
     private const int DefaultCharset = 1;
     private const int AntialiasedQuality = 4;
+    private const uint BadgeColor = 0x003834D1;
 
     private static readonly uint[] Palette =
     [
@@ -24,7 +25,41 @@ internal sealed class AvatarIconFactory : IDisposable
     ];
 
     private readonly Dictionary<string, IntPtr> _cache = new(StringComparer.Ordinal);
+    private readonly Dictionary<int, IntPtr> _badges = new();
     private bool _disposed;
+
+    public IntPtr GetBadgeIcon(int unreadCount)
+    {
+        if (_disposed || unreadCount <= 0)
+        {
+            return IntPtr.Zero;
+        }
+
+        if (_badges.TryGetValue(unreadCount, out var cached))
+        {
+            return cached;
+        }
+
+        var text = unreadCount > 99 ? "99+" : unreadCount.ToString();
+        var fontSize = text.Length >= 3 ? 15 : text.Length == 2 ? 19 : 28;
+        IntPtr icon;
+
+        try
+        {
+            icon = Create(text, BadgeColor, fontSize);
+        }
+        catch
+        {
+            return IntPtr.Zero;
+        }
+
+        if (icon != IntPtr.Zero)
+        {
+            _badges[unreadCount] = icon;
+        }
+
+        return icon;
+    }
 
     public IntPtr GetIcon(string? displayName, string? address)
     {
@@ -81,7 +116,7 @@ internal sealed class AvatarIconFactory : IDisposable
         return Palette[index];
     }
 
-    private static IntPtr Create(string initial, uint circleColor)
+    private static IntPtr Create(string initial, uint circleColor, int fontSize = 28)
     {
         var hdc = Gdi.CreateCompatibleDC(IntPtr.Zero);
         if (hdc == IntPtr.Zero)
@@ -134,7 +169,7 @@ internal sealed class AvatarIconFactory : IDisposable
         var circle = Gdi.CreateSolidBrush(circleColor);
         var nullPen = Gdi.GetStockObject(8);
         var font = Gdi.CreateFontW(
-            -28,
+            -fontSize,
             0,
             0,
             0,
@@ -251,6 +286,7 @@ internal sealed class AvatarIconFactory : IDisposable
         }
 
         _cache.Clear();
+        _badges.Clear();
     }
 
     [StructLayout(LayoutKind.Sequential)]

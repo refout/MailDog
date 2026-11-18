@@ -117,7 +117,7 @@ public sealed class HtmlSanitizerTests
 
         Assert.Contains("src=\"https://example.com/a.png\"", result.Html);
         Assert.DoesNotContain("b.png", result.Html);
-        Assert.DoesNotContain("data:image", result.Html);
+        Assert.Contains("src=\"data:image/png;base64,AAAA\"", result.Html);
         Assert.False(result.RemoteImagesBlocked);
     }
 
@@ -184,7 +184,7 @@ public sealed class HtmlSanitizerTests
         var document = _builder.Build("<p>Hi</p>", darkMode: false, allowRemoteImages: false);
 
         Assert.Contains("Content-Security-Policy", document);
-        Assert.Contains("img-src 'none'", document);
+        Assert.Contains("img-src data:", document);
         Assert.Contains("script-src 'none'", document);
         Assert.Contains("<p>Hi</p>", document);
         Assert.DoesNotContain("<script>", document);
@@ -195,7 +195,7 @@ public sealed class HtmlSanitizerTests
     {
         var document = _builder.Build("<img src=\"https://x/y.png\">", darkMode: true, allowRemoteImages: true);
 
-        Assert.Contains("img-src https:", document);
+        Assert.Contains("img-src https: data:", document);
         Assert.Contains("background: #272727", document);
     }
 

@@ -11,6 +11,24 @@ public sealed class AccountDto
     public string DisplayName { get; init; } = string.Empty;
 
     public AccountStatus Status { get; init; }
+
+    /// <summary>自定义服务器配置；使用服务商默认地址时为 null。</summary>
+    public AccountServerDto? Server { get; init; }
+}
+
+public sealed class AccountServerDto
+{
+    public string ImapHost { get; init; } = string.Empty;
+
+    public int ImapPort { get; init; }
+
+    public bool ImapStartTls { get; init; }
+
+    public string SmtpHost { get; init; } = string.Empty;
+
+    public int SmtpPort { get; init; }
+
+    public bool SmtpStartTls { get; init; }
 }
 
 public sealed class FolderDto
@@ -51,6 +69,8 @@ public sealed class AppSettingsDto
     public int CacheDays { get; init; } = 90;
 
     public bool MarkReadOnOpen { get; init; } = true;
+
+    public bool RunAtStartup { get; init; }
 
     public bool ShowRemoteImages { get; init; }
 

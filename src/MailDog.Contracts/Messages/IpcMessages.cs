@@ -40,6 +40,19 @@ public sealed class AddPasswordAccountRequest : Ipc.IIpcMessage
     public string Secret { get; init; } = string.Empty;
 
     public string? DisplayName { get; init; }
+
+    /// <summary>自定义服务器时必填。</summary>
+    public string? ImapHost { get; init; }
+
+    public int ImapPort { get; init; }
+
+    public bool ImapStartTls { get; init; }
+
+    public string? SmtpHost { get; init; }
+
+    public int SmtpPort { get; init; }
+
+    public bool SmtpStartTls { get; init; }
 }
 
 public sealed class AccountResponse : Ipc.IIpcMessage
@@ -61,6 +74,29 @@ public sealed class CancelOAuthRequest : Ipc.IIpcMessage
 public sealed class RemoveAccountRequest : Ipc.IIpcMessage
 {
     public string AccountId { get; init; } = string.Empty;
+}
+
+public sealed class UpdateAccountRequest : Ipc.IIpcMessage
+{
+    public string AccountId { get; init; } = string.Empty;
+
+    public string? DisplayName { get; init; }
+
+    /// <summary>密码账户的新授权码；留空表示保持原值。</summary>
+    public string? Secret { get; init; }
+
+    /// <summary>自定义服务器的新配置；非自定义账户必须为空。</summary>
+    public string? ImapHost { get; init; }
+
+    public int ImapPort { get; init; }
+
+    public bool ImapStartTls { get; init; }
+
+    public string? SmtpHost { get; init; }
+
+    public int SmtpPort { get; init; }
+
+    public bool SmtpStartTls { get; init; }
 }
 
 // 文件夹
@@ -130,6 +166,68 @@ public sealed class AttachmentSavedResponse : Ipc.IIpcMessage
     public string FileName { get; init; } = string.Empty;
 
     public long Size { get; init; }
+}
+
+public sealed class SendMailRequest : Ipc.IIpcMessage
+{
+    public string AccountId { get; init; } = string.Empty;
+
+    public string To { get; init; } = string.Empty;
+
+    public string Cc { get; init; } = string.Empty;
+
+    public string Bcc { get; init; } = string.Empty;
+
+    public string Subject { get; init; } = string.Empty;
+
+    public string BodyText { get; init; } = string.Empty;
+
+    public bool IsMarkdown { get; init; }
+
+    public string? InReplyTo { get; init; }
+
+    public string[] AttachmentPaths { get; init; } = [];
+}
+
+public sealed class SendMailResponse : Ipc.IIpcMessage
+{
+    public long OutboxId { get; init; }
+
+    /// <summary>本次请求内已经送达 SMTP 服务器。</summary>
+    public bool Sent { get; init; }
+
+    /// <summary>已落入 Outbox，后台会继续重试。</summary>
+    public bool Queued { get; init; }
+
+    public string Status { get; init; } = "queued";
+
+    public string? Error { get; init; }
+}
+
+public sealed class SaveDraftRequest : Ipc.IIpcMessage
+{
+    public string AccountId { get; init; } = string.Empty;
+
+    public string To { get; init; } = string.Empty;
+
+    public string Cc { get; init; } = string.Empty;
+
+    public string Bcc { get; init; } = string.Empty;
+
+    public string Subject { get; init; } = string.Empty;
+
+    public string BodyText { get; init; } = string.Empty;
+
+    public bool IsMarkdown { get; init; }
+
+    public string[] AttachmentPaths { get; init; } = [];
+}
+
+public sealed class DraftSavedResponse : Ipc.IIpcMessage
+{
+    public long FolderId { get; init; }
+
+    public string FolderName { get; init; } = string.Empty;
 }
 
 public sealed class MarkReadRequest : Ipc.IIpcMessage
