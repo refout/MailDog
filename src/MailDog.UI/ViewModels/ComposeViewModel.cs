@@ -14,7 +14,8 @@ public enum ComposeMode
     New,
     Reply,
     ReplyAll,
-    Forward
+    Forward,
+    Draft
 }
 
 public sealed class ComposeAccount
@@ -78,6 +79,7 @@ public sealed partial class ComposeViewModel : ObservableObject
 
     private readonly EngineClient _engine;
     private readonly MailBodyDto? _original;
+    private long? _draftMessageId;
     private bool _sent;
     private bool _draftSaved;
 
@@ -85,25 +87,46 @@ public sealed partial class ComposeViewModel : ObservableObject
         EngineClient engine,
         IReadOnlyList<ComposeAccount> accounts,
         ComposeMode mode,
-        MailBodyDto? original)
+        MailBodyDto? original,
+        DraftContentDto? draft = null,
+        string? draftAccountId = null)
     {
         _engine = engine;
         _original = original;
         Mode = mode;
         Accounts = new ObservableCollection<ComposeAccount>(accounts);
         SelectedAccount = Accounts.FirstOrDefault(account =>
-            original is not null && string.Equals(account.Email, original.FromAddress, StringComparison.OrdinalIgnoreCase))
+            (draftAccountId is not null && string.Equals(account.Id, draftAccountId, StringComparison.Ordinal))
+            || (original is not null && string.Equals(account.Email, original.FromAddress, StringComparison.OrdinalIgnoreCase))
+            || (draftAccountId is null && original is null))
             ?? Accounts.FirstOrDefault();
 
-        WindowTitle = mode switch
-        {
-            ComposeMode.Reply => "回复邮件",
-            ComposeMode.ReplyAll => "回复全部",
-            ComposeMode.Forward => "转发邮件",
-            _ => "写邮件"
-        };
+        WindowTitle = draft is not null
+            ? "继续写邮件"
+            : mode switch
+            {
+                ComposeMode.Reply => "回复邮件",
+                ComposeMode.ReplyAll => "回复全部",
+                ComposeMode.Forward => "转发邮件",
+                _ => "写邮件"
+            };
 
-        if (original is not null && mode != ComposeMode.New)
+        if (draft is not null)
+        {
+            _draftMessageId = draft.MessageId;
+            ToText = draft.To;
+            CcText = draft.Cc;
+            BccText = draft.Bcc;
+            SubjectText = draft.Subject;
+            BodyText = draft.BodyText;
+            IsMarkdown = draft.IsMarkdown;
+
+            if (draft.AttachmentNames.Length > 0)
+            {
+                Status = $"原草稿包含 {draft.AttachmentNames.Length} 个附件，请重新添加后再发送。";
+            }
+        }
+        else if (original is not null && mode != ComposeMode.New)
         {
             ApplyOriginal(mode, original);
         }
@@ -299,6 +322,12 @@ public sealed partial class ComposeViewModel : ObservableObject
                 _sent = true;
                 IsQueued = false;
                 Status = "邮件已发送。";
+
+                if (_draftMessageId is { } draftId)
+                {
+                    _ = DeleteOriginalDraftAsync(draftId);
+                }
+
                 Completed?.Invoke(this, Status!);
                 CloseRequested?.Invoke();
                 return;
@@ -372,8 +401,24 @@ public sealed partial class ComposeViewModel : ObservableObject
             Subject = SubjectText.Trim(),
             BodyText = BodyText,
             IsMarkdown = IsMarkdown,
+            ReplaceDraftMessageId = _draftMessageId,
             AttachmentPaths = Attachments.Select(item => item.Path).ToArray()
         };
+
+    private async Task DeleteOriginalDraftAsync(long draftMessageId)
+    {
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.DeleteMessage,
+                new DeleteMessageRequest { MessageId = draftMessageId, Permanent = true },
+                TimeSpan.FromSeconds(20));
+        }
+        catch (Exception)
+        {
+            // 邮件已经发出；旧草稿删除失败不应影响发送结果，下次同步会保留可见草稿。
+        }
+    }
 
     private void RemoveAttachment(ComposeAttachmentViewModel attachment)
     {

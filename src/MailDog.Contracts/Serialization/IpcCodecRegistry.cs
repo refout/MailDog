@@ -45,6 +45,8 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.SendMailResult, IpcJsonContext.Default.SendMailResponse);
         Register(IpcMessageTypes.SaveDraft, IpcJsonContext.Default.SaveDraftRequest);
         Register(IpcMessageTypes.DraftSaved, IpcJsonContext.Default.DraftSavedResponse);
+        Register(IpcMessageTypes.GetDraft, IpcJsonContext.Default.GetDraftRequest);
+        Register(IpcMessageTypes.DraftContent, IpcJsonContext.Default.DraftContentResponse);
         Register(IpcMessageTypes.MarkRead, IpcJsonContext.Default.MarkReadRequest);
         Register(IpcMessageTypes.MarkReadBatch, IpcJsonContext.Default.MarkReadBatchRequest);
         Register(IpcMessageTypes.SetFlag, IpcJsonContext.Default.SetFlagRequest);
@@ -59,6 +61,10 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.StorageSummary, IpcJsonContext.Default.StorageSummaryResponse);
         Register(IpcMessageTypes.CleanStorage, IpcJsonContext.Default.CleanStorageRequest);
         Register(IpcMessageTypes.StorageCleanup, IpcJsonContext.Default.StorageCleanupResponse);
+        Register(IpcMessageTypes.ListOutbox, IpcJsonContext.Default.ListOutboxRequest);
+        Register(IpcMessageTypes.OutboxList, IpcJsonContext.Default.OutboxListResponse);
+        Register(IpcMessageTypes.RetryOutbox, IpcJsonContext.Default.RetryOutboxRequest);
+        Register(IpcMessageTypes.DeleteOutbox, IpcJsonContext.Default.DeleteOutboxRequest);
 
         Register(IpcMessageTypes.NewMail, IpcJsonContext.Default.NewMailEvent);
         Register(IpcMessageTypes.SyncState, IpcJsonContext.Default.SyncStateEvent);

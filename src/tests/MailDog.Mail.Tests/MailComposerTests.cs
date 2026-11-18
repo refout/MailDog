@@ -85,6 +85,7 @@ public sealed class MailComposerTests : IDisposable
         Assert.Contains("<strong>粗体</strong>", message.HtmlBody);
         Assert.Contains("<li>一</li>", message.HtmlBody);
         Assert.Contains("**粗体**", message.TextBody);
+        Assert.Equal("1", message.Headers["X-MailDog-Markdown"]);
     }
 
     [Fact]

@@ -253,6 +253,8 @@ public sealed class SaveDraftRequest : Ipc.IIpcMessage
 
     public bool IsMarkdown { get; init; }
 
+    public long? ReplaceDraftMessageId { get; init; }
+
     public string[] AttachmentPaths { get; init; } = [];
 }
 
@@ -261,6 +263,16 @@ public sealed class DraftSavedResponse : Ipc.IIpcMessage
     public long FolderId { get; init; }
 
     public string FolderName { get; init; } = string.Empty;
+}
+
+public sealed class GetDraftRequest : Ipc.IIpcMessage
+{
+    public long MessageId { get; init; }
+}
+
+public sealed class DraftContentResponse : Ipc.IIpcMessage
+{
+    public DraftContentDto Draft { get; init; } = new();
 }
 
 public sealed class MarkReadRequest : Ipc.IIpcMessage
@@ -340,6 +352,25 @@ public sealed class CleanStorageRequest : Ipc.IIpcMessage
 public sealed class StorageCleanupResponse : Ipc.IIpcMessage
 {
     public StorageCleanupResultDto Result { get; init; } = new();
+}
+
+public sealed class ListOutboxRequest : Ipc.IIpcMessage
+{
+}
+
+public sealed class OutboxListResponse : Ipc.IIpcMessage
+{
+    public OutboxItemDto[] Items { get; init; } = [];
+}
+
+public sealed class RetryOutboxRequest : Ipc.IIpcMessage
+{
+    public long OutboxId { get; init; }
+}
+
+public sealed class DeleteOutboxRequest : Ipc.IIpcMessage
+{
+    public long OutboxId { get; init; }
 }
 
 // 事件

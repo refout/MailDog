@@ -833,6 +833,13 @@
                       Spacing="4"
                       VerticalAlignment="Top"
                       Margin="12,0,0,0">
+            <Button Command="{Binding ResumeDraftCommand}"
+                    IsVisible="{Binding SelectedMessageInDrafts}"
+                    Padding="8,4"
+                    ToolTip.Tip="继续编辑草稿"
+                    AutomationProperties.Name="继续编辑草稿">
+              <ic:FluentIcon Icon="Edit" IconSize="Size16" />
+            </Button>
             <Button Command="{Binding ReplyCommand}"
                     Padding="8,4"
                     ToolTip.Tip="回复"
@@ -1311,6 +1318,13 @@
                         </StackPanel>
                         <CheckBox Content="登录 Windows 时自动启动"
                                   IsChecked="{Binding RunAtStartup}" />
+                        <StackPanel Spacing="4">
+                          <CheckBox Content="发送成功后保存到“已发送”文件夹"
+                                    IsChecked="{Binding SaveSentCopy}" />
+                          <TextBlock Text="部分邮箱（如 Gmail）会在服务器端自动保存已发送副本，重复保存会出现两封相同邮件，可按需要关闭。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
                       </StackPanel>
 
                       <StackPanel IsVisible="{Binding IsAccountListVisible}" Spacing="16">
@@ -1686,6 +1700,90 @@
                                       Padding="10,3"
                                       FontSize="12" />
                             </Grid>
+                          </StackPanel>
+                        </Border>
+
+                        <Border Background="{DynamicResource MailDogBrushBgSubtle}"
+                                BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="16">
+                          <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="发件箱" Classes="section" />
+                              <Button Grid.Column="1"
+                                      Content="刷新"
+                                      Click="OnRefreshOutboxClick"
+                                      IsEnabled="{Binding !IsOutboxBusy}"
+                                      Padding="10,3"
+                                      FontSize="12" />
+                            </Grid>
+                            <TextBlock Text="{Binding OutboxStatus}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <ProgressBar IsIndeterminate="True"
+                                         Height="3"
+                                         IsVisible="{Binding IsOutboxBusy}" />
+                            <TextBlock Text="没有待发送或发送失败的邮件。"
+                                       Classes="caption"
+                                       IsVisible="{Binding !HasOutboxItems}" />
+                            <ItemsControl ItemsSource="{Binding OutboxItems}"
+                                          IsVisible="{Binding HasOutboxItems}">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:OutboxItemViewModel">
+                                  <Border Margin="0,0,0,8"
+                                          Padding="10"
+                                          CornerRadius="6"
+                                          Background="{DynamicResource MailDogBrushBgLayer}"
+                                          BorderBrush="{DynamicResource MailDogBrushStroke}"
+                                          BorderThickness="1">
+                                    <Grid ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="10">
+                                      <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding Subject}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding ToAddresses}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource MailDogBrushTextSecondary}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                          <TextBlock Text="{Binding StatusText}"
+                                                     FontSize="11"
+                                                     Foreground="{DynamicResource MailDogBrushWarning}" />
+                                          <TextBlock Text="{Binding AttachmentText}"
+                                                     FontSize="11"
+                                                     Foreground="{DynamicResource MailDogBrushTextTertiary}" />
+                                          <TextBlock Text="{Binding CreatedText}"
+                                                     FontSize="11"
+                                                     Foreground="{DynamicResource MailDogBrushTextTertiary}" />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding DetailText}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource MailDogBrushTextSecondary}"
+                                                   TextWrapping="Wrap" />
+                                      </StackPanel>
+                                      <StackPanel Grid.Column="1"
+                                                  Orientation="Horizontal"
+                                                  Spacing="6"
+                                                  VerticalAlignment="Center">
+                                        <Button Content="重试"
+                                                Click="OnRetryOutboxClick"
+                                                IsEnabled="{Binding CanRetry}"
+                                                Padding="10,3"
+                                                FontSize="12" />
+                                        <Button Content="删除"
+                                                Click="OnDeleteOutboxClick"
+                                                IsEnabled="{Binding CanDelete}"
+                                                Padding="10,3"
+                                                FontSize="12" />
+                                      </StackPanel>
+                                    </Grid>
+                                  </Border>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                           </StackPanel>
                         </Border>
 

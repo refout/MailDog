@@ -34,6 +34,7 @@ public sealed class SqliteStoreTests : IDisposable
             CacheDays = 30,
             MarkReadOnOpen = false,
             ShowRemoteImages = true,
+            SaveSentCopy = false,
             RunAtStartup = true,
             RenderMode = "plain"
         };
@@ -52,6 +53,7 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.Equal(30, loaded.CacheDays);
         Assert.False(loaded.MarkReadOnOpen);
         Assert.True(loaded.ShowRemoteImages);
+        Assert.False(loaded.SaveSentCopy);
         Assert.True(loaded.RunAtStartup);
         Assert.Equal("plain", loaded.RenderMode);
     }
@@ -398,6 +400,45 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.NotNull(_store.GetOutbox(id)!.SentUtc);
 
         Assert.Empty(_store.GetDueOutbox(now.AddMinutes(10), 5));
+    }
+
+    [Fact]
+    public void ActiveOutboxListsOnlyUnsentAndDeleteRemovesRecord()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+        var now = DateTimeOffset.UtcNow;
+
+        OutboxRecord Create(string subject, string status) => new(
+            0,
+            account.Id,
+            "to@example.com",
+            string.Empty,
+            string.Empty,
+            subject,
+            "正文",
+            null,
+            $"<{subject}@example.com>",
+            status,
+            0,
+            now,
+            null,
+            now,
+            null,
+            []);
+
+        var pending = _store.InsertOutbox(Create("待发送", OutboxStatuses.Pending), []);
+        var failed = _store.InsertOutbox(Create("失败", OutboxStatuses.Failed), []);
+        var sent = _store.InsertOutbox(Create("已发送", OutboxStatuses.Sent), []);
+
+        var active = _store.GetActiveOutbox();
+        Assert.Equal(2, active.Count);
+        Assert.DoesNotContain(active, record => record.Id == sent);
+
+        Assert.True(_store.DeleteOutbox(failed));
+        Assert.Null(_store.GetOutbox(failed));
+        Assert.Single(_store.GetActiveOutbox());
+        Assert.Equal(pending, _store.GetActiveOutbox()[0].Id);
     }
 
     [Fact]

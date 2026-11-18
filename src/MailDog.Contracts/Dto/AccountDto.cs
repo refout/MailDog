@@ -74,5 +74,7 @@ public sealed class AppSettingsDto
 
     public bool ShowRemoteImages { get; init; }
 
+    public bool SaveSentCopy { get; init; } = true;
+
     public string RenderMode { get; init; } = "html";
 }

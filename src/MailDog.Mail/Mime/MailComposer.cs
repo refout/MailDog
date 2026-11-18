@@ -46,6 +46,12 @@ public static class MailComposer
             message.References.Add(inReplyTo.Trim());
         }
 
+        if (isMarkdown)
+        {
+            // 草稿重新打开时据此恢复 Markdown 编辑模式。
+            message.Headers.Add("X-MailDog-Markdown", "1");
+        }
+
         var builder = new BodyBuilder
         {
             TextBody = bodyText ?? string.Empty,

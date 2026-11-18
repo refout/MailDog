@@ -153,6 +153,27 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void OnRefreshOutboxClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        await _viewModel.RefreshOutboxAsync();
+    }
+
+    private async void OnRetryOutboxClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: OutboxItemViewModel item })
+        {
+            await _viewModel.RetryOutboxAsync(item);
+        }
+    }
+
+    private async void OnDeleteOutboxClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: OutboxItemViewModel item })
+        {
+            await _viewModel.DeleteOutboxAsync(item);
+        }
+    }
+
     /// <summary>把账户的展开状态同步到 TreeViewItem（框架容器不直接支持双向绑定）。</summary>
     private void OnFolderTreeContainerPrepared(object? sender, ContainerPreparedEventArgs e)
     {

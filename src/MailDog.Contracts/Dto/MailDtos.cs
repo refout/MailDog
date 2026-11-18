@@ -79,3 +79,47 @@ public sealed class MailListPage
 
     public long? NextId { get; init; }
 }
+
+/// <summary>草稿箱中的原始内容，用于重新打开撰写页继续编辑。</summary>
+public sealed class DraftContentDto
+{
+    public long MessageId { get; init; }
+
+    public string To { get; init; } = string.Empty;
+
+    public string Cc { get; init; } = string.Empty;
+
+    public string Bcc { get; init; } = string.Empty;
+
+    public string Subject { get; init; } = string.Empty;
+
+    public string BodyText { get; init; } = string.Empty;
+
+    public bool IsMarkdown { get; init; }
+
+    public string[] AttachmentNames { get; init; } = [];
+}
+
+/// <summary>本地发件箱中的待发送或失败记录。</summary>
+public sealed class OutboxItemDto
+{
+    public long Id { get; init; }
+
+    public string AccountId { get; init; } = string.Empty;
+
+    public string ToAddresses { get; init; } = string.Empty;
+
+    public string Subject { get; init; } = string.Empty;
+
+    public string Status { get; init; } = string.Empty;
+
+    public int Attempts { get; init; }
+
+    public string? LastError { get; init; }
+
+    public DateTimeOffset CreatedUtc { get; init; }
+
+    public DateTimeOffset NextAttemptUtc { get; init; }
+
+    public int AttachmentCount { get; init; }
+}

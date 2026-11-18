@@ -146,6 +146,12 @@ public sealed class RequestRouter
                 return result;
             }
 
+            case GetDraftRequest request:
+                return new DraftContentResponse
+                {
+                    Draft = await _sync.GetDraftAsync(request.MessageId, cancellationToken).ConfigureAwait(false)
+                };
+
             case MarkReadBatchRequest request:
                 return new OkResponse
                 {
@@ -187,6 +193,37 @@ public sealed class RequestRouter
 
             case CleanStorageRequest request:
                 return new StorageCleanupResponse { Result = _storage.Clean(request) };
+
+            case ListOutboxRequest:
+                return new OutboxListResponse
+                {
+                    Items = _store.GetActiveOutbox()
+                        .Select(record => new OutboxItemDto
+                        {
+                            Id = record.Id,
+                            AccountId = record.AccountId,
+                            ToAddresses = record.ToAddresses,
+                            Subject = record.Subject,
+                            Status = record.Status,
+                            Attempts = record.Attempts,
+                            LastError = record.LastError,
+                            CreatedUtc = record.CreatedUtc,
+                            NextAttemptUtc = record.NextAttemptUtc,
+                            AttachmentCount = record.Attachments.Count
+                        })
+                        .ToArray()
+                };
+
+            case RetryOutboxRequest request:
+                return await _sender.TrySendAsync(request.OutboxId, cancellationToken).ConfigureAwait(false);
+
+            case DeleteOutboxRequest request:
+                return new OkResponse
+                {
+                    Affected = await _sender.DeleteOutboxAsync(request.OutboxId, cancellationToken).ConfigureAwait(false)
+                        ? 1
+                        : 0
+                };
 
             case TakePendingNavigationRequest:
                 return TakePendingNavigation?.Invoke() ?? new PendingNavigationResponse();

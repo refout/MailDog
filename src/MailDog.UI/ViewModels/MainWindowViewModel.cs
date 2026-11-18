@@ -135,6 +135,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectedMessageFolder))]
     [NotifyPropertyChangedFor(nameof(SelectedMessageInTrash))]
+    [NotifyPropertyChangedFor(nameof(SelectedMessageInDrafts))]
     [NotifyPropertyChangedFor(nameof(DeleteActionText))]
     private MailSummaryViewModel? _selectedMessage;
 
@@ -143,6 +144,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         : _foldersById.GetValueOrDefault(SelectedMessage.FolderId);
 
     public bool SelectedMessageInTrash => SelectedMessageFolder?.Role == FolderRole.Trash;
+
+    public bool SelectedMessageInDrafts => SelectedMessageFolder?.Role == FolderRole.Drafts;
 
     public string DeleteActionText => SelectedMessageInTrash ? "永久删除" : "删除";
 
@@ -442,6 +445,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isStorageBusy;
 
+    public ObservableCollection<OutboxItemViewModel> OutboxItems { get; } = [];
+
+    public bool HasOutboxItems => OutboxItems.Count > 0;
+
+    [ObservableProperty]
+    private bool _isOutboxBusy;
+
+    [ObservableProperty]
+    private string _outboxStatus = "发件箱中的待发送和失败邮件会显示在这里。";
+
     [ObservableProperty]
     private string _storageStatus = "打开“本地文件”后读取磁盘占用。";
 
@@ -606,6 +619,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _showRemoteImages;
 
     [ObservableProperty]
+    private bool _saveSentCopy = true;
+
+    [ObservableProperty]
     private int _renderModeIndex;
 
     public string Material => MaterialIndex switch
@@ -684,6 +700,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     partial void OnRunAtStartupChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnSaveSentCopyChanged(bool value)
     {
         QueueSettingsSave();
     }
@@ -1605,6 +1626,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasMoveTargets));
         OnPropertyChanged(nameof(SelectedMessageFolder));
         OnPropertyChanged(nameof(SelectedMessageInTrash));
+        OnPropertyChanged(nameof(SelectedMessageInDrafts));
         OnPropertyChanged(nameof(DeleteActionText));
     }
 
@@ -1765,6 +1787,60 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task ResumeDraftAsync()
+    {
+        if (SelectedMessage is null || SelectedMessageFolder?.Role != FolderRole.Drafts)
+        {
+            return;
+        }
+
+        if (IsComposeOpen)
+        {
+            StatusMessage = "请先关闭当前正在撰写的邮件。";
+            return;
+        }
+
+        var draft = SelectedMessage;
+        var accounts = Accounts
+            .Select(account => new ComposeAccount(account.Id, account.Email, account.DisplayName))
+            .ToArray();
+
+        try
+        {
+            var response = await _engine.RequestAsync<DraftContentResponse>(
+                IpcMessageTypes.GetDraft,
+                new GetDraftRequest { MessageId = draft.Id },
+                TimeSpan.FromSeconds(60));
+
+            var compose = new ComposeViewModel(
+                _engine,
+                accounts,
+                ComposeMode.Draft,
+                null,
+                response.Draft,
+                draft.AccountId);
+            MountCompose(compose);
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    private void MountCompose(ComposeViewModel compose)
+    {
+        compose.Completed += (viewModel, message) =>
+        {
+            StatusMessage = message;
+            _ = SyncAfterComposeAsync(viewModel.SelectedAccount?.Id);
+        };
+
+        compose.CloseRequested += CloseComposeInternal;
+        Compose = compose;
+        IsComposeOpen = true;
+    }
+
+    [RelayCommand]
     private void NewMail() => OpenCompose(ComposeMode.New);
 
     [RelayCommand]
@@ -1800,16 +1876,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             mode,
             mode == ComposeMode.New ? null : _currentBody);
 
-        compose.Completed += (viewModel, message) =>
-        {
-            StatusMessage = message;
-            _ = SyncAfterComposeAsync(viewModel.SelectedAccount?.Id);
-        };
-
-        compose.CloseRequested += CloseComposeInternal;
-
-        Compose = compose;
-        IsComposeOpen = true;
+        MountCompose(compose);
     }
 
     [RelayCommand]
@@ -2231,6 +2298,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             MarkReadOnOpen = MarkReadOnOpen,
             RunAtStartup = RunAtStartup,
             ShowRemoteImages = ShowRemoteImages,
+            SaveSentCopy = SaveSentCopy,
             RenderMode = RenderModeIndex == 1 ? "plain" : "html"
         };
 
@@ -2594,6 +2662,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             await LoadStorageSummaryCoreAsync();
+            await LoadOutboxAsync();
             StorageStatus = "本地数据统计已更新。";
         }
         catch (Exception exception)
@@ -2614,6 +2683,109 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             TimeSpan.FromSeconds(30));
 
         StorageSummary = response.Summary;
+    }
+
+    private async Task LoadOutboxAsync()
+    {
+        var response = await _engine.RequestAsync<OutboxListResponse>(
+            IpcMessageTypes.ListOutbox,
+            new ListOutboxRequest(),
+            TimeSpan.FromSeconds(30));
+
+        OutboxItems.Clear();
+        foreach (var item in response.Items)
+        {
+            OutboxItems.Add(new OutboxItemViewModel(item));
+        }
+
+        OnPropertyChanged(nameof(HasOutboxItems));
+        OutboxStatus = OutboxItems.Count == 0
+            ? "没有待发送或发送失败的邮件。"
+            : $"共 {OutboxItems.Count} 封待发送/失败邮件。";
+    }
+
+    public async Task RefreshOutboxAsync()
+    {
+        if (IsOutboxBusy)
+        {
+            return;
+        }
+
+        IsOutboxBusy = true;
+        try
+        {
+            await LoadOutboxAsync();
+        }
+        catch (Exception exception)
+        {
+            OutboxStatus = $"读取发件箱失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsOutboxBusy = false;
+        }
+    }
+
+    public async Task RetryOutboxAsync(OutboxItemViewModel item)
+    {        if (IsOutboxBusy)
+        {
+            return;
+        }
+
+        IsOutboxBusy = true;
+        OutboxStatus = "正在重试发送…";
+
+        try
+        {
+            var response = await _engine.RequestAsync<SendMailResponse>(
+                IpcMessageTypes.RetryOutbox,
+                new RetryOutboxRequest { OutboxId = item.Id },
+                TimeSpan.FromSeconds(75));
+
+            OutboxStatus = response.Sent
+                ? "邮件已发送。"
+                : response.Queued
+                    ? $"仍在发件箱：{response.Error ?? "稍后自动重试"}"
+                    : $"发送失败：{response.Error ?? "未知错误"}";
+
+            await LoadOutboxAsync();
+        }
+        catch (Exception exception)
+        {
+            OutboxStatus = $"重试失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsOutboxBusy = false;
+        }
+    }
+
+    public async Task DeleteOutboxAsync(OutboxItemViewModel item)
+    {
+        if (IsOutboxBusy)
+        {
+            return;
+        }
+
+        IsOutboxBusy = true;
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.DeleteOutbox,
+                new DeleteOutboxRequest { OutboxId = item.Id });
+
+            OutboxStatus = "已从发件箱删除。";
+            await LoadOutboxAsync();
+        }
+        catch (Exception exception)
+        {
+            OutboxStatus = $"删除失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsOutboxBusy = false;
+        }
     }
 
     private async Task CleanStorageAsync(CleanStorageRequest request)
@@ -2926,6 +3098,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             MarkReadOnOpen = _settings.MarkReadOnOpen;
             RunAtStartup = _settings.RunAtStartup;
             ShowRemoteImages = _settings.ShowRemoteImages;
+            SaveSentCopy = _settings.SaveSentCopy;
             RenderModeIndex = _settings.RenderMode == "plain" ? 1 : 0;
             _allowRemoteImages = _settings.ShowRemoteImages;
             ApplyTheme();

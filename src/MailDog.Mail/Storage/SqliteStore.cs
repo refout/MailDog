@@ -1140,6 +1140,7 @@ public sealed class SqliteStore : IDisposable
             MarkReadOnOpen = !values.TryGetValue("markReadOnOpen", out var markRead) || markRead != "0",
             RunAtStartup = values.GetValueOrDefault("runAtStartup") == "1",
             ShowRemoteImages = values.GetValueOrDefault("showRemoteImages") == "1",
+            SaveSentCopy = !values.TryGetValue("saveSentCopy", out var saveSentCopy) || saveSentCopy != "0",
             RenderMode = values.GetValueOrDefault("renderMode") == "plain" ? "plain" : "html"
         };
     }
@@ -1161,6 +1162,7 @@ public sealed class SqliteStore : IDisposable
             UpsertSetting(transaction, "markReadOnOpen", settings.MarkReadOnOpen ? "1" : "0");
             UpsertSetting(transaction, "runAtStartup", settings.RunAtStartup ? "1" : "0");
             UpsertSetting(transaction, "showRemoteImages", settings.ShowRemoteImages ? "1" : "0");
+            UpsertSetting(transaction, "saveSentCopy", settings.SaveSentCopy ? "1" : "0");
             UpsertSetting(transaction, "renderMode", settings.RenderMode == "plain" ? "plain" : "html");
             transaction.Commit();
         }
@@ -1268,9 +1270,50 @@ public sealed class SqliteStore : IDisposable
         }
     }
 
-    public IReadOnlyList<OutboxRecord> GetDueOutbox(DateTimeOffset now, int limit)
+    public IReadOnlyList<OutboxRecord> GetActiveOutbox(int limit = 100)
     {
         lock (_gate)
+        {
+            var rows = new List<OutboxRecord>();
+            using (var command = _connection.CreateCommand())
+            {
+                command.CommandText = """
+                    SELECT id, account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
+                           message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
+                           is_markdown
+                    FROM outbox
+                    WHERE status IN ('pending', 'sending', 'failed')
+                    ORDER BY created_utc DESC
+                    LIMIT $limit;
+                    """;
+                command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 500));
+
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    rows.Add(ReadOutbox(reader));
+                }
+            }
+
+            return rows
+                .Select(row => row with { Attachments = LoadOutboxAttachments(row.Id) })
+                .ToArray();
+        }
+    }
+
+    public bool DeleteOutbox(long id)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = "DELETE FROM outbox WHERE id = $id AND status != 'sending';";
+            command.Parameters.AddWithValue("$id", id);
+            return command.ExecuteNonQuery() > 0;
+        }
+    }
+
+    public IReadOnlyList<OutboxRecord> GetDueOutbox(DateTimeOffset now, int limit)
+    {        lock (_gate)
         {
             var rows = new List<OutboxRecord>();
             using (var command = _connection.CreateCommand())

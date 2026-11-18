@@ -2,6 +2,7 @@ using System.Net.Sockets;
 using MailDog.Contracts.Messages;
 using MailDog.Mail.Accounts;
 using MailDog.Mail.Auth;
+using MailDog.Mail.Imap;
 using MailDog.Mail.Mime;
 using MailDog.Mail.Storage;
 using MailKit;
@@ -30,17 +31,20 @@ public sealed class SmtpSendService
     private readonly SqliteStore _store;
     private readonly AccountService _accounts;
     private readonly IAccessTokenProvider _tokens;
+    private readonly ImapSyncService? _imap;
     private readonly string _attachmentRoot;
 
     public SmtpSendService(
         SqliteStore store,
         AccountService accounts,
         IAccessTokenProvider tokens,
-        string dataDirectory)
+        string dataDirectory,
+        ImapSyncService? imap = null)
     {
         _store = store;
         _accounts = accounts;
         _tokens = tokens;
+        _imap = imap;
         _attachmentRoot = Path.Combine(dataDirectory, "outbox");
         Directory.CreateDirectory(_attachmentRoot);
 
@@ -151,6 +155,19 @@ public sealed class SmtpSendService
 
             await SendViaSmtpAsync(account, message, cancellationToken).ConfigureAwait(false);
 
+            try
+            {
+                if (_imap is not null)
+                {
+                    await _imap.AppendSentCopyAsync(record.AccountId, message, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            catch (Exception exception)
+            {
+                // 邮件已经发出；保存已发送副本失败不能把发送结果改成失败，否则会重复投递。
+                Diagnostic?.Invoke($"已发送，但保存到“已发送”失败：{Describe(exception)}");
+            }
+
             _store.CompleteOutbox(outboxId, DateTimeOffset.UtcNow);
             DeleteAttachmentDirectory(record.Attachments);
             return new SendMailResponse
@@ -192,6 +209,28 @@ public sealed class SmtpSendService
                 Error = error
             };
         }
+    }
+
+    public async Task<bool> DeleteOutboxAsync(long outboxId, CancellationToken cancellationToken)
+    {
+        var record = _store.GetOutbox(outboxId);
+        if (record is null)
+        {
+            return false;
+        }
+
+        if (record.Status == OutboxStatuses.Sending)
+        {
+            throw new InvalidOperationException("这封邮件正在发送，请稍后再删除。");
+        }
+
+        if (!_store.DeleteOutbox(outboxId))
+        {
+            return false;
+        }
+
+        DeleteAttachmentDirectory(record.Attachments);
+        return true;
     }
 
     /// <summary>添加自定义服务器时先验证 SMTP 认证，避免账户可用但发不出信。</summary>

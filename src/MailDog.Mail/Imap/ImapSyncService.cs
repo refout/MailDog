@@ -390,6 +390,67 @@ public sealed class ImapSyncService : IAsyncDisposable
     private static MailFlags ToLocalFlag(MessageFlags flag)
         => flag.HasFlag(MessageFlags.Flagged) ? MailFlags.Flagged : MailFlags.Seen;
 
+    public async Task<DraftContentDto> GetDraftAsync(long messageId, CancellationToken cancellationToken)
+    {
+        var message = _store.GetMessage(messageId)
+            ?? throw new KeyNotFoundException("邮件不存在。");
+        var folderRecord = _store.GetFolder(message.FolderId)
+            ?? throw new KeyNotFoundException("邮件所在文件夹不存在。");
+        if (folderRecord.Role != FolderRole.Drafts)
+        {
+            throw new InvalidOperationException("只能继续编辑草稿箱中的邮件。");
+        }
+
+        var account = _accounts.GetRecord(message.AccountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var folder = session.Client!.GetFolder(folderRecord.FullName);
+            await folder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                var mime = await folder.GetMessageAsync(
+                    ToUniqueId(message.Uid),
+                    cancellationToken).ConfigureAwait(false);
+
+                return new DraftContentDto
+                {
+                    MessageId = messageId,
+                    To = JoinAddresses(mime.To),
+                    Cc = JoinAddresses(mime.Cc),
+                    Bcc = JoinAddresses(mime.Bcc),
+                    Subject = mime.Subject ?? string.Empty,
+                    BodyText = mime.TextBody ?? mime.HtmlBody ?? string.Empty,
+                    IsMarkdown = string.Equals(
+                        mime.Headers["X-MailDog-Markdown"],
+                        "1",
+                        StringComparison.OrdinalIgnoreCase),
+                    AttachmentNames = mime.Attachments
+                        .OfType<MimePart>()
+                        .Select(part => part.FileName ?? part.ContentDisposition?.FileName ?? "attachment")
+                        .ToArray()
+                };
+            }
+            finally
+            {
+                await folder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    private static string JoinAddresses(InternetAddressList addresses)
+        => string.Join("; ", addresses.Mailboxes.Select(mailbox => mailbox.Address));
+
     public async Task<DraftSavedResponse> SaveDraftAsync(
         SaveDraftRequest request,
         CancellationToken cancellationToken)
@@ -403,6 +464,7 @@ public sealed class ImapSyncService : IAsyncDisposable
         var session = await GetSessionAsync(account.Id, cancellationToken);
         await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
+        DraftSavedResponse response;
         try
         {
             await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
@@ -439,11 +501,68 @@ public sealed class ImapSyncService : IAsyncDisposable
                 MessageFlags.Draft | MessageFlags.Seen,
                 cancellationToken).ConfigureAwait(false);
 
-            return new DraftSavedResponse
+            response = new DraftSavedResponse
             {
                 FolderId = drafts.Id,
                 FolderName = drafts.DisplayName
             };
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+
+        if (request.ReplaceDraftMessageId is { } replaceId && replaceId > 0)
+        {
+            // 新草稿已经保存成功，再删除旧草稿；删除失败不回滚已保存的新草稿。
+            try
+            {
+                await DeleteMessageAsync(replaceId, permanent: true, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+            }
+        }
+
+        return response;
+    }
+
+    /// <summary>发送成功后把同一封 MIME 消息追加到服务器的“已发送”文件夹。</summary>
+    public async Task AppendSentCopyAsync(
+        string accountId,
+        MimeMessage message,
+        CancellationToken cancellationToken)
+    {
+        var settings = _store.GetSettings();
+        if (!settings.SaveSentCopy)
+        {
+            return;
+        }
+
+        var account = _accounts.GetRecord(accountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+
+            var sent = _store.GetFolders(account.Id).FirstOrDefault(folder => folder.Role == FolderRole.Sent);
+            if (sent is null)
+            {
+                var folders = await LoadFoldersAsync(session.Client!, account.Id, cancellationToken).ConfigureAwait(false);
+                _store.UpsertFolders(account.Id, folders);
+                sent = _store.GetFolders(account.Id).FirstOrDefault(folder => folder.Role == FolderRole.Sent);
+            }
+
+            if (sent is null)
+            {
+                throw new InvalidOperationException("未找到“已发送”文件夹。");
+            }
+
+            var folder = session.Client!.GetFolder(sent.FullName);
+            await folder.AppendAsync(message, MessageFlags.Seen, cancellationToken).ConfigureAwait(false);
         }
         finally
         {

@@ -55,7 +55,7 @@ public sealed class EngineHost : IAsyncDisposable
         _idle = new ImapIdleWatcher(_accounts, _outlookAuth);
         var dataDirectory = Path.GetDirectoryName(_databasePath)
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailDog");
-        _smtp = new SmtpSendService(_store, _accounts, _outlookAuth, dataDirectory);
+        _smtp = new SmtpSendService(_store, _accounts, _outlookAuth, dataDirectory, _sync);
         _storage = new StorageMaintenanceService(_store, databasePath);
         _outbox = new OutboxWorker(_store, _smtp);
         _flagSync = new FlagSyncWorker(_store, _sync);

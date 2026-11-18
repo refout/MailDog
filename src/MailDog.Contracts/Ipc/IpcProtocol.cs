@@ -49,6 +49,8 @@ public static class IpcMessageTypes
     public const string SendMailResult = "sendMailResult";
     public const string SaveDraft = "saveDraft";
     public const string DraftSaved = "draftSaved";
+    public const string GetDraft = "getDraft";
+    public const string DraftContent = "draftContent";
     public const string SyncAccount = "syncAccount";
     public const string Ok = "ok";
 
@@ -60,6 +62,10 @@ public static class IpcMessageTypes
     public const string StorageSummary = "storageSummary";
     public const string CleanStorage = "cleanStorage";
     public const string StorageCleanup = "storageCleanup";
+    public const string ListOutbox = "listOutbox";
+    public const string OutboxList = "outboxList";
+    public const string RetryOutbox = "retryOutbox";
+    public const string DeleteOutbox = "deleteOutbox";
 
     public const string NewMail = "newMail";
     public const string SyncState = "syncState";
