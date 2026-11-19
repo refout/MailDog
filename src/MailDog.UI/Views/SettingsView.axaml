@@ -932,9 +932,19 @@
                           BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                           BorderThickness="0,1,0,0"
                           Padding="32,10">
-                    <TextBlock Text="{Binding SettingsSaveHint}"
-                               Classes="caption"
-                               VerticalAlignment="Center" />
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding SettingsSaveHint}"
+                                 Classes="caption"
+                                 VerticalAlignment="Center" />
+                      <Button Grid.Column="1"
+                              Command="{Binding BackFromOverlayCommand}"
+                              AutomationProperties.Name="返回收件箱">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <ic:FluentIcon Icon="ArrowLeft" IconSize="Size16" />
+                          <TextBlock Text="返回收件箱" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </Button>
+                    </Grid>
                   </Border>
                 </Grid>
       </Grid>

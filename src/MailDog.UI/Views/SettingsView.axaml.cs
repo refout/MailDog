@@ -1,5 +1,6 @@
 using System;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using MailDog.UI.ViewModels;
@@ -11,9 +12,19 @@ public partial class SettingsView : UserControl
     public SettingsView()
     {
         InitializeComponent();
+        AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
     }
 
     private MainWindowViewModel? Vm => DataContext as MainWindowViewModel;
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && Vm is { IsSettingsOpen: true } vm)
+        {
+            vm.BackFromOverlayCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
 
     private void OnEditAccountClick(object? sender, RoutedEventArgs e)
     {

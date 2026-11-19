@@ -10,6 +10,7 @@
     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
       <Button x:Name="BackButton"
               Classes="icon subtle"
+              Width="44"
               Click="OnBackClick"
               AutomationProperties.Name="返回"
               ToolTip.Tip="返回">
