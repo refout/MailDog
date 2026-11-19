@@ -981,7 +981,7 @@
                 Grid.RowSpan="3"
                 ZIndex="10"
                 IsVisible="{Binding IsComposeOpen}"
-                Background="{DynamicResource MailDogBrushSurfacePane}">
+                Background="{DynamicResource MailDogBrushSurfacePopup}">
           <views:ComposeView DataContext="{Binding Compose}" />
         </Border>
       </Grid>
