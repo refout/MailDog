@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.1.2</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.2.0</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,9 +67,29 @@
 
     <article class="release">
       <div class="release-top">
-        <h2>v0.1.2</h2>
+        <h2>v0.2.0</h2>
         <span class="date">2026-11-24</span>
         <span class="latest">最新</span>
+      </div>
+      <p class="summary">这一版把「收信」这件事收得更干净：通知不再一股脑地弹，来信能按规则自己归类，发信前会提醒你别忘附件，发出去还有几秒后悔的时间；另外多了一个命令行工具，脚本和助手也能用它收发信。</p>
+      <ul>
+        <li><b>通知不吵了</b>：连续来信会合成一条「收到 N 封新邮件」；可以设免打扰时段，夜里到点自动闭嘴；锁屏时只显示「收到一封新邮件」，主题和发件人不上屏。</li>
+        <li><b>程序自己检查更新</b>：关于页和托盘菜单都能「检查更新」，下载后校验 SHA-256，校验通过才静默安装并自动重启；便携版只提示去下载页，不擅自改动文件。</li>
+        <li><b>来信规则</b>：设置里可以按发件人或主题加关键词，新邮件一到就自动标已读、加旗标，或者干脆不弹通知；规则能限定到某个邮箱，也能看到命中次数，写得太宽一眼就发现。</li>
+        <li><b>忘了附件会提醒</b>：正文里写了「附件」「见附件」却空着手，或者附件大得离谱，发送前会拦一下，确认后才真的发出去。命令行发信同样会提醒。</li>
+        <li><b>发出去还能撤回</b>：默认留 10 秒撤销窗口（可设 0 / 5 / 10 / 30 秒），这段时间邮件停在发件箱，点「撤回」就不会真的发出去。</li>
+        <li><b>命令行工具</b>：查账号、文件夹、邮件、搜索、读正文、取附件都有对应命令；写信、发信、标记、移动默认只预览，加 <code>--confirm</code> 才真的动手；<code>maildog schema --json</code> 能让助手自己发现有哪些能力。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.2.0" target="_blank" rel="noopener">下载 v0.2.0</a>
+        <a href="https://github.com/refout/MailDog/compare/v0.1.2...v0.2.0" target="_blank" rel="noopener">对比 v0.1.2</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.1.2</h2>
+        <span class="date">2026-11-24</span>
       </div>
       <p class="summary">换了新图标，通知也换了新做法：弹出来能认得出是谁发的，点一下就能翻到那封信，关掉窗口也照样跳。</p>
       <ul>
