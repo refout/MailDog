@@ -1220,30 +1220,6 @@
                                 Padding="0,20,0,0"
                                 BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                                 BorderThickness="0,1,0,0">
-                          <StackPanel Spacing="10">
-                            <TextBlock Text="更新" Classes="section" />
-                            <Grid ColumnDefinitions="*,Auto">
-                              <TextBlock Text="{Binding UpdateStatusText}"
-                                         FontSize="13"
-                                         TextWrapping="Wrap"
-                                         VerticalAlignment="Center" />
-                              <Button Grid.Column="1"
-                                      Content="{Binding UpdateActionText}"
-                                      Command="{Binding RunUpdateActionCommand}"
-                                      IsVisible="{Binding HasUpdateAvailable}"
-                                      IsEnabled="{Binding !IsUpdateBusy}"
-                                      Margin="12,0,0,0" />
-                            </Grid>
-                            <TextBlock Text="更新来自 GitHub Releases。安装版下载后校验 SHA-256，静默安装并在完成后重新启动；便携版只提示前往发布页，不会自动改为安装版。"
-                                       Classes="caption"
-                                       TextWrapping="Wrap" />
-                          </StackPanel>
-                        </Border>
-
-                        <Border Margin="0,22,0,0"
-                                Padding="0,20,0,0"
-                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                BorderThickness="0,1,0,0">
                           <StackPanel Spacing="0">
                             <Button Classes="subtle"
                                     Command="{Binding ToggleThirdPartyNoticesCommand}"
