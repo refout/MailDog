@@ -1225,6 +1225,56 @@ GitHub Actions `windows-latest`：
 - 快捷键：`Ctrl+N` / `Ctrl+R` / `Ctrl+Shift+R` / `Ctrl+Shift+F` / `Delete` / `F5` / `Ctrl+A` / `Esc` / `Ctrl+F` / `Ctrl+,`。
 - 验证：`dotnet build` 0 警告 0 错误；`dotnet test` 67 通过；1296×839 实机逐项验收，测试线程键已还原。
 
+### v0.2.0 规划（2026-11-24 拟定，未开工）
+
+基线：v0.1.2 已发布（新图标、系统 toast 通知、`maildog:` 协议激活、通知内容开关、高透明背景下的承字面）。以下按优先级排列，未写"已完成"的均为待做。
+
+#### P0 通知链路收口（v0.1.2 遗留）
+
+- 真机点击验证：`activationType="protocol"` 在 ToastGeneric 上是否被鼠标点击认可，目前只验证到命令层（协议注册 → `--activate` → `WM_COPYDATA` → `Activate` → 广播/拉起 UI）。若失效，退回"开始菜单快捷方式 + COM 激活器"。
+- 协议路径自校验：安装包装到非仓库路径后，`HKCU\Software\Classes\maildog\shell\open\command` 仍指向构建目录。启动时比对自身可执行文件路径，不一致即重写。
+- 生命周期清理：卸载/升级时删除 `HKCU\Software\Classes\maildog` 与 `HKCU\Software\Classes\AppUserModelId\MailDog.MailDog.App`，并重写 AUMID 的 IconUri 指向新安装目录。
+- 通知节流与合并：同一时刻多封新邮件合并为一条"收件箱有 N 封新邮件"。复用现有 Group=`mail` + Tag 覆盖机制。
+- 免打扰与隐私：免打扰时段（静默不弹、仍入库）；锁屏状态下隐藏主题与摘要，只显示"收到新邮件"；只通知收件箱，不给订阅文件夹弹。
+
+#### P0 自动更新
+
+- 应用内检查：读 GitHub `releases/latest`，比对当前版本；关于页与托盘菜单各一个入口（托盘现只有打开、立即同步、退出三项）。
+- 静默升级：下载 `MailDog-<ver>-win-x64-setup.exe` 后走 Inno Setup 静默安装，安装完成由新版本自启；便携版改为提示手动替换。
+- 降级与失败：检查失败不打扰、不重试轰炸；下载校验 SHA-256；升级失败保留旧版本可回滚。
+
+#### P1 MCP 服务（MailDog 作为服务端，供 AI 助手读写邮箱）
+
+- 定位：本地单用户、stdio 传输的 MCP 服务，由 AI 客户端（豆包、Claude Code、Cursor 等）按需拉起，不复用 Engine 的常驻生命周期。
+- 架构：新项目 `MailDog.Mcp`（控制台 exe，`stdin/stdout` JSON-RPC）。进程内复用 `MailDog.Contracts` 的命名管道客户端；Engine 未运行时沿用 `EngineHost.LocateUi()` 式的路径探测自行拉起 Engine。
+- 协议实现：手搓 `initialize` / `tools/list` / `tools/call` 三个方法，沿用 Contracts 的源生成序列化，零新增第三方包，AOT 安全（不引入官方 SDK，除非其 AOT 清洁度经探针验证）。
+- 只读工具（v1，默认启用，一对一映射现有 IPC）：
+  - `list_accounts` → `getAccounts`
+  - `list_folders` → `getFolders`
+  - `search_mail(query, account?, folder?, limit?)` → `searchMessages`
+  - `get_mail(id)` → `getMessageBody`（返回头信息 + 纯文本正文，超长截断并标注已截断）
+  - `get_attachment(id)` → `readAttachment`（落临时目录，返回路径与大小，不回传二进制）
+- 写操作（v2，默认关闭）：`save_draft` → `saveDraft`、`mark_read` → `markRead`、`move_message` → `moveMessage`；`send_mail` 独立一档，必须显式开启，且工具带 `dryRun`，默认只落草稿。
+- 设置页：新增"允许 AI 助手访问邮箱"三档（关闭 / 只读 / 可写），并展示可复制的 MCP 客户端配置片段（`{"command": "<安装目录>\\MailDog.Mcp.exe"}`）。
+- 打包与自测：`package.ps1` 增加 `MailDog.Mcp.exe` 产物；CI 增加 `MailDog.Mcp --selftest`（喂 `initialize` + `tools/list`，断言工具名与 JSON Schema），失败即门禁不过。
+- 安全边界：绝不暴露口令、OAuth 令牌、DPAPI 明文；正文与附件按需读取、有大小上限；管道 ACL 限当前用户；MCP 进程日志脱敏（不落正文，只落工具名与耗时）。
+
+#### P2 功能候选（排在 v0.2.0 之后）
+
+- 会议邀请入日程：解析 `.ics` 并一键加入日程。现有日历只是"按日期跳转"的弹层（`CalendarDayViewModel` / `CalendarMonthText`），要承接邀请需确认是否扩成轻量日程视图，还是先只提供"加入系统日历（生成 .ics 交默认程序）"。
+- 来信可信提示：显示名与真实域名不一致、首次往来域名、链接真实目标预览。
+- 未读可见性：任务栏徽标（`ITaskbarList3` 叠加图标）+ 托盘 tooltip 未读数。
+- 搜索增强：结果高亮已在（`HighlightedTextBlock`），补范围限定（主题/发件人/正文）与相关性排序；trigram 短词回退 LIKE 的逻辑保持不变。
+- 通知粒度：按账号开关、点击行为二选一（仅拉起窗口 / 拉起并标记已读）。
+- 极低透明度兜底：透明度低于 55% 时给一句提示，或提供"内容区实/透"独立开关，避免用户以为显示坏了。
+
+#### P2 工程卫生
+
+- UI 崩溃留痕：顶层异常捕获写本地日志（现在只有 Engine 写 `logs/engine-*.log`）。
+- CI 增加 Avalonia Headless 冒烟测试：切主题、开设置、模拟通知激活拉起窗口。
+- 官网截图重拍：首页仍是 v0.1.1 的旧图标真机图，与 v0.1.2 新标不一致。
+- 代码签名与依赖审计：OV/EV 证书接入，`NuGetAudit` 进 CI。
+
 ---
 
 ## 17. 风险与缓解
