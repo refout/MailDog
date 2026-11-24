@@ -1243,6 +1243,25 @@ GitHub Actions `windows-latest`：
 - 静默升级：下载 `MailDog-<ver>-win-x64-setup.exe` 后走 Inno Setup 静默安装，安装完成由新版本自启；便携版改为提示手动替换。
 - 降级与失败：检查失败不打扰、不重试轰炸；下载校验 SHA-256；升级失败保留旧版本可回滚。
 
+#### P1 命令行 `MailDog.Cli`（排在 MCP 之前）
+
+先给命令行，理由是最省钱也最通用：任何能跑 shell 的助手都能直接调，脚本、计划任务、CI 都能用；而且它就是 MCP 的验收台——同一层能力先被 CLI 打通，MCP 只剩"把函数挂到 schema 上"。
+
+- 形态：新项目 `MailDog.Cli`（AOT 控制台 exe，与 Engine/UI 同目录分发，安装包可加入 PATH）。参数解析手写，不引入长期预发布状态的命令行库。
+- 与 Engine 的关系：不直连数据库、不自己发信，全部走现有命名管道 IPC（`getAccounts` / `getFolders` / `getMessages` / `searchMessages` / `getMessageBody` / `readAttachment` / `saveDraft` / `sendMail` / `markRead` / `moveMessage`）；Engine 没运行就按 `EngineHost` 的路径探测先拉起来，避免出现第二个写库进程。
+- 只读子命令（v1）：
+  - `maildog accounts` — 账号清单（地址、类型、状态、未读数）
+  - `maildog folders [--account <id>]` — 文件夹与未读数
+  - `maildog list [--folder inbox] [--account <id>] [--limit 20] [--unread]` — 邮件摘要
+  - `maildog search <query> [--folder|--all] [--account] [--limit]` — 复用现有 FTS + LIKE 回退
+  - `maildog show <id> [--body] [--headers]` — 头信息与纯文本正文（超长按 `--max-chars` 截断）
+  - `maildog attachment <message-id> <attachment-id> [--out <dir>]` — 落盘并打印路径
+- 写入子命令（v2，需显式确认）：`draft`（写草稿）、`mark`（已读/旗标）、`move`、`send`。`send` 必须带 `--confirm` 才真正发送，缺省等于 `--dry-run`（打印收件人、主题、正文预览后退出）。
+- 输出约定：默认人读表格；`--json` 输出稳定 JSON（列表为每行一条 JSON，便于管道）；禁止在输出里出现口令、令牌、DPAPI 明文。
+- 退出码：`0` 成功、`2` 未找到、`3` 账号未登录或离线、`4` 被权限/配置拒绝、`5` 参数错误。
+- 测试：CI 用临时数据库种子三封邮件，跑 `accounts` / `search --json` / `show` / `send --dry-run` 断言结构与退出码；写命令只在临时库上验证。
+- 与 MCP 的复用：MCP 工具直接调用同一个 CLI 背后的能力层（facade），`--json` 的结构即 `tools/call` 返回结构的原型，避免两套实现漂移。
+
 #### P1 MCP 服务（MailDog 作为服务端，供 AI 助手读写邮箱）
 
 - 传输选择：以 **Streamable HTTP** 为主（MCP 2025-06-18 规范），stdio 只做兼容壳。理由很实际：stdio 模式下每个 AI 客户端都会各自拉起一个进程，重复连 Engine、日志分裂、每处配置都要填可执行文件绝对路径；而 Engine 本来就常驻、且只有它持有数据库连接与凭据，由它直接对外开一个本地 HTTP 端点，多个客户端可以同时连、共用一份会话与数据。
