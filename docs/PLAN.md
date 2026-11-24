@@ -1227,7 +1227,7 @@ GitHub Actions `windows-latest`：
 
 ### v0.2.0（2026-11-24 完成并打 tag，代码见 `46b5407` 之后的提交链）
 
-基线：v0.1.2 已发布（新图标、系统 toast 通知、`maildog:` 协议激活、通知内容开关、高透明背景下的承字面）。v0.2.0 的功能项已全部落地并随 tag 发布；剩下的三条都属"不做完不算真正收尾"，但都不影响用户升级：CLI 临时库种子集成测试、`maildog-cli` Skill、以及发布后的真机通知点击与自动升级验证。
+基线：v0.1.2 已发布（新图标、系统 toast 通知、`maildog:` 协议激活、通知内容开关、高透明背景下的承字面）。v0.2.0 的功能项已全部落地并随 tag 发布；剩下两件收尾：`maildog-cli` Skill（等 CLI 验收结论落定后写），以及发布后的真机通知点击与自动升级验证。
 
 #### P0 通知链路收口（v0.1.2 遗留）
 
@@ -1261,7 +1261,7 @@ GitHub Actions `windows-latest`：
 - 机器可读的自描述：`maildog schema`（或 `maildog help --json`）输出所有子命令、参数、`--json` 结果结构与退出码，供助手自己发现能力——替代 MCP `tools/list` 当初承担的那点发现作用，也便于脚本与文档自动生成。
 - 输出约定：默认人读表格；`--json` 输出稳定 JSON（列表为每行一条 JSON，便于管道）；禁止在输出里出现口令、令牌、DPAPI 明文。
 - 退出码：`0` 成功、`2` 未找到、`3` 账号未登录或离线、`4` 被权限/配置拒绝、`5` 参数错误。
-- 测试：✅ CI 已加轻量冒烟（`schema` 结构、`help` 退出 0、未知开关退出 5、`--no-start` 连不上退出 3，不需要 Engine）；⏳ 临时库种子跑 `accounts` / `search --json` / `show` / `send --dry-run` 与写命令的版本待补。
+- 测试：✅ CI 已加轻量冒烟（`schema` 结构、`help` 退出 0、未知开关退出 5，不需要 Engine）；✅ 临时库种子集成测试（2026-11-24）：`src/build/testdata/cli-seed.db` 是一份 140 KB 的预置库（1 个种子账号、3 封邮件、1 封带正文），CI 用 `--db` 起一个真实 Engine 后跑 `accounts` / `list` / `search haystack --all` / `show 2 --body` / `send --dry-run`，脚本为 `src/build/ci-cli-seed.ps1`，跑完即删临时库。写命令（`mark` / `move` / `draft`）仍只在真机验证过，未进 CI。
 - 打包：✅ `publish.ps1` 产出 `MailDog.Cli.exe`（AOT，5.24 MiB）与 `maildog.cmd` 转发壳，zip 与安装包一并带上；PATH 自动改写暂不做（避免卸载误删整条 Path），需要时手动把安装目录加进 PATH。已用 CI 产物实测 `schema` / `help` 正常。
 - 配套 Agent Skill（**待 CLI 跑通之后再产出，当前不产出**）：`maildog-cli`，落在 `workspace/.user_skills/maildog-cli`。硬约束：
   - 内容必须以 `maildog schema --json` 的真实输出为准（命令名、参数、字段名、退出码），并用本机真实账号逐条跑过；CLI 未实现前写出来的 Skill 只会误导，禁止提前创建。

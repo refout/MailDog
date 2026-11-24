@@ -65,6 +65,10 @@ jobs:
           Write-Host "CLI smoke passed"
           exit 0
 
+      - name: CLI seed integration
+        shell: pwsh
+        run: ./src/build/ci-cli-seed.ps1
+
       - name: Verify Native AOT
         shell: pwsh
         run: ./src/build/verify-aot.ps1 -Runtime win-x64
