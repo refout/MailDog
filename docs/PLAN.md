@@ -1243,9 +1243,9 @@ GitHub Actions `windows-latest`：
 - 静默升级：下载 `MailDog-<ver>-win-x64-setup.exe` 后走 Inno Setup 静默安装，安装完成由新版本自启；便携版改为提示手动替换。
 - 降级与失败：检查失败不打扰、不重试轰炸；下载校验 SHA-256；升级失败保留旧版本可回滚。
 
-#### P1 命令行 `MailDog.Cli`（排在 MCP 之前）
+#### P1 命令行 `MailDog.Cli`
 
-先给命令行，理由是最省钱也最通用：任何能跑 shell 的助手都能直接调，脚本、计划任务、CI 都能用；而且它就是 MCP 的验收台——同一层能力先被 CLI 打通，MCP 只剩"把函数挂到 schema 上"。
+**MCP 服务已取消**（2026-11-24 决定）。原方案要多一层协议、端点、会话与令牌，收益在本项目面前不明显：本地单用户、能力全部在 Engine 后面，用命令行同样能被任何能跑 shell 的助手调用，还能直接进脚本、计划任务与 CI。省下的是传输层、鉴权与客户端配置这三块最容易出问题的部分。
 
 - 形态：新项目 `MailDog.Cli`（AOT 控制台 exe，与 Engine/UI 同目录分发，安装包可加入 PATH）。参数解析手写，不引入长期预发布状态的命令行库。
 - 与 Engine 的关系：不直连数据库、不自己发信，全部走现有命名管道 IPC（`getAccounts` / `getFolders` / `getMessages` / `searchMessages` / `getMessageBody` / `readAttachment` / `saveDraft` / `sendMail` / `markRead` / `moveMessage`）；Engine 没运行就按 `EngineHost` 的路径探测先拉起来，避免出现第二个写库进程。
@@ -1257,33 +1257,11 @@ GitHub Actions `windows-latest`：
   - `maildog show <id> [--body] [--headers]` — 头信息与纯文本正文（超长按 `--max-chars` 截断）
   - `maildog attachment <message-id> <attachment-id> [--out <dir>]` — 落盘并打印路径
 - 写入子命令（v2，需显式确认）：`draft`（写草稿）、`mark`（已读/旗标）、`move`、`send`。`send` 必须带 `--confirm` 才真正发送，缺省等于 `--dry-run`（打印收件人、主题、正文预览后退出）。
+- 机器可读的自描述：`maildog schema`（或 `maildog help --json`）输出所有子命令、参数、`--json` 结果结构与退出码，供助手自己发现能力——替代 MCP `tools/list` 当初承担的那点发现作用，也便于脚本与文档自动生成。
 - 输出约定：默认人读表格；`--json` 输出稳定 JSON（列表为每行一条 JSON，便于管道）；禁止在输出里出现口令、令牌、DPAPI 明文。
 - 退出码：`0` 成功、`2` 未找到、`3` 账号未登录或离线、`4` 被权限/配置拒绝、`5` 参数错误。
-- 测试：CI 用临时数据库种子三封邮件，跑 `accounts` / `search --json` / `show` / `send --dry-run` 断言结构与退出码；写命令只在临时库上验证。
-- 与 MCP 的复用：MCP 工具直接调用同一个 CLI 背后的能力层（facade），`--json` 的结构即 `tools/call` 返回结构的原型，避免两套实现漂移。
-
-#### P1 MCP 服务（MailDog 作为服务端，供 AI 助手读写邮箱）
-
-- 传输选择：以 **Streamable HTTP** 为主（MCP 2025-06-18 规范），stdio 只做兼容壳。理由很实际：stdio 模式下每个 AI 客户端都会各自拉起一个进程，重复连 Engine、日志分裂、每处配置都要填可执行文件绝对路径；而 Engine 本来就常驻、且只有它持有数据库连接与凭据，由它直接对外开一个本地 HTTP 端点，多个客户端可以同时连、共用一份会话与数据。
-- 端点：Engine 内宿主，单一入口 `http://127.0.0.1:<port>/mcp`（默认关闭，端口可配，建议 17891）。`POST` 收 JSON-RPC，响应可按请求头返回 `application/json` 或 `text/event-stream`；`initialize` 返回并后续校验 `Mcp-Session-Id`；`DELETE` 结束会话；本项目不需要服务端主动推送，`GET` 流式通道先不实现。
-- 协议实现：**优先用官方 SDK** `ModelContextProtocol`（微软与 Anthropic 共维护，2026-11 仍在发版），不自己重写 JSON-RPC 语义；`tools/list` 的 schema 由方法签名自动生成，省掉手写 JSON Schema 与客户端兼容性踩坑。
-- 选型探针（先行，半天）：AOT 是本项目硬门禁（CI `verify-aot` + Engine 体积预算 35 MiB），所以先探针再定案：
-  - 探针 A：`ModelContextProtocol`（Core）在 `PublishAot` 下能否 0 条 `IL` 警告、Engine 体积增量多少。
-  - 探针 B：`ModelContextProtocol.AspNetCore`（Streamable HTTP 的 Kestrel 宿主）在 AOT 下能否发布。ASP.NET Core 对 Native AOT 的支持一直有限，若失败即排除该包。
-  - 探针 C：Core 的 `IServerTransport` 自定义传输点是否稳定可用——用它把 SDK 接到自写 `HttpListener` 传输上。
-  - 判定：A、B 都过 → 全用官方包；A 过、B 不过 → 官方 Core + 自写 `HttpListener` 传输（预期结论）；A 不过 → 才退回手搓 `initialize`/`tools/list`/`tools/call` 三个方法。
-- 鉴权与边界：只绑定回环地址，不监听 `0.0.0.0`；启用时生成随机 32 字节令牌，`Authorization: Bearer` 校验，令牌用 DPAPI 存盘、设置页可一键复制与重生成；校验 `Origin`，跨站请求一律拒绝；同一会话内工具调用串行，避免并发抢 SQLite。
-- stdio 兼容壳：保留极薄 `MailDog.Mcp.exe`，只把 stdin/stdout 的 JSON-RPC 转发到本机 HTTP 端点，给只支持 `command` 配置的客户端用；**不复制第二套工具实现**。
-- 只读工具（v1，默认启用，一对一映射现有 IPC）：
-  - `list_accounts` → `getAccounts`
-  - `list_folders` → `getFolders`
-  - `search_mail(query, account?, folder?, limit?)` → `searchMessages`
-  - `get_mail(id)` → `getMessageBody`（返回头信息 + 纯文本正文，超长截断并标注已截断）
-  - `get_attachment(id)` → `readAttachment`（落临时目录，返回路径与大小，不回传二进制）
-- 写操作（v2，默认关闭）：`save_draft` → `saveDraft`、`mark_read` → `markRead`、`move_message` → `moveMessage`；`send_mail` 独立一档，必须显式开启，且工具带 `dryRun`，默认只落草稿。
-- 设置页：新增"允许 AI 助手访问邮箱"三档（关闭 / 只读 / 可写），开启后展示端点 URL、Bearer 令牌与可复制的客户端配置片段（`{"type": "http", "url": "http://127.0.0.1:17891/mcp", "headers": {"Authorization": "Bearer <token>"}}`）。
-- 打包与自测：`package.ps1` 增加 `MailDog.Mcp.exe`（兼容壳）产物；CI 增加 `MailDog.Mcp --selftest`（起临时端点，喂 `initialize` + `tools/list`，断言工具名与 JSON Schema），失败即门禁不过。
-- 安全边界：绝不暴露口令、OAuth 令牌、DPAPI 明文；正文与附件按需读取、有大小上限；端点默认关闭，令牌可随时重生成使旧配置失效；日志脱敏（不落正文，只落工具名、会话与耗时）。
+- 测试：CI 用临时数据库种子三封邮件，跑 `accounts` / `search --json` / `show` / `send --dry-run` / `schema` 断言结构与退出码；写命令只在临时库上验证。
+- 打包：`package.ps1` 增加 `MailDog.Cli.exe` 产物（含 `maildog.cmd` 别名），安装包可选加入 PATH 的勾选项。
 
 #### P2 功能候选（排在 v0.2.0 之后）
 
