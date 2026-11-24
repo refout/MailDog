@@ -166,7 +166,7 @@ internal static class Schema
             .Append(',')
             .Append(Output.Str("找不到 maildog 时先构建 src\\MailDog.Cli，不要退回直读 sqlite。"))
             .Append(',')
-            .Append(Output.Str("写操作（draft / mark / move / send）尚未开放。"))
+            .Append(Output.Str("写操作（draft / mark / move / send）默认只预览，加 --confirm 才真正执行；send 还可能因发送前检查返回退出码 6，确认后加 --force-send。"))
             .Append("]}");
 
         return builder.ToString();

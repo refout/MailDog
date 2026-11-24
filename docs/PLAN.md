@@ -1227,7 +1227,7 @@ GitHub Actions `windows-latest`：
 
 ### v0.2.0（2026-11-24 完成并打 tag，代码见 `46b5407` 之后的提交链）
 
-基线：v0.1.2 已发布（新图标、系统 toast 通知、`maildog:` 协议激活、通知内容开关、高透明背景下的承字面）。v0.2.0 的功能项已全部落地并随 tag 发布；剩下两件收尾：`maildog-cli` Skill（等 CLI 验收结论落定后写），以及发布后的真机通知点击与自动升级验证。
+基线：v0.1.2 已发布（新图标、系统 toast 通知、`maildog:` 协议激活、通知内容开关、高透明背景下的承字面）。v0.2.0 的功能项与 CLI 集成测试、`maildog-cli` Skill 均已落地；只剩发布后的真机通知点击与自动升级验证（需要把 0.2.0 包装上旧的 0.1.2 环境）。
 
 #### P0 通知链路收口（v0.1.2 遗留）
 
@@ -1263,12 +1263,10 @@ GitHub Actions `windows-latest`：
 - 退出码：`0` 成功、`2` 未找到、`3` 账号未登录或离线、`4` 被权限/配置拒绝、`5` 参数错误。
 - 测试：✅ CI 已加轻量冒烟（`schema` 结构、`help` 退出 0、未知开关退出 5，不需要 Engine）；✅ 临时库种子集成测试（2026-11-24）：`src/build/testdata/cli-seed.db` 是一份 140 KB 的预置库（1 个种子账号、3 封邮件、1 封带正文），CI 用 `--db` 起一个真实 Engine 后跑 `accounts` / `list` / `search haystack --all` / `show 2 --body` / `send --dry-run`，脚本为 `src/build/ci-cli-seed.ps1`，跑完即删临时库。写命令（`mark` / `move` / `draft`）仍只在真机验证过，未进 CI。
 - 打包：✅ `publish.ps1` 产出 `MailDog.Cli.exe`（AOT，5.24 MiB）与 `maildog.cmd` 转发壳，zip 与安装包一并带上；PATH 自动改写暂不做（避免卸载误删整条 Path），需要时手动把安装目录加进 PATH。已用 CI 产物实测 `schema` / `help` 正常。
-- 配套 Agent Skill（**待 CLI 跑通之后再产出，当前不产出**）：`maildog-cli`，落在 `workspace/.user_skills/maildog-cli`。硬约束：
-  - 内容必须以 `maildog schema --json` 的真实输出为准（命令名、参数、字段名、退出码），并用本机真实账号逐条跑过；CLI 未实现前写出来的 Skill 只会误导，禁止提前创建。
-  - 必须写明"找不到 `maildog` 时提示先构建，禁止退回去直读 sqlite 或凭截图臆测"。
-  - 必须写明"id 只能来自 `list` / `search`，不猜 id"。
-  - 必须写明"`send` 先 dry-run 给用户看，确认后才加 `--confirm`；`draft` / `mark` / `move` 同样要用户明确同意"。
-  - 写入时机：CLI 只读命令验收通过那一版一并提交，作为 v0.2.0 的收尾交付物。
+- 配套 Agent Skill（✅ 2026-11-24 已产出）：`workspace/.user_skills/maildog-cli`，正文按 `maildog schema --json` 的真实输出重写：命令名、参数（`--folder` 不是 `--role`，正文用 `--text` / `--body-file`，移动用 `--account` + `--folder`）、`--json` 字段、退出码 0/2/3/4/5/6 与 `--force-send`、`cancel <outboxId>` 全部对齐实现；只读命令在种子库上逐条跑过，写命令在临时库验证了 `mark`，`draft` / `move` 受种子账号无授权码限制只验证到退出码 3。硬约束已写进 SKILL.md：
+  - 找不到 `maildog` 时先构建 `src\MailDog.Cli`，**禁止**退回去直读 sqlite 或凭截图臆测。
+  - id 只能来自 `list` / `search`，不猜 id。
+  - `send` 先 dry-run 给用户看，确认后才加 `--confirm`；`draft` / `mark` / `move` 同样要用户明确同意；命中发送前检查时退出码 6，确认后 `--force-send`。
 - ⏳ **解析层迁移到 `System.CommandLine`**（v0.3 起，单独一批提交）：当前为手写解析（约 150 行），换来的是零依赖、中文文案与退出码完全可控；代价是边界情况全靠自己维护——`--name=value`、`--` 终止符、值以 `-` 开头、可重复开关的去重与顺序、拼错开关时的提示，都要逐条补测试，长期属于"自造小轮子"的维护负担。
   - 现状依据：`System.CommandLine` 已有正式版（2.0.x 到 2.0.15，3.0.0 已发布），不再是当年长期 beta 的状态；AOT/裁剪场景可用，仍是微软官方维护。微软那篇中文教程用的是 beta 期 API（`CommandLineBuilder` / `UseDefaults`），迁移时以官方当前文档的 `RootCommand` / `Option<T>` / `ParseResult` 为准，不要照教程抄。
   - 迁移范围只限 `Arguments.cs` + `Program.cs`；**对外契约不得变化**：命令名、开关名、`--json` 输出结构、退出码（0/2/3/4/5）、`maildog schema` 的 JSON 全部保持原样，`Schema.cs` / `Output.cs` / `Commands.cs` 不动。
