@@ -101,13 +101,38 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public string VersionText => $"版本 {AppVersion}";
 
+    /// <summary>关于页直接展示的主要开源组件；完整清单见 docs/THIRD-PARTY-NOTICES.md。</summary>
+    public IReadOnlyList<ThirdPartyNoticeViewModel> ThirdPartyNotices { get; } =
+    [
+        new("Avalonia", "跨平台桌面界面框架与控件库", "MIT"),
+        new("Avalonia.Controls.WebView", "邮件正文 HTML 渲染", "MIT"),
+        new("Avalonia.Angle.Windows.Natives", "WebView 图形后端（ANGLE）", "BSD-3-Clause"),
+        new("CommunityToolkit.Mvvm", "MVVM 绑定、命令与消息机制", "MIT"),
+        new("MailKit / MimeKit", "IMAP、SMTP 与 MIME 协议实现", "MIT"),
+        new("Microsoft.Data.Sqlite", "SQLite 数据访问", "MIT"),
+        new("SQLite", "嵌入式数据库引擎", "Public Domain"),
+        new("SQLitePCLRaw", "SQLite 原生绑定", "Apache-2.0"),
+        new("System.Security.Cryptography.ProtectedData", "账户凭据加密（DPAPI）", "MIT"),
+        new("HtmlAgilityPack", "HTML 解析与内容清洗", "MIT"),
+        new("SkiaSharp / HarfBuzzSharp", "2D 图形绘制与文本整形", "MIT"),
+        new("FluentIcons.Avalonia", "Fluent 图标资源", "MIT"),
+        new("AvaloniaRichEditor", "富文本编辑控件", "见包内许可")
+    ];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ThirdPartyNoticesToggleText))]
+    private bool _isThirdPartyNoticesExpanded;
+
+    /// <summary>第三方许可区块的展开/收起按钮文案。</summary>
+    public string ThirdPartyNoticesToggleText => IsThirdPartyNoticesExpanded ? "收起" : "展开";
+
     public string RuntimeVersion => Environment.Version.ToString();
 
     public string RuntimeText => $".NET {RuntimeVersion}";
 
-    /// <summary>检查更新时的状态文案；空字符串表示还没检查过。</summary>
+    /// <summary>检查更新时的状态文案；初始提示尚未检查。</summary>
     [ObservableProperty]
-    private string _updateStatusText = string.Empty;
+    private string _updateStatusText = "尚未检查更新。";
 
     /// <summary>有可用新版本时，关于页才显示下载按钮。</summary>
     [ObservableProperty]
@@ -3347,6 +3372,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             // 打开浏览器失败时不影响关于页。
         }
+    }
+
+    [RelayCommand]
+    private void ToggleThirdPartyNotices()
+    {
+        IsThirdPartyNoticesExpanded = !IsThirdPartyNoticesExpanded;
     }
 
     [RelayCommand]
