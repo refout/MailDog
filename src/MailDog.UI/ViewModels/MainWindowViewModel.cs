@@ -25,6 +25,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         ["re:", "re：", "fwd:", "fw:", "回复：", "答复：", "转发："];
 
     private readonly EngineClient _engine;
+    private readonly UpdateService _updates = new();
+    private UpdateCheckResult? _updateResult;
     private readonly HtmlSanitizer _sanitizer = new();
     private readonly HtmlDocumentBuilder _builder = new();
     private readonly List<MailSummaryViewModel> _allMessages = [];
@@ -102,6 +104,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public string RuntimeVersion => Environment.Version.ToString();
 
     public string RuntimeText => $".NET {RuntimeVersion}";
+
+    /// <summary>检查更新时的状态文案；空字符串表示还没检查过。</summary>
+    [ObservableProperty]
+    private string _updateStatusText = string.Empty;
+
+    /// <summary>有可用新版本时，关于页才显示下载按钮。</summary>
+    [ObservableProperty]
+    private bool _hasUpdateAvailable;
+
+    /// <summary>按钮文字：安装版是"下载并安装"，便携版是"去下载页"。</summary>
+    [ObservableProperty]
+    private string _updateActionText = "下载并安装";
+
+    [ObservableProperty]
+    private bool _isUpdateBusy;
 
     public ObservableCollection<BackgroundPresetViewModel> BackgroundPresets { get; } = [];
 
@@ -2928,6 +2945,117 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task CheckUpdateAsync()
+    {
+        if (IsUpdateBusy)
+        {
+            return;
+        }
+
+        IsUpdateBusy = true;
+        HasUpdateAvailable = false;
+        UpdateStatusText = "正在检查新版本…";
+
+        try
+        {
+            var result = await _updates.CheckAsync(AppVersion);
+            _updateResult = result;
+
+            if (result.Error is { } error)
+            {
+                // 检查失败只说一句，不弹窗、不反复重试。
+                UpdateStatusText = $"这次没查到更新：{error}";
+                return;
+            }
+
+            if (!result.HasUpdate)
+            {
+                UpdateStatusText = $"已是最新版本（{AppVersion}）。";
+                return;
+            }
+
+            var canInstall = UpdateService.IsInstalledLayout() && result.InstallerUrl is not null;
+            UpdateActionText = canInstall ? "下载并安装" : "去下载页";
+            UpdateStatusText = $"发现新版本 {result.LatestVersion}（当前 {AppVersion}）。";
+            HasUpdateAvailable = true;
+        }
+        finally
+        {
+            IsUpdateBusy = false;
+        }
+    }
+
+    /// <summary>安装版下载并静默升级；便携版不擅自改成安装版，只把人送去下载页。</summary>
+    [RelayCommand]
+    private async Task RunUpdateActionAsync()
+    {
+        if (IsUpdateBusy || _updateResult is not { HasUpdate: true } result)
+        {
+            return;
+        }
+
+        if (!UpdateService.IsInstalledLayout() || result.InstallerUrl is null)
+        {
+            OpenReleasePage();
+            return;
+        }
+
+        IsUpdateBusy = true;
+        UpdateStatusText = "正在下载安装包…";
+
+        try
+        {
+            var progress = new Progress<double>(value => UpdateStatusText = $"正在下载安装包… {value:P0}");
+            var path = await _updates.DownloadInstallerAsync(result, progress);
+
+            if (path is null)
+            {
+                UpdateStatusText = "下载或校验失败，安装包已丢弃，可以到发布页手动下载。";
+                return;
+            }
+
+            UpdateStatusText = "正在安装，装完 MailDog 会自己重新启动…";
+            var installed = await _updates.RunInstallerAsync(path);
+
+            if (!installed)
+            {
+                UpdateStatusText = "安装没有完成，可以到发布页手动下载。";
+                return;
+            }
+
+            // 新版本已经在跑，当前窗口退出即可。
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+            }
+        }
+        catch
+        {
+            UpdateStatusText = "更新过程出错，可以到发布页手动下载。";
+        }
+        finally
+        {
+            IsUpdateBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void OpenReleasePage()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(UpdateService.ReleasePageUrl)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // 打开浏览器失败不影响关于页。
+        }
+    }
+
+    [RelayCommand]
     private void OpenProjectPage()
     {
         try
@@ -4584,6 +4712,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 IpcMessageTypes.TakePendingNavigation,
                 new TakePendingNavigationRequest());
 
+            if (pending.OpenAbout)
+            {
+                OpenAbout();
+
+                if (pending.CheckUpdate)
+                {
+                    await CheckUpdateAsync();
+                }
+            }
+
             if (pending.HasTarget && pending.MessageId is { } messageId)
             {
                 await NavigateToMessageAsync(messageId, pending.AccountId, pending.FolderId);
@@ -4598,6 +4736,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private async Task HandleShowRequestAsync(ShowMainWindowEvent show)
     {
         ShowRequested?.Invoke();
+
+        if (show.OpenAbout)
+        {
+            OpenAbout();
+
+            if (show.CheckUpdate)
+            {
+                await CheckUpdateAsync();
+            }
+
+            return;
+        }
 
         if (show.MessageId is { } messageId)
         {

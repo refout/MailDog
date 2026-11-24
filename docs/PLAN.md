@@ -1239,9 +1239,10 @@ GitHub Actions `windows-latest`：
 
 #### P0 自动更新
 
-- 应用内检查：读 GitHub `releases/latest`，比对当前版本；关于页与托盘菜单各一个入口（托盘现只有打开、立即同步、退出三项）。
-- 静默升级：下载 `MailDog-<ver>-win-x64-setup.exe` 后走 Inno Setup 静默安装，安装完成由新版本自启；便携版改为提示手动替换。
-- 降级与失败：检查失败不打扰、不重试轰炸；下载校验 SHA-256；升级失败保留旧版本可回滚。
+- ✅ 应用内检查（2026-11-24）：`UpdateService` 读 `https://api.github.com/repos/refout/MailDog/releases/latest`，按数字段比较版本；关于页有「检查更新」按钮与状态文案，托盘菜单新增「检查更新」（界面没开就拉起，直接落到关于页并跑一次检查）。
+- ✅ 静默升级（2026-11-24）：下载 `MailDog-<ver>-win-x64-setup.exe` 到 `%LOCALAPPDATA%\MailDog\updates\`，`/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /SP-` 静默安装，装完从同目录拉起新 UI 再关闭当前进程；便携版（不在 `Programs\MailDog` / `Program Files\MailDog` 下）不自动安装，只显示「去下载页」。
+- ✅ 降级与失败（2026-11-24）：检查失败只显示一句原因，不弹窗、不重试；下载边写边算 SHA-256，与 GitHub asset 的 `digest` 比对，不一致即删除；安装失败保留原版本并提示手动下载（Inno 静默失败不改目标目录，原文件仍在）。
+- ⏳ 真机升级验证：下一版发布后，用 0.1.2 的安装版点一次「下载并安装」，确认静默安装、Engine 被 Restart Manager 收掉、新版自动起来这三步都成。
 
 #### P1 命令行 `MailDog.Cli`
 

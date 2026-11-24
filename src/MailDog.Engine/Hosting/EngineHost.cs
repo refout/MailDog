@@ -43,6 +43,7 @@ public sealed class EngineHost : IAsyncDisposable
     private Win32Tray? _tray;
     private (long MessageId, string AccountId, long FolderId)? _lastNotification;
     private (long MessageId, string AccountId, long FolderId)? _pendingNavigation;
+    private bool _pendingOpenAbout;
 
     // 同一批同步里可能一次进来好几封，攒一小会儿再弹，避免通知刷屏。
     private readonly object _notificationGate = new();
@@ -128,6 +129,7 @@ public sealed class EngineHost : IAsyncDisposable
 
         _tray = new Win32Tray(
             OpenUi,
+            OpenAbout,
             HandleNotificationClicked,
             Activate,
             () => _ = SyncAllAsync(_cts.Token),
@@ -413,15 +415,32 @@ public sealed class EngineHost : IAsyncDisposable
         var target = _pendingNavigation;
         _pendingNavigation = null;
 
-        return target is { } value
-            ? new PendingNavigationResponse
-            {
-                HasTarget = true,
-                MessageId = value.MessageId,
-                AccountId = value.AccountId,
-                FolderId = value.FolderId
-            }
-            : new PendingNavigationResponse();
+        var openAbout = _pendingOpenAbout;
+        _pendingOpenAbout = false;
+
+        return new PendingNavigationResponse
+        {
+            HasTarget = target is not null,
+            MessageId = target?.MessageId,
+            AccountId = target?.AccountId,
+            FolderId = target?.FolderId,
+            OpenAbout = openAbout,
+            CheckUpdate = openAbout
+        };
+    }
+
+    /// <summary>托盘里的"检查更新"：把窗口叫出来并落到关于页，检查与下载都在界面里做。</summary>
+    private void OpenAbout()
+    {
+        if (_ipc.HasConnections)
+        {
+            _ipc.Broadcast(IpcMessageTypes.ShowMainWindow, new ShowMainWindowEvent { OpenAbout = true, CheckUpdate = true });
+            return;
+        }
+
+        // 界面没开：先记下诉求，等它连上来取待办导航时一并交代。
+        _pendingOpenAbout = true;
+        OpenUi();
     }
 
     private void OpenUi()

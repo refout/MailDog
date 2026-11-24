@@ -119,6 +119,7 @@ internal static class Program
         using var tray = new MailDog.Engine.Tray.Win32Tray(
             () => { },
             () => { },
+            () => { },
             uri => Console.WriteLine($"收到激活：{uri}"),
             () => { },
             () => { },

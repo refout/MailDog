@@ -515,6 +515,12 @@ public sealed class ShowMainWindowEvent : Ipc.IIpcMessage
     public string? AccountId { get; init; }
 
     public long? FolderId { get; init; }
+
+    /// <summary>只要窗口并把左侧设置页切到「关于」，用于托盘里的"检查更新"。</summary>
+    public bool OpenAbout { get; init; }
+
+    /// <summary>打开关于页后顺带跑一次检查。</summary>
+    public bool CheckUpdate { get; init; }
 }
 
 public sealed class TakePendingNavigationRequest : Ipc.IIpcMessage
@@ -530,6 +536,11 @@ public sealed class PendingNavigationResponse : Ipc.IIpcMessage
     public string? AccountId { get; init; }
 
     public long? FolderId { get; init; }
+
+    /// <summary>冷启动时点的是"检查更新"，界面起来后直接打开关于页。</summary>
+    public bool OpenAbout { get; init; }
+
+    public bool CheckUpdate { get; init; }
 }
 
 public sealed class AccountChangedEvent : Ipc.IIpcMessage

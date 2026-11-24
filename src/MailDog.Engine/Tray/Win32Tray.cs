@@ -14,11 +14,13 @@ public sealed class Win32Tray : IDisposable
     private const int CommandOpen = 1;
     private const int CommandSync = 2;
     private const int CommandExit = 3;
+    private const int CommandCheckUpdate = 4;
     private const uint SndAlias = 0x00010000;
     private const uint SndAsync = 0x0001;
     private const uint SndNoDefault = 0x0002;
 
     private readonly Action _openUi;
+    private readonly Action _openAbout;
     private readonly Action _notificationClicked;
     private readonly Action<string> _activated;
     private readonly Action _syncAll;
@@ -42,6 +44,7 @@ public sealed class Win32Tray : IDisposable
 
     public Win32Tray(
         Action openUi,
+        Action openAbout,
         Action notificationClicked,
         Action<string> activated,
         Action syncAll,
@@ -50,6 +53,7 @@ public sealed class Win32Tray : IDisposable
         Func<bool> isDarkTheme)
     {
         _openUi = openUi;
+        _openAbout = openAbout;
         _notificationClicked = notificationClicked;
         _activated = activated;
         _syncAll = syncAll;
@@ -414,6 +418,7 @@ public sealed class Win32Tray : IDisposable
         {
             NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, CommandOpen, "打开 MailDog");
             NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, CommandSync, "立即同步");
+            NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, CommandCheckUpdate, "检查更新");
             NativeMethods.AppendMenu(menu, NativeMethods.MF_SEPARATOR, IntPtr.Zero, string.Empty);
             NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, CommandExit, "退出");
 
@@ -437,6 +442,9 @@ public sealed class Win32Tray : IDisposable
                     break;
                 case CommandSync:
                     _syncAll();
+                    break;
+                case CommandCheckUpdate:
+                    _openAbout();
                     break;
                 case CommandExit:
                     _exit();
