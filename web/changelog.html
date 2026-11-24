@@ -147,14 +147,15 @@
 
     <article class="release">
       <div class="release-top">
-        <h2>下一步 · v1.1</h2>
+        <h2>下一步 · v0.3</h2>
         <span class="date">计划中</span>
       </div>
-      <p class="summary">下一步先让「能看」变成「能写」，再把第一次运行时的安全提示去掉。</p>
+      <p class="summary">下一步把 MailDog 接进 Windows 的日常入口，再把排查问题需要的东西补齐。</p>
       <ul>
-        <li><b>写信、回复、转发</b>：能发新邮件、回信、转寄，草稿也会保存下来。</li>
-        <li><b>去掉首次运行的安全提示</b>：做代码签名，顺便加上版本内更新检查。</li>
-        <li><b>支持更多邮箱</b>：开放服务器设置，其他邮箱也能加进来。</li>
+        <li><b>系统级入口</b>：接管 <code>mailto:</code>、可设为默认邮件程序、资源管理器「发送到」、拖入 <code>.eml</code> 直接打开、任务栏 JumpList 列出最近邮件。</li>
+        <li><b>诊断包</b>：把日志、版本、配置概览打成 zip，邮箱地址与正文全部脱敏，关于页一键导出。</li>
+        <li><b>账号健康面板</b>：每个邮箱上次同步时间、IDLE 是否在连、最近一次错误与重试次数。</li>
+        <li><b>命令行解析迁移</b>：手写解析换成 System.CommandLine，对外命令与退出码保持不变。</li>
       </ul>
       <div class="assets">
         <a href="https://github.com/refout/MailDog/issues" target="_blank" rel="noopener">参与讨论</a>
