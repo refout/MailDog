@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.2.2</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.2.3</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,13 +67,31 @@
 
     <article class="release">
       <div class="release-top">
-        <h2>v0.2.2</h2>
+        <h2>v0.2.3</h2>
         <span class="date">2026-11-24</span>
         <span class="latest">最新</span>
       </div>
-      <p class="summary">修一个自动更新的尾巴：0.2.1 能下载、校验并静默安装，但安装程序把旧窗口关掉之后没有再把新版本拉起来，升级完看起来像程序自己退了。这一版让安装程序在静默升级结束后重新启动 MailDog。</p>
+      <p class="summary">设置页不再把同一件事说三遍，主窗口三栏的边距也对齐了；自动升级装完后会自己回到新版窗口。</p>
       <ul>
-        <li><b>装完自动打开</b>：安装包改为在关闭旧进程后重新启动应用；从 0.2.1 点「下载并安装」，装完会直接回到新版窗口，不用再去开始菜单点一次。</li>
+        <li><b>关于页减法</b>：版本号只在标题下方出现一次，更新结果不再重复当前版本；删掉功能概览、重复的后台运行说明和第二个许可入口。第三方许可仍默认收起，检查更新仍在版本号旁边。</li>
+        <li><b>设置页去重</b>：外观、通知、阅读、同步、账户管理、本地文件和启动页删掉复述分区名的副标题；通知页去掉重复的「系统通知」分组和铃声说明；同步页去掉「后台检查」分组。</li>
+        <li><b>三栏边距统一</b>：文件夹栏、邮件列表和阅读区统一为 16px 上、左、右、下边距，列表头、搜索框、阅读头与底栏对齐。</li>
+        <li><b>升级后自动打开</b>：安装器在静默升级完成后显式启动新版本，不再依赖 Restart Manager 恢复应用；从 0.2.2 点「下载并安装」，装完会直接回到新版窗口。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.2.3" target="_blank" rel="noopener">下载 v0.2.3</a>
+        <a href="https://github.com/refout/MailDog/compare/v0.2.2...v0.2.3" target="_blank" rel="noopener">对比 v0.2.2</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.2.2</h2>
+        <span class="date">2026-11-24</span>
+      </div>
+      <p class="summary">这一版尝试让安装程序在静默升级后重新启动应用，但实际升级验证没有生效；真正的修复放在 v0.2.3。</p>
+      <ul>
+        <li><b>安装器参数未奏效</b>：从 0.2.1 升级到 0.2.2，下载、校验和静默安装都成功，但安装完成后界面与后台进程仍全部退出。</li>
         <li><b>关于页保持 0.2.1 的改版</b>：分区、折叠的第三方许可和版本号旁的检查更新按钮都不变。</li>
       </ul>
       <div class="assets">

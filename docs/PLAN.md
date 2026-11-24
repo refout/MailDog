@@ -1225,13 +1225,24 @@ GitHub Actions `windows-latest`：
 - 快捷键：`Ctrl+N` / `Ctrl+R` / `Ctrl+Shift+R` / `Ctrl+Shift+F` / `Delete` / `F5` / `Ctrl+A` / `Esc` / `Ctrl+F` / `Ctrl+,`。
 - 验证：`dotnet build` 0 警告 0 错误；`dotnet test` 67 通过；1296×839 实机逐项验收，测试线程键已还原。
 
+### v0.2.3（2026-11-24 发布）
+
+设置页去重、主窗口三栏边距统一，并改用安装器显式拉起完成升级。
+
+- ✅ 关于页：版本只在品牌区「版本 0.2.3」出现一次；更新状态不再重复当前版本；软件信息只保留适用平台、数据存储、网络通信；删除功能概览、后台运行行、品牌副标题，以及支持区里重复的许可入口。第三方许可仍默认折叠，检查更新仍在版本号后面。
+- ✅ 设置页其他分区：删除外观、通知、阅读、同步、账户管理、本地文件、启动的复述型页面副标题；通知页去掉「系统通知」分组标题和铃声重复说明；同步页去掉「后台检查」分组标题。
+- ✅ 主窗口三栏：文件夹栏、邮件列表、阅读区统一为 16px 上、左、右、下内边距；列表头、搜索框、批量栏、阅读头、正文与底栏同步对齐。
+- ✅ 自动升级：`MailDog.iss` 的 `[Run]` 去掉 `postinstall`/`skipifsilent`，改为 `Check: ShouldLaunchApp` 读取 `/LAUNCHAPP=1`；`UpdateService` 静默安装时传入该参数，由安装器在装完后启动新版本。
+- ✅ 验证：`dotnet build` 0 警告 0 错误；`dotnet test` 82 通过；UI Automation 实测关于页只出现一次版本号，主窗口三栏内容边界均距窗口/分栏 16px。
+- ⏳ 发布与真机升级：待 tag 与 Release；待从 0.2.2 实测升级到 0.2.3，确认安装完成后自动回到新版窗口。
+
 ### v0.2.2（2026-11-24 发布）
 
-修复 v0.2.1 自动升级后不自动重新打开的问题。
+尝试修复 v0.2.1 自动升级后不自动重新打开的问题，但实际未生效。
 
 - 根因：安装脚本 `CloseApplications=yes` 会让 Restart Manager 关掉正在运行的 UI 与 Engine，但 `RestartApplications=no` 又禁止安装程序把它们拉回来；`[Run]` 还带 `skipifsilent`，静默安装不会启动应用。UI 被关闭后就没人执行 `UpdateService` 里安装完成后的 `Process.Start`。
-- 修复：`src/build/installer/MailDog.iss` 改为 `RestartApplications=yes`，由安装程序在静默升级结束后重新启动被关闭的应用。
-- ⏳ 验证：从本机 0.2.1 检查更新到 0.2.2，确认下载、SHA-256 校验、静默安装、自动重启与新版本自启。
+- 尝试：`src/build/installer/MailDog.iss` 改为 `RestartApplications=yes`，希望安装程序在静默升级结束后重新启动被关闭的应用。
+- ❌ 结果：从本机 0.2.1 实测升级到 0.2.2，下载、SHA-256 校验与静默安装均成功，`FileVersion` 为 0.2.2.0，但 UI 与 Engine 仍全部退出。仅改 `RestartApplications` 不能恢复应用，转 v0.2.3 改为安装器显式拉起。
 
 ### v0.2.1（2026-11-24 发布）
 

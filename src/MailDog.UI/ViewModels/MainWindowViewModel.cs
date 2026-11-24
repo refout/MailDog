@@ -3273,13 +3273,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (!result.HasUpdate)
             {
-                UpdateStatusText = $"已是最新版本（{AppVersion}）。";
+                UpdateStatusText = "已是最新版本。";
                 return;
             }
 
             var canInstall = UpdateService.IsInstalledLayout() && result.InstallerUrl is not null;
             UpdateActionText = canInstall ? "下载并安装" : "去下载页";
-            UpdateStatusText = $"发现新版本 {result.LatestVersion}（当前 {AppVersion}）。";
+            UpdateStatusText = $"发现新版本 {result.LatestVersion}，可以下载安装。";
             HasUpdateAvailable = true;
         }
         finally
@@ -3378,22 +3378,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void ToggleThirdPartyNotices()
     {
         IsThirdPartyNoticesExpanded = !IsThirdPartyNoticesExpanded;
-    }
-
-    [RelayCommand]
-    private void OpenThirdPartyNotices()
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo("https://github.com/refout/MailDog/blob/main/docs/THIRD-PARTY-NOTICES.md")
-            {
-                UseShellExecute = true
-            });
-        }
-        catch
-        {
-            // 打开浏览器失败时不影响关于页。
-        }
     }
 
     [RelayCommand]

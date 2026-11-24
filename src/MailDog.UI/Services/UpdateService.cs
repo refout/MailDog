@@ -201,8 +201,9 @@ public sealed class UpdateService
         var startInfo = new ProcessStartInfo(installerPath)
         {
             UseShellExecute = false,
-            // /SILENT 只留进度条不弹问题；/CLOSEAPPLICATIONS 让 Restart Manager 关掉正在跑的 Engine 与界面。
-            Arguments = "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /SP-"
+            // /SILENT 只留进度条不弹问题；/CLOSEAPPLICATIONS 让 Restart Manager 关掉正在跑的 Engine 与界面；
+            // /LAUNCHAPP=1 交给安装器在装完后拉起新版本，避免旧进程被关掉后无人启动。
+            Arguments = "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /SP- /LAUNCHAPP=1"
         };
 
         using var process = Process.Start(startInfo);

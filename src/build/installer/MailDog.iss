@@ -38,7 +38,7 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 CloseApplications=yes
-RestartApplications=yes
+RestartApplications=no
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
@@ -59,7 +59,8 @@ Name: "{group}\MailDog"; Filename: "{app}\MailDog.UI.exe"
 Name: "{autodesktop}\MailDog"; Filename: "{app}\MailDog.UI.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\MailDog.UI.exe"; Description: "{cm:LaunchProgram,MailDog}"; Flags: nowait postinstall skipifsilent
+; 静默升级由应用传入 /LAUNCHAPP=1，装完直接拉起新版本；普通安装不自动启动。
+Filename: "{app}\MailDog.UI.exe"; Description: "{cm:LaunchProgram,MailDog}"; Flags: nowait; Check: ShouldLaunchApp
 
 [Registry]
 ; 协议与应用标识是运行时写进 HKCU 的，卸载时一并清掉，避免留下指向已删除程序的条目。
@@ -69,3 +70,9 @@ Root: HKCU; Subkey: "Software\Classes\AppUserModelId\MailDog.MailDog.App"; Flags
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C taskkill /IM MailDog.UI.exe /F"; Flags: runhidden; RunOnceId: "KillUI"
 Filename: "{cmd}"; Parameters: "/C taskkill /IM MailDog.Engine.exe /F"; Flags: runhidden; RunOnceId: "KillEngine"
+
+[Code]
+function ShouldLaunchApp: Boolean;
+begin
+  Result := ExpandConstant('{param:LAUNCHAPP|0}') = '1';
+end;
