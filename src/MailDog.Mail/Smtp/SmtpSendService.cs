@@ -70,6 +70,7 @@ public sealed class SmtpSendService
         var copies = CopyAttachments(request.AttachmentPaths);
         var messageId = MimeUtils.GenerateMessageId();
         var now = DateTimeOffset.UtcNow;
+        var delaySeconds = Math.Clamp(_store.GetSettings().SendDelaySeconds, 0, 30);
 
         long outboxId;
         try
@@ -86,7 +87,7 @@ public sealed class SmtpSendService
                 MessageId: messageId,
                 Status: OutboxStatuses.Pending,
                 Attempts: 0,
-                NextAttemptUtc: now,
+                NextAttemptUtc: now.AddSeconds(delaySeconds),
                 LastError: null,
                 CreatedUtc: now,
                 SentUtc: null,
@@ -100,6 +101,18 @@ public sealed class SmtpSendService
         {
             DeleteAttachmentDirectory(copies);
             throw;
+        }
+
+        // 留出撤销窗口：这段时间里邮件停在发件箱，点撤回就直接删掉，不会摸到 SMTP。
+        if (delaySeconds > 0)
+        {
+            return new SendMailResponse
+            {
+                OutboxId = outboxId,
+                Queued = true,
+                Status = OutboxStatuses.Pending,
+                DelaySeconds = delaySeconds
+            };
         }
 
         return await TrySendAsync(outboxId, cancellationToken).ConfigureAwait(false);

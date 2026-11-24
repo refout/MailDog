@@ -1202,6 +1202,9 @@ public sealed class SqliteStore : IDisposable
             ShowRemoteImages = values.GetValueOrDefault("showRemoteImages") == "1",
             SaveSentCopy = !values.TryGetValue("saveSentCopy", out var saveSentCopy) || saveSentCopy != "0",
             Signature = values.GetValueOrDefault("signature") ?? string.Empty,
+            SendDelaySeconds = int.TryParse(values.GetValueOrDefault("sendDelaySeconds"), out var sendDelay)
+                ? Math.Clamp(sendDelay, 0, 30)
+                : 10,
             RenderMode = values.GetValueOrDefault("renderMode") == "plain" ? "plain" : "html"
         };
     }
@@ -1233,6 +1236,7 @@ public sealed class SqliteStore : IDisposable
             UpsertSetting(transaction, "showRemoteImages", settings.ShowRemoteImages ? "1" : "0");
             UpsertSetting(transaction, "saveSentCopy", settings.SaveSentCopy ? "1" : "0");
             UpsertSetting(transaction, "signature", settings.Signature);
+            UpsertSetting(transaction, "sendDelaySeconds", settings.SendDelaySeconds.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "renderMode", settings.RenderMode == "plain" ? "plain" : "html");
             transaction.Commit();
         }

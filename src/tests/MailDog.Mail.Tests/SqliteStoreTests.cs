@@ -43,6 +43,7 @@ public sealed class SqliteStoreTests : IDisposable
             ShowRemoteImages = true,
             SaveSentCopy = false,
             RunAtStartup = true,
+            SendDelaySeconds = 30,
             RenderMode = "plain"
         };
 
@@ -70,6 +71,7 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.True(loaded.ShowRemoteImages);
         Assert.False(loaded.SaveSentCopy);
         Assert.True(loaded.RunAtStartup);
+        Assert.Equal(30, loaded.SendDelaySeconds);
         Assert.Equal("plain", loaded.RenderMode);
     }
 

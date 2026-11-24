@@ -543,6 +543,23 @@
                        TextWrapping="Wrap" />
           </Border>
 
+          <Border IsVisible="{Binding HasUndo}"
+                  Background="{DynamicResource MailDogBrushAccentTint}"
+                  CornerRadius="6"
+                  Padding="10,7">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{Binding UndoHint}"
+                         Foreground="{DynamicResource MailDogBrushAccentBase}"
+                         FontSize="12"
+                         VerticalAlignment="Center"
+                         TextWrapping="Wrap" />
+              <Button Grid.Column="1"
+                      Content="撤回"
+                      Classes="primary"
+                      Command="{Binding UndoQueuedSendCommand}" />
+            </Grid>
+          </Border>
+
           <Border IsVisible="{Binding HasSendWarning}"
                   Background="{DynamicResource MailDogBrushStatusWarningTint}"
                   BorderBrush="{DynamicResource MailDogBrushStatusWarning}"

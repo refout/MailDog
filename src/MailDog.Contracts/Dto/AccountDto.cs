@@ -111,5 +111,8 @@ public sealed class AppSettingsDto
     /// <summary>纯文本邮件签名，新写、回复和转发时插入正文。</summary>
     public string Signature { get; init; } = string.Empty;
 
+    /// <summary>发送前的等待秒数，给出撤销窗口；0 表示立即发送。</summary>
+    public int SendDelaySeconds { get; init; } = 10;
+
     public string RenderMode { get; init; } = "html";
 }

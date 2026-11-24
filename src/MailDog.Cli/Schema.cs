@@ -117,7 +117,7 @@ internal static class Schema
                 Flag("--attach", "附件路径，可重复", true)
             ],
             [Flag("--confirm", "真正发送", false), Flag("--force-send", "发送前检查命中时仍然强发", false)],
-            "{\"outboxId\",\"sent\",\"queued\",\"status\",\"error\"}；发送失败退出码 3"));
+            "{\"outboxId\",\"sent\",\"queued\",\"status\",\"error\",\"delaySeconds\"}；delaySeconds>0 表示还在撤销窗口内，可用 cancel 撤回；发送失败退出码 3"));
 
         builder.Append(',');
         builder.Append(Command(
@@ -140,6 +140,14 @@ internal static class Schema
             ],
             [Flag("--confirm", "真正移动", false)],
             "{\"affected\",\"folder\"}；位置参数是一个或多个邮件 id"));
+
+        builder.Append(',');
+        builder.Append(Command(
+            "cancel",
+            "撤回延迟发送窗口内还没发出的邮件（id 来自 send 的 outboxId）",
+            [],
+            [],
+            "{\"affected\"}；位置参数是一个或多个发件箱 id"));
 
         builder.Append(',');
         builder.Append(Command("schema", "输出本说明的 JSON", [], [], "本对象"))

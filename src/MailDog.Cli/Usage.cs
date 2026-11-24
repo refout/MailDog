@@ -28,6 +28,7 @@ internal static class Usage
           send  参数同 draft，--to 必填           交给 SMTP；发送前会查附件；失败会留痕并回退出码 3
           mark <邮件 id>... [--unread]            批量标已读；--unread 反向标未读
           move <邮件 id>... --account <邮箱> --folder <目标>   移到指定文件夹
+          cancel <发件箱 id>...                    撤回延迟发送窗口里还没发出的邮件
 
         通用开关：
           --json        每行一条 JSON，便于管道与脚本

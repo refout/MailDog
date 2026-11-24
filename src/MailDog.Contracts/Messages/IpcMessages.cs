@@ -300,6 +300,9 @@ public sealed class SendMailResponse : Ipc.IIpcMessage
 
     public string Status { get; init; } = "queued";
 
+    /// <summary>延迟发送的撤销窗口秒数；大于 0 表示邮件还停在发件箱，可以撤回。</summary>
+    public int DelaySeconds { get; init; }
+
     public string? Error { get; init; }
 }
 

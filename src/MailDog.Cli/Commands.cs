@@ -405,6 +405,7 @@ internal static class Commands
                 + ",\"sent\":" + Output.Bool(response.Sent)
                 + ",\"queued\":" + Output.Bool(response.Queued)
                 + ",\"status\":" + Output.Str(response.Status)
+                + ",\"delaySeconds\":" + Output.Num(response.DelaySeconds)
                 + ",\"error\":" + Output.Str(response.Error) + "}");
         }
         else if (response.Sent)
@@ -413,7 +414,14 @@ internal static class Commands
         }
         else if (response.Queued)
         {
-            Console.WriteLine($"已放进发件箱（id {response.OutboxId}），后台会继续重试。");
+            if (response.DelaySeconds > 0)
+            {
+                Console.WriteLine($"已放进发件箱（id {response.OutboxId}），{response.DelaySeconds} 秒后发出；要撤回就执行 maildog cancel {response.OutboxId}。");
+            }
+            else
+            {
+                Console.WriteLine($"已放进发件箱（id {response.OutboxId}），后台会继续重试。");
+            }
         }
         else
         {
@@ -509,6 +517,39 @@ internal static class Commands
         }
 
         return 0;
+    }
+
+    /// <summary>撤回还停在发件箱的邮件（延迟发送窗口内）。</summary>
+    public static async Task<int> CancelAsync(IpcClient client, Arguments args, CancellationToken cancellationToken)
+    {
+        var ids = ReadIds(args, "cancel <发件箱 id> [更多 id]");
+        var affected = 0;
+
+        foreach (var outboxId in ids)
+        {
+            var response = await client.RequestAsync<OkResponse>(
+                IpcMessageTypes.DeleteOutbox,
+                new DeleteOutboxRequest { OutboxId = outboxId },
+                LongTimeout,
+                cancellationToken).ConfigureAwait(false);
+
+            affected += response.Affected;
+        }
+
+        if (args.Json)
+        {
+            Console.WriteLine("{\"affected\":" + Output.Num(affected) + "}");
+        }
+        else if (affected == 0)
+        {
+            Console.Error.WriteLine("没有撤回任何邮件：可能已经发出去了，或者 id 不对。");
+        }
+        else
+        {
+            Console.WriteLine($"已撤回 {affected} 封，邮件没有发出去。");
+        }
+
+        return affected > 0 ? 0 : 2;
     }
 
     private static async Task<AccountDto[]> GetAccountsAsync(IpcClient client, CancellationToken cancellationToken)

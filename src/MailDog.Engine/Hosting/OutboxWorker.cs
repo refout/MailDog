@@ -3,9 +3,10 @@ using MailDog.Mail.Storage;
 
 namespace MailDog.Engine.Hosting;
 
-/// <summary>后台发件箱：每 30 秒取到期记录重试，失败按指数退避。</summary>
+/// <summary>后台发件箱：每 5 秒取到期记录重试，失败按指数退避。</summary>
 public sealed class OutboxWorker : IAsyncDisposable
 {
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
     private readonly SqliteStore _store;
     private readonly SmtpSendService _sender;
     private readonly CancellationTokenSource _cts = new();
@@ -38,7 +39,7 @@ public sealed class OutboxWorker : IAsyncDisposable
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
+                await Task.Delay(PollInterval, cancellationToken).ConfigureAwait(false);
                 await ProcessAsync(cancellationToken).ConfigureAwait(false);
             }
         }

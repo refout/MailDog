@@ -36,7 +36,7 @@ internal static class Program
                 return ExitOk;
             }
 
-            if (arguments.Command is not ("accounts" or "folders" or "list" or "search" or "show" or "attachment" or "draft" or "send" or "mark" or "move"))
+            if (arguments.Command is not ("accounts" or "folders" or "list" or "search" or "show" or "attachment" or "draft" or "send" or "mark" or "move" or "cancel"))
             {
                 throw new UsageException($"不认识的命令：{arguments.Command}（用 maildog schema 看全部命令）");
             }
@@ -61,6 +61,7 @@ internal static class Program
                     "send" => await Commands.SendAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     "mark" => await Commands.MarkAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     "move" => await Commands.MoveAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
+                    "cancel" => await Commands.CancelAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     _ => ExitUsage
                 };
             }

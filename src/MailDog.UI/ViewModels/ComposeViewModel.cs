@@ -718,6 +718,15 @@ public sealed partial class ComposeViewModel : ObservableObject
     private string? _sendWarning;
 
     private bool _sendChecksConfirmed;
+    private Avalonia.Threading.DispatcherTimer? _undoTimer;
+    private long _undoOutboxId;
+
+    /// <summary>延迟发送的倒计时提示；窗口结束时清空。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUndo))]
+    private string? _undoHint;
+
+    public bool HasUndo => !string.IsNullOrEmpty(UndoHint);
 
     public bool HasSendWarning => !string.IsNullOrEmpty(SendWarning);
 
@@ -893,8 +902,18 @@ public sealed partial class ComposeViewModel : ObservableObject
             if (response.Queued)
             {
                 IsQueued = true;
-                Status = "已加入发件箱，将在后台自动重试。";
                 Error = response.Error;
+
+                if (response.DelaySeconds > 0)
+                {
+                    Status = $"已放进发件箱，{response.DelaySeconds} 秒后发出。";
+                    StartUndoWindow(response.DelaySeconds, response.OutboxId);
+                }
+                else
+                {
+                    Status = "已加入发件箱，将在后台自动重试。";
+                }
+
                 Completed?.Invoke(this, Status!);
                 return;
             }
@@ -911,6 +930,71 @@ public sealed partial class ComposeViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>撤回还没发出去的那封：直接从发件箱里删掉。</summary>
+    [RelayCommand]
+    private async Task UndoQueuedSendAsync()
+    {
+        if (_undoOutboxId <= 0)
+        {
+            return;
+        }
+
+        var outboxId = _undoOutboxId;
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.DeleteOutbox,
+                new DeleteOutboxRequest { OutboxId = outboxId },
+                TimeSpan.FromSeconds(20));
+
+            IsQueued = false;
+            Status = "已撤回，邮件没有发出。";
+            Error = null;
+        }
+        catch (Exception exception) when (exception is IpcException or InvalidOperationException or TimeoutException)
+        {
+            Error = exception.Message;
+        }
+        finally
+        {
+            EndUndoWindow();
+        }
+    }
+
+    private void StartUndoWindow(int seconds, long outboxId)
+    {
+        EndUndoWindow();
+
+        _undoOutboxId = outboxId;
+        var left = Math.Max(seconds, 1);
+        UndoHint = $"还剩 {left} 秒可以撤回";
+
+        _undoTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _undoTimer.Tick += (_, _) =>
+        {
+            left--;
+
+            if (left <= 0)
+            {
+                EndUndoWindow();
+                Status = "已交给后台发送。";
+                return;
+            }
+
+            UndoHint = $"还剩 {left} 秒可以撤回";
+        };
+        _undoTimer.Start();
+    }
+
+    private void EndUndoWindow()
+    {
+        _undoTimer?.Stop();
+        _undoTimer = null;
+        _undoOutboxId = 0;
+        UndoHint = null;
     }
 
     /// <summary>用户看过提醒后仍然要发：跳过发送前检查，整封重新提交。</summary>

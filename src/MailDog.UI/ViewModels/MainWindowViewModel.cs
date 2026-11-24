@@ -751,6 +751,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _syncIntervalIndex;
 
+    /// <summary>延迟发送的下标：0=立即，1=5 秒，2=10 秒，3=30 秒。</summary>
+    [ObservableProperty]
+    private int _sendDelayIndex = 2;
+
     [ObservableProperty]
     private bool _markReadOnOpen = true;
 
@@ -872,6 +876,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsSync15Minutes));
         OnPropertyChanged(nameof(IsSync30Minutes));
         OnPropertyChanged(nameof(IsSync60Minutes));
+        QueueSettingsSave();
+    }
+
+    partial void OnSendDelayIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsSendDelayNone));
+        OnPropertyChanged(nameof(IsSendDelay5Seconds));
+        OnPropertyChanged(nameof(IsSendDelay10Seconds));
+        OnPropertyChanged(nameof(IsSendDelay30Seconds));
         QueueSettingsSave();
     }
 
@@ -1060,6 +1073,54 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             if (value)
             {
                 SyncIntervalIndex = 4;
+            }
+        }
+    }
+
+    public bool IsSendDelayNone
+    {
+        get => SendDelayIndex == 0;
+        set
+        {
+            if (value)
+            {
+                SendDelayIndex = 0;
+            }
+        }
+    }
+
+    public bool IsSendDelay5Seconds
+    {
+        get => SendDelayIndex == 1;
+        set
+        {
+            if (value)
+            {
+                SendDelayIndex = 1;
+            }
+        }
+    }
+
+    public bool IsSendDelay10Seconds
+    {
+        get => SendDelayIndex == 2;
+        set
+        {
+            if (value)
+            {
+                SendDelayIndex = 2;
+            }
+        }
+    }
+
+    public bool IsSendDelay30Seconds
+    {
+        get => SendDelayIndex == 3;
+        set
+        {
+            if (value)
+            {
+                SendDelayIndex = 3;
             }
         }
     }
@@ -2525,6 +2586,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ShowRemoteImages = ShowRemoteImages,
             SaveSentCopy = SaveSentCopy,
             Signature = SignatureText,
+            SendDelaySeconds = SendDelayIndex switch
+            {
+                0 => 0,
+                1 => 5,
+                2 => 10,
+                _ => 30
+            },
             RenderMode = RenderModeIndex == 1 ? "plain" : "html"
         };
 
@@ -3779,6 +3847,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ShowRemoteImages = _settings.ShowRemoteImages;
             SaveSentCopy = _settings.SaveSentCopy;
             SignatureText = _settings.Signature ?? string.Empty;
+            SendDelayIndex = _settings.SendDelaySeconds switch
+            {
+                0 => 0,
+                5 => 1,
+                10 => 2,
+                _ => 3
+            };
             RenderModeIndex = _settings.RenderMode == "plain" ? 1 : 0;
             _allowRemoteImages = _settings.ShowRemoteImages;
             ApplyTheme();

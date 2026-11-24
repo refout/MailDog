@@ -491,6 +491,30 @@
                                      Classes="caption"
                                      TextWrapping="Wrap" />
                         </StackPanel>
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="延迟发送" Classes="section" />
+                          <TextBlock Text="发出后留一段撤销窗口：这段时间里邮件停在发件箱，点撤回不会真正发出去。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                          <WrapPanel>
+                            <RadioButton GroupName="senddelay"
+                                         Content="立即"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSendDelayNone}" />
+                            <RadioButton GroupName="senddelay"
+                                         Content="5 秒"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSendDelay5Seconds}" />
+                            <RadioButton GroupName="senddelay"
+                                         Content="10 秒"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSendDelay10Seconds}" />
+                            <RadioButton GroupName="senddelay"
+                                         Content="30 秒"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSendDelay30Seconds}" />
+                          </WrapPanel>
+                        </StackPanel>
                       </StackPanel>
 
                       <StackPanel IsVisible="{Binding IsAccountSection}" Spacing="16">
