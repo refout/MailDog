@@ -1234,7 +1234,8 @@ GitHub Actions `windows-latest`：
 - ✅ 主窗口三栏：文件夹栏、邮件列表、阅读区统一为 16px 上、左、右、下内边距；列表头、搜索框、批量栏、阅读头、正文与底栏同步对齐。
 - ✅ 自动升级：`MailDog.iss` 的 `[Run]` 去掉 `postinstall`/`skipifsilent`，改为 `Check: ShouldLaunchApp` 读取 `/LAUNCHAPP=1`；`UpdateService` 静默安装时传入该参数，由安装器在装完后启动新版本。
 - ✅ 验证：`dotnet build` 0 警告 0 错误；`dotnet test` 82 通过；UI Automation 实测关于页只出现一次版本号，主窗口三栏内容边界均距窗口/分栏 16px。
-- ⏳ 发布与真机升级：待 tag 与 Release；待从 0.2.2 实测升级到 0.2.3，确认安装完成后自动回到新版窗口。
+- ✅ 发布：tag `v0.2.3`，Release <https://github.com/refout/MailDog/releases/tag/v0.2.3>；x64 便携包 32.6 MiB、arm64 便携包 31.2 MiB、x64 安装包 23.4 MiB，安装包 SHA-256 `DD30D9C3CFC947C029F7FFD1FC6A1960E9A88677F361E81F69DB4C246034441D`。
+- ✅ 真机升级（2026-11-24）：本机从 0.2.2 以 `/SILENT /CLOSEAPPLICATIONS /LAUNCHAPP=1` 升级，安装器退出码 0，`FileVersion` 为 0.2.3.0；旧 UI 被关闭后，安装器在 7 秒内拉起新 PID，窗口正常出现。`[Run] Check: ShouldLaunchApp` 生效。
 
 ### v0.2.2（2026-11-24 发布）
 

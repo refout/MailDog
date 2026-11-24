@@ -175,7 +175,7 @@ dist/
 └── MailDog-<版本>-win-x64-setup.exe
 ```
 
-正式发布的 v0.2.3 在 Release 里：x64 便携包、arm64 便携包与 x64 安装包；安装包 SHA-256 以 Release 页面为准。
+正式发布的 v0.2.3 在 Release 里：x64 便携包 32.6 MiB、arm64 便携包 31.2 MiB、x64 安装包 23.4 MiB；安装包 SHA-256 `DD30D9C3CFC947C029F7FFD1FC6A1960E9A88677F361E81F69DB4C246034441D`。
 
 - 两个 exe 都是自包含单文件，不需要 .NET 运行时；UI 必须和 Engine 在同一目录才能自动拉起后台。
 - SQLite / Skia / HarfBuzz / ANGLE 原生库嵌在 exe 里，首次启动解到 `%LOCALAPPDATA%\MailDog\native\`。
