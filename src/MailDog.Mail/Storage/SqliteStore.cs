@@ -531,10 +531,12 @@ public sealed class SqliteStore : IDisposable
                     command.CommandText = """
                         INSERT INTO messages
                             (account_id, folder_id, uid, message_id, subject, from_name, from_addr,
-                             to_addrs, cc_addrs, date_utc, size, flags, has_attachments, preview, body_state)
+                             to_addrs, cc_addrs, date_utc, size, flags, has_attachments, preview, body_state,
+                             thread_key)
                         VALUES
                             ($accountId, $folderId, $uid, $messageId, $subject, $fromName, $fromAddr,
-                             $toAddrs, $ccAddrs, $dateUtc, $size, $flags, $hasAttachments, $preview, 0)
+                             $toAddrs, $ccAddrs, $dateUtc, $size, $flags, $hasAttachments, $preview, 0,
+                             $threadKey)
                         ON CONFLICT(folder_id, uid) DO UPDATE SET
                             message_id = excluded.message_id,
                             subject = excluded.subject,
@@ -546,6 +548,7 @@ public sealed class SqliteStore : IDisposable
                             size = excluded.size,
                             flags = excluded.flags,
                             has_attachments = excluded.has_attachments,
+                            thread_key = COALESCE(excluded.thread_key, messages.thread_key),
                             preview = CASE
                                 WHEN messages.preview = '' THEN excluded.preview
                                 ELSE messages.preview
@@ -565,6 +568,7 @@ public sealed class SqliteStore : IDisposable
                     command.Parameters.AddWithValue("$flags", (int)message.Flags);
                     command.Parameters.AddWithValue("$hasAttachments", message.HasAttachments ? 1 : 0);
                     command.Parameters.AddWithValue("$preview", message.Preview);
+                    command.Parameters.AddWithValue("$threadKey", (object?)message.ThreadKey ?? DBNull.Value);
                     command.ExecuteNonQuery();
 
                     using (var rowIdCommand = _connection.CreateCommand())
@@ -621,7 +625,8 @@ public sealed class SqliteStore : IDisposable
             using var command = _connection.CreateCommand();
             command.CommandText = """
                 SELECT id, account_id, folder_id, uid, message_id, subject, from_name, from_addr,
-                       to_addrs, cc_addrs, date_utc, size, flags, has_attachments, preview, body_state
+                       to_addrs, cc_addrs, date_utc, size, flags, has_attachments, preview, body_state,
+                       thread_key
                 FROM messages
                 WHERE folder_id = $folderId
                   AND (
@@ -641,6 +646,40 @@ public sealed class SqliteStore : IDisposable
         }
     }
 
+    /// <summary>按最近来信聚合联系人，供写信页收件人自动补全。</summary>
+    public IReadOnlyList<ContactSuggestionDto> QueryContacts(int limit)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                SELECT from_addr,
+                       COALESCE(MAX(NULLIF(TRIM(from_name), '')), ''),
+                       MAX(date_utc)
+                FROM messages
+                WHERE TRIM(from_addr) <> ''
+                GROUP BY LOWER(TRIM(from_addr))
+                ORDER BY MAX(date_utc) DESC
+                LIMIT $limit;
+                """;
+            command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 1000));
+
+            var items = new List<ContactSuggestionDto>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                items.Add(new ContactSuggestionDto
+                {
+                    Address = reader.GetString(0).Trim(),
+                    Name = reader.GetString(1).Trim(),
+                    LastSeen = FromDb(reader.GetString(2))
+                });
+            }
+
+            return items;
+        }
+    }
+
     /// <summary>按文件夹角色跨账户查询邮件（统一收件箱等）。</summary>
     public MailListPage QueryMessagesByRole(FolderRole role, DateTimeOffset? beforeDate, long? beforeId, int limit)
     {
@@ -651,7 +690,8 @@ public sealed class SqliteStore : IDisposable
             using var command = _connection.CreateCommand();
             command.CommandText = """
                 SELECT m.id, m.account_id, m.folder_id, m.uid, m.message_id, m.subject, m.from_name, m.from_addr,
-                       m.to_addrs, m.cc_addrs, m.date_utc, m.size, m.flags, m.has_attachments, m.preview, m.body_state
+                       m.to_addrs, m.cc_addrs, m.date_utc, m.size, m.flags, m.has_attachments, m.preview, m.body_state,
+                       m.thread_key
                 FROM messages m
                 JOIN folders f ON f.id = m.folder_id
                 WHERE f.role = $role
@@ -704,7 +744,8 @@ public sealed class SqliteStore : IDisposable
             using var command = _connection.CreateCommand();
             command.CommandText = """
                 SELECT id, account_id, folder_id, uid, message_id, subject, from_name, from_addr,
-                       to_addrs, cc_addrs, date_utc, size, flags, has_attachments, preview, body_state
+                       to_addrs, cc_addrs, date_utc, size, flags, has_attachments, preview, body_state,
+                       thread_key
                 FROM messages WHERE id = $id;
                 """;
             command.Parameters.AddWithValue("$id", messageId);
@@ -1145,6 +1186,8 @@ public sealed class SqliteStore : IDisposable
             NotificationSound = values.GetValueOrDefault("notificationSoundName") is "mail" or "reminder" or "asterisk"
                 ? values.GetValueOrDefault("notificationSoundName")!
                 : "default",
+            NotificationShowSubject = !values.TryGetValue("notificationSubject", out var notificationSubject) || notificationSubject != "0",
+            NotificationShowPreview = values.GetValueOrDefault("notificationPreview") == "1",
             SyncIntervalMinutes = int.TryParse(values.GetValueOrDefault("syncIntervalMinutes"), out var interval)
                 ? Math.Clamp(interval, 1, 60)
                 : 1,
@@ -1153,6 +1196,7 @@ public sealed class SqliteStore : IDisposable
             RunAtStartup = values.GetValueOrDefault("runAtStartup") == "1",
             ShowRemoteImages = values.GetValueOrDefault("showRemoteImages") == "1",
             SaveSentCopy = !values.TryGetValue("saveSentCopy", out var saveSentCopy) || saveSentCopy != "0",
+            Signature = values.GetValueOrDefault("signature") ?? string.Empty,
             RenderMode = values.GetValueOrDefault("renderMode") == "plain" ? "plain" : "html"
         };
     }
@@ -1170,12 +1214,15 @@ public sealed class SqliteStore : IDisposable
             UpsertSetting(transaction, "notifications", settings.NotificationsEnabled ? "1" : "0");
             UpsertSetting(transaction, "notificationSound", settings.NotificationSoundEnabled ? "1" : "0");
             UpsertSetting(transaction, "notificationSoundName", settings.NotificationSound);
+            UpsertSetting(transaction, "notificationSubject", settings.NotificationShowSubject ? "1" : "0");
+            UpsertSetting(transaction, "notificationPreview", settings.NotificationShowPreview ? "1" : "0");
             UpsertSetting(transaction, "syncIntervalMinutes", settings.SyncIntervalMinutes.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "cacheDays", settings.CacheDays.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "markReadOnOpen", settings.MarkReadOnOpen ? "1" : "0");
             UpsertSetting(transaction, "runAtStartup", settings.RunAtStartup ? "1" : "0");
             UpsertSetting(transaction, "showRemoteImages", settings.ShowRemoteImages ? "1" : "0");
             UpsertSetting(transaction, "saveSentCopy", settings.SaveSentCopy ? "1" : "0");
+            UpsertSetting(transaction, "signature", settings.Signature);
             UpsertSetting(transaction, "renderMode", settings.RenderMode == "plain" ? "plain" : "html");
             transaction.Commit();
         }
@@ -1218,11 +1265,11 @@ public sealed class SqliteStore : IDisposable
                     INSERT INTO outbox
                         (account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
                          message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
-                         is_markdown)
+                         is_markdown, body_html)
                     VALUES
                         ($accountId, $toAddrs, $ccAddrs, $bccAddrs, $subject, $bodyText, $inReplyTo,
                          $messageId, $status, $attempts, $nextAttemptUtc, $lastError, $createdUtc, $sentUtc,
-                         $isMarkdown)
+                         $isMarkdown, $bodyHtml)
                     RETURNING id;
                     """;
                 command.Parameters.AddWithValue("$accountId", record.AccountId);
@@ -1240,6 +1287,7 @@ public sealed class SqliteStore : IDisposable
                 command.Parameters.AddWithValue("$createdUtc", ToDb(record.CreatedUtc));
                 command.Parameters.AddWithValue("$sentUtc", record.SentUtc is { } sent ? ToDb(sent) : DBNull.Value);
                 command.Parameters.AddWithValue("$isMarkdown", record.IsMarkdown ? 1 : 0);
+                command.Parameters.AddWithValue("$bodyHtml", (object?)record.BodyHtml ?? DBNull.Value);
                 id = Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
             }
 
@@ -1275,7 +1323,7 @@ public sealed class SqliteStore : IDisposable
                 command.CommandText = """
                     SELECT id, account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
                            message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
-                           is_markdown
+                           is_markdown, body_html
                     FROM outbox WHERE id = $id;
                     """;
                 command.Parameters.AddWithValue("$id", id);
@@ -1303,7 +1351,7 @@ public sealed class SqliteStore : IDisposable
                 command.CommandText = """
                     SELECT id, account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
                            message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
-                           is_markdown
+                           is_markdown, body_html
                     FROM outbox
                     WHERE status IN ('pending', 'sending', 'failed')
                     ORDER BY created_utc DESC
@@ -1344,7 +1392,7 @@ public sealed class SqliteStore : IDisposable
                 command.CommandText = """
                     SELECT id, account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
                            message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
-                           is_markdown
+                           is_markdown, body_html
                     FROM outbox
                     WHERE status = 'pending' AND next_attempt_utc <= $now
                     ORDER BY next_attempt_utc
@@ -1575,7 +1623,8 @@ public sealed class SqliteStore : IDisposable
             FromDb(reader.GetString(13)),
             reader.IsDBNull(14) ? null : FromDb(reader.GetString(14)),
             [],
-            reader.GetInt32(15) != 0);
+            reader.GetInt32(15) != 0,
+            reader.IsDBNull(16) ? null : reader.GetString(16));
 
     private OutboxAttachmentRecord[] LoadOutboxAttachments(long outboxId)
     {
@@ -1726,6 +1775,91 @@ public sealed class SqliteStore : IDisposable
             while (reader.Read())
             {
                 result.Add(reader.GetInt64(0));
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>跨文件夹全文搜索并返回邮件摘要，供“全部邮箱”搜索直接合并列表。</summary>
+    public IReadOnlyList<MailSummaryDto> SearchMessageSummaries(
+        string query,
+        long? folderId,
+        FolderRole? role,
+        int limit = 200)
+    {
+        var text = query.Trim();
+        if (text.Length == 0)
+        {
+            return [];
+        }
+
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            var filters = new List<string>();
+            if (folderId is { } id)
+            {
+                filters.Add("m.folder_id = $folderId");
+                command.Parameters.AddWithValue("$folderId", id);
+            }
+
+            if (role is { } folderRole)
+            {
+                filters.Add("f.role = $role");
+                command.Parameters.AddWithValue("$role", folderRole.ToString());
+            }
+
+            var scope = filters.Count == 0 ? string.Empty : " AND " + string.Join(" AND ", filters);
+            command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 500));
+            var fields = """
+                m.id, m.account_id, m.folder_id, m.uid, m.message_id, m.subject, m.from_name, m.from_addr,
+                m.to_addrs, m.cc_addrs, m.date_utc, m.size, m.flags, m.has_attachments, m.preview,
+                m.body_state, m.thread_key
+                """;
+
+            if (text.Length < 3)
+            {
+                command.CommandText = $"""
+                    SELECT {fields}
+                    FROM messages m
+                    JOIN folders f ON f.id = m.folder_id
+                    LEFT JOIN bodies b ON b.message_row_id = m.id
+                    WHERE (
+                        m.subject LIKE $like OR
+                        m.from_name LIKE $like OR
+                        m.from_addr LIKE $like OR
+                        m.to_addrs LIKE $like OR
+                        m.cc_addrs LIKE $like OR
+                        m.preview LIKE $like OR
+                        b.text_plain LIKE $like
+                    ){scope}
+                    ORDER BY m.date_utc DESC, m.id DESC
+                    LIMIT $limit;
+                    """;
+                command.Parameters.AddWithValue("$like", $"%{text}%");
+            }
+            else
+            {
+                var terms = text.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(term => $"\"{term.Replace("\"", "\"\"")}\"");
+                command.CommandText = $"""
+                    SELECT {fields}
+                    FROM message_fts
+                    JOIN messages m ON m.id = message_fts.message_id
+                    JOIN folders f ON f.id = m.folder_id
+                    WHERE message_fts MATCH $match{scope}
+                    ORDER BY m.date_utc DESC, m.id DESC
+                    LIMIT $limit;
+                    """;
+                command.Parameters.AddWithValue("$match", string.Join(" ", terms));
+            }
+
+            var result = new List<MailSummaryDto>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                result.Add(ToSummary(ReadMessage(reader)));
             }
 
             return result;
@@ -1970,6 +2104,24 @@ public sealed class SqliteStore : IDisposable
                 PRAGMA user_version = 7;
                 """);
         }
+
+        if (version < 8)
+        {
+            Execute("""
+                ALTER TABLE outbox ADD COLUMN body_html TEXT;
+                PRAGMA user_version = 8;
+                """);
+        }
+
+        if (version < 9)
+        {
+            Execute("""
+                ALTER TABLE messages ADD COLUMN thread_key TEXT;
+                CREATE INDEX IF NOT EXISTS ix_messages_account_thread
+                    ON messages(account_id, thread_key);
+                PRAGMA user_version = 9;
+                """);
+        }
     }
 
     private void CreateSchemaV1()
@@ -2127,7 +2279,8 @@ public sealed class SqliteStore : IDisposable
             (MailFlags)reader.GetInt32(12),
             reader.GetInt64(13) != 0,
             reader.GetString(14),
-            reader.GetInt32(15));
+            reader.GetInt32(15),
+            reader.IsDBNull(16) ? null : reader.GetString(16));
 
     private static MailSummaryDto ToSummary(MessageRecord message)
         => new()
@@ -2142,7 +2295,8 @@ public sealed class SqliteStore : IDisposable
             Date = message.Date,
             Flags = message.Flags,
             HasAttachments = message.HasAttachments,
-            Size = message.Size
+            Size = message.Size,
+            ThreadKey = message.ThreadKey
         };
 
     private static MailProvider ParseProvider(string value)

@@ -75,6 +75,12 @@ public sealed class AppSettingsDto
 
     public string NotificationSound { get; init; } = "default";
 
+    /// <summary>通知正文是否显示邮件主题。</summary>
+    public bool NotificationShowSubject { get; init; } = true;
+
+    /// <summary>通知是否附带正文摘要（只取开头一小段）。</summary>
+    public bool NotificationShowPreview { get; init; }
+
     public int SyncIntervalMinutes { get; init; } = 1;
 
     public int CacheDays { get; init; } = 90;
@@ -86,6 +92,9 @@ public sealed class AppSettingsDto
     public bool ShowRemoteImages { get; init; }
 
     public bool SaveSentCopy { get; init; } = true;
+
+    /// <summary>纯文本邮件签名，新写、回复和转发时插入正文。</summary>
+    public string Signature { get; init; } = string.Empty;
 
     public string RenderMode { get; init; } = "html";
 }

@@ -46,7 +46,47 @@ public static class MimeConverter
             Flags: ToFlags(summary.Flags ?? MessageFlags.None),
             HasAttachments: summary.Attachments?.Any() == true,
             Preview: string.Empty,
-            BodyState: BodyStates.NotFetched);
+            BodyState: BodyStates.NotFetched,
+            ThreadKey: BuildThreadKey(
+                envelope?.MessageId,
+                summary.Headers?["In-Reply-To"],
+                summary.Headers?["References"]));
+    }
+
+    /// <summary>会话根取 References 的第一个 Message-ID，退化为 In-Reply-To 或自身 Message-ID。</summary>
+    private static string? BuildThreadKey(string? messageId, string? inReplyTo, string? references)
+    {
+        var root = FirstMessageId(references)
+                   ?? FirstMessageId(inReplyTo)
+                   ?? NormalizeMessageId(messageId);
+        return root;
+    }
+
+    private static string? FirstMessageId(string? header)
+    {
+        if (string.IsNullOrWhiteSpace(header))
+        {
+            return null;
+        }
+
+        var start = header.IndexOf('<');
+        if (start >= 0)
+        {
+            var end = header.IndexOf('>', start + 1);
+            if (end > start)
+            {
+                return NormalizeMessageId(header[(start + 1)..end]);
+            }
+        }
+
+        var tokenEnd = header.IndexOfAny([' ', '\t', '\r', '\n']);
+        return NormalizeMessageId(tokenEnd < 0 ? header : header[..tokenEnd]);
+    }
+
+    private static string? NormalizeMessageId(string? value)
+    {
+        var text = value?.Trim().Trim('<', '>').Trim();
+        return string.IsNullOrEmpty(text) ? null : text.ToLowerInvariant();
     }
 
     public static (string? Html, string? PlainText, bool Truncated, AttachmentRecord[] Attachments) ExtractBody(MimeMessage message)

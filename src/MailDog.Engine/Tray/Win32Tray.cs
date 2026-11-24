@@ -20,6 +20,7 @@ public sealed class Win32Tray : IDisposable
 
     private readonly Action _openUi;
     private readonly Action _notificationClicked;
+    private readonly Action<string> _activated;
     private readonly Action _syncAll;
     private readonly Action _resumed;
     private readonly Action _exit;
@@ -31,6 +32,8 @@ public sealed class Win32Tray : IDisposable
     private IntPtr _window;
     private IntPtr _icon;
     private IntPtr _largeIcon;
+    private int _iconSize = 16;
+    private int _pendingUnread;
     private bool _iconOwned;
     private uint _taskbarCreatedMessage;
     private bool _iconAdded;
@@ -40,6 +43,7 @@ public sealed class Win32Tray : IDisposable
     public Win32Tray(
         Action openUi,
         Action notificationClicked,
+        Action<string> activated,
         Action syncAll,
         Action resumed,
         Action exit,
@@ -47,12 +51,13 @@ public sealed class Win32Tray : IDisposable
     {
         _openUi = openUi;
         _notificationClicked = notificationClicked;
+        _activated = activated;
         _syncAll = syncAll;
         _resumed = resumed;
         _exit = exit;
         _isDarkTheme = isDarkTheme;
         _wndProc = WindowProc;
-        _className = Marshal.StringToHGlobalUni("MailDog.Tray");
+        _className = Marshal.StringToHGlobalUni(ToastActivation.WindowClassName);
     }
 
     public void Run(bool hideConsole)
@@ -83,8 +88,8 @@ public sealed class Win32Tray : IDisposable
         // TaskbarCreated 与 WM_POWERBROADCAST 都不会发给 message-only 窗口。
         _window = NativeMethods.CreateWindowEx(
             WS_EX_TOOLWINDOW,
-            "MailDog.Tray",
-            "MailDog",
+            ToastActivation.WindowClassName,
+            ToastActivation.WindowTitle,
             0,
             0,
             0,
@@ -101,7 +106,8 @@ public sealed class Win32Tray : IDisposable
         }
 
         _taskbarCreatedMessage = NativeMethods.RegisterWindowMessage("TaskbarCreated");
-        var appIcon = LoadAppIcon();
+        _iconSize = GetSmallIconSize();
+        var appIcon = LoadAppIcon(_iconSize);
         _icon = appIcon.Small;
         _largeIcon = appIcon.Large;
         _iconOwned = appIcon.Owned;
@@ -138,13 +144,22 @@ public sealed class Win32Tray : IDisposable
 
     public void UpdateUnreadCount(int unreadCount)
     {
+        // Run() 在后台线程里才加载图标，启动瞬间外层可能先调用到这里；
+        // 先记下未读数，AddIcon() 完成后再补上红点，否则有未读也不会显示。
+        _pendingUnread = unreadCount;
+
         if (!_iconAdded)
         {
             return;
         }
 
-        var badge = unreadCount > 0 ? _avatars.GetBadgeIcon(unreadCount) : IntPtr.Zero;
-        var icon = badge != IntPtr.Zero ? badge : _icon;
+        ApplyUnreadIcon();
+    }
+
+    private void ApplyUnreadIcon()
+    {
+        var dot = _pendingUnread > 0 ? _avatars.GetUnreadDotIcon(_icon, _iconSize) : IntPtr.Zero;
+        var icon = dot != IntPtr.Zero ? dot : _icon;
 
         if (icon == IntPtr.Zero)
         {
@@ -163,7 +178,31 @@ public sealed class Win32Tray : IDisposable
         bool playSound = true,
         string? sound = null,
         string? senderName = null,
-        string? senderAddress = null)
+        string? senderAddress = null,
+        string? preview = null,
+        string? activationUri = null)
+    {
+        // 优先走正式 toast：只有 toast 会落进通知中心，也才有头部应用图标。
+        var avatarPath = _avatars.GetAvatarPng(senderName, senderAddress);
+        var tag = string.IsNullOrWhiteSpace(senderAddress)
+            ? message
+            : $"{senderAddress}_{message}";
+
+        if (ToastNotifier.TryShow(title, message, preview, senderAddress, avatarPath, playSound, tag, activationUri))
+        {
+            return;
+        }
+
+        ShowBalloon(title, message, playSound, sound, senderName, senderAddress);
+    }
+
+    private void ShowBalloon(
+        string title,
+        string message,
+        bool playSound,
+        string? sound,
+        string? senderName,
+        string? senderAddress)
     {
         if (!_iconAdded)
         {
@@ -180,6 +219,7 @@ public sealed class Win32Tray : IDisposable
         data.dwInfoFlags = playSound && customSound is null
             ? (uint)(NativeMethods.NIIF_USER | NativeMethods.NIIF_LARGE_ICON)
             : (uint)(NativeMethods.NIIF_USER | NativeMethods.NIIF_LARGE_ICON | NativeMethods.NIIF_NOSOUND);
+        // 气泡里的大图标用发件人头像；标题栏上方的小图标由应用标识（AUMID）决定。
         data.hBalloonIcon = avatar != IntPtr.Zero
             ? avatar
             : _largeIcon != IntPtr.Zero ? _largeIcon : _icon;
@@ -228,6 +268,11 @@ public sealed class Win32Tray : IDisposable
         data.hIcon = _icon;
         data.szTip = _tooltip;
         _iconAdded = NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_ADD, ref data);
+
+        if (_iconAdded && _pendingUnread > 0)
+        {
+            ApplyUnreadIcon();
+        }
     }
 
     private void RemoveIcon()
@@ -253,6 +298,34 @@ public sealed class Win32Tray : IDisposable
             szInfoTitle = string.Empty
         };
 
+    private IntPtr HandleCopyData(IntPtr lParam)
+    {
+        try
+        {
+            var payload = Marshal.PtrToStructure<ToastActivation.CopyData>(lParam);
+
+            if (payload.Marker.ToUInt64() != ToastActivation.PayloadMarker || payload.Data == IntPtr.Zero)
+            {
+                return IntPtr.Zero;
+            }
+
+            // 字符数按字节数折算，但先卡一个上限，避免收到异常长度时读越界。
+            var characters = (int)Math.Min(payload.ByteCount / 2u, 2048u);
+            var uri = Marshal.PtrToStringUni(payload.Data, characters)?.TrimEnd('\0');
+
+            if (!string.IsNullOrWhiteSpace(uri))
+            {
+                _activated(uri);
+            }
+
+            return new IntPtr(1);
+        }
+        catch
+        {
+            return IntPtr.Zero;
+        }
+    }
+
     private IntPtr WindowProc(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam)
     {
         if (message == _taskbarCreatedMessage)
@@ -277,6 +350,11 @@ public sealed class Win32Tray : IDisposable
 
         switch (message)
         {
+            case ToastActivation.CopyDataMessage:
+                // 通知被点击时系统重新起了一个进程，那边把 maildog:// 地址通过 WM_COPYDATA 送进来。
+                // 这里任何异常都不能放出去：消息循环里抛出会直接带走整个后台进程。
+                return HandleCopyData(lParam);
+
             case WM_TRAYICON:
             {
                 var mouseMessage = (uint)(lParam.ToInt64() & 0xFFFF);
@@ -371,7 +449,7 @@ public sealed class Win32Tray : IDisposable
         }
     }
 
-    private static (IntPtr Small, IntPtr Large, bool Owned) LoadAppIcon()
+    private static (IntPtr Small, IntPtr Large, bool Owned) LoadAppIcon(int smallSize)
     {
         var executable = Environment.ProcessPath;
 
@@ -379,7 +457,7 @@ public sealed class Win32Tray : IDisposable
         {
             try
             {
-                var small = ExtractIcon(executable, 48);
+                var small = ExtractIcon(executable, smallSize);
                 var large = ExtractIcon(executable, 256);
 
                 if (small != IntPtr.Zero || large != IntPtr.Zero)
@@ -404,6 +482,13 @@ public sealed class Win32Tray : IDisposable
         }
 
         return (NativeMethods.LoadIcon(IntPtr.Zero, NativeMethods.IdiApplication), IntPtr.Zero, false);
+    }
+
+    /// <summary>托盘按 SM_CXSMICON 显示，取同尺寸的 ico 帧才不会先被系统缩放。</summary>
+    private static int GetSmallIconSize()
+    {
+        var size = NativeMethods.GetSystemMetrics(NativeMethods.SM_CXSMICON);
+        return size is >= 16 and <= 64 ? size : 16;
     }
 
     private static IntPtr ExtractIcon(string executable, int size)

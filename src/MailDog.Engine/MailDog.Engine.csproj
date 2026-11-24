@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net11.0</TargetFramework>
+    <TargetFramework>net11.0-windows10.0.19041.0</TargetFramework>
     <AssemblyName>MailDog.Engine</AssemblyName>
     <RootNamespace>MailDog.Engine</RootNamespace>
     <AssemblyTitle>MailDog</AssemblyTitle>
@@ -18,5 +18,9 @@
   <ItemGroup>
     <ProjectReference Include="..\MailDog.Contracts\MailDog.Contracts.csproj" />
     <ProjectReference Include="..\MailDog.Mail\MailDog.Mail.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 通知头部的小图标取自应用标识的 IconUri，需要能随时写出一个稳定的 ico 文件。 -->
+    <EmbeddedResource Include="Assets\maildog.ico" LogicalName="maildog.ico" />
   </ItemGroup>
 </Project>

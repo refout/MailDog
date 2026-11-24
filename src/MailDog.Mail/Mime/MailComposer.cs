@@ -21,7 +21,8 @@ public static class MailComposer
         string messageId,
         IReadOnlyList<MailAttachment> attachments,
         bool isMarkdown = false,
-        bool requireRecipients = true)
+        bool requireRecipients = true,
+        string? bodyHtml = null)
     {
         var message = new MimeMessage
         {
@@ -50,14 +51,37 @@ public static class MailComposer
         {
             // 草稿重新打开时据此恢复 Markdown 编辑模式。
             message.Headers.Add("X-MailDog-Markdown", "1");
+            message.Headers.Add("X-MailDog-Format", "markdown");
         }
+        else if (!string.IsNullOrWhiteSpace(bodyHtml))
+        {
+            // 富文本草稿重新打开时恢复编辑器内容。
+            message.Headers.Add("X-MailDog-Format", "html");
+        }
+
+        var hasRichHtml = !isMarkdown && !string.IsNullOrWhiteSpace(bodyHtml);
+        var rawHtml = isMarkdown
+            ? MarkdownRenderer.ToHtml(bodyText)
+            : hasRichHtml
+                ? WrapForEmail(bodyHtml!)
+                : ToHtml(bodyText ?? string.Empty);
+
+        var safeHtml = new HtmlSanitizer()
+            .Sanitize(rawHtml, allowRemoteImages: true)
+            .Html;
+        if (string.IsNullOrWhiteSpace(safeHtml) && !string.IsNullOrWhiteSpace(bodyText))
+        {
+            safeHtml = ToHtml(bodyText);
+        }
+
+        var plainText = isMarkdown || !hasRichHtml
+            ? bodyText ?? string.Empty
+            : HtmlTextConverter.ToPlainText(safeHtml);
 
         var builder = new BodyBuilder
         {
-            TextBody = bodyText ?? string.Empty,
-            HtmlBody = isMarkdown
-                ? MarkdownRenderer.ToHtml(bodyText)
-                : ToHtml(bodyText ?? string.Empty)
+            TextBody = plainText,
+            HtmlBody = safeHtml
         };
 
         foreach (var attachment in attachments)
@@ -114,6 +138,12 @@ public static class MailComposer
 
         return addresses;
     }
+
+    private static string WrapForEmail(string html)
+        => "<div style=\"font-family:'Segoe UI','Microsoft YaHei',sans-serif;font-size:14px;"
+           + "line-height:1.6\">"
+           + html
+           + "</div>";
 
     private static string ToHtml(string text)
         => "<div style=\"font-family:'Segoe UI','Microsoft YaHei',sans-serif;font-size:14px;"

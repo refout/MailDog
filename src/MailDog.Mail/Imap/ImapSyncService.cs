@@ -536,6 +536,15 @@ public sealed class ImapSyncService : IAsyncDisposable
                     ToUniqueId(message.Uid),
                     cancellationToken).ConfigureAwait(false);
 
+                var format = mime.Headers["X-MailDog-Format"]?.Trim();
+                var isMarkdown = string.Equals(
+                        mime.Headers["X-MailDog-Markdown"],
+                        "1",
+                        StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(format, "markdown", StringComparison.OrdinalIgnoreCase);
+                var isRichHtml = !isMarkdown
+                    && string.Equals(format, "html", StringComparison.OrdinalIgnoreCase);
+
                 return new DraftContentDto
                 {
                     MessageId = messageId,
@@ -543,11 +552,11 @@ public sealed class ImapSyncService : IAsyncDisposable
                     Cc = JoinAddresses(mime.Cc),
                     Bcc = JoinAddresses(mime.Bcc),
                     Subject = mime.Subject ?? string.Empty,
-                    BodyText = mime.TextBody ?? mime.HtmlBody ?? string.Empty,
-                    IsMarkdown = string.Equals(
-                        mime.Headers["X-MailDog-Markdown"],
-                        "1",
-                        StringComparison.OrdinalIgnoreCase),
+                    BodyText = isMarkdown || isRichHtml
+                        ? mime.TextBody ?? string.Empty
+                        : mime.TextBody ?? mime.HtmlBody ?? string.Empty,
+                    BodyHtml = isRichHtml ? mime.HtmlBody ?? string.Empty : null,
+                    IsMarkdown = isMarkdown,
                     AttachmentNames = mime.Attachments
                         .OfType<MimePart>()
                         .Select(part => part.FileName ?? part.ContentDisposition?.FileName ?? "attachment")
@@ -610,7 +619,8 @@ public sealed class ImapSyncService : IAsyncDisposable
                 MimeUtils.GenerateMessageId(),
                 attachments,
                 request.IsMarkdown,
-                requireRecipients: false);
+                requireRecipients: false,
+                bodyHtml: request.BodyHtml);
 
             var folder = session.Client!.GetFolder(drafts.FullName);
             await folder.AppendAsync(
@@ -1170,6 +1180,7 @@ public sealed class ImapSyncService : IAsyncDisposable
 
             var items = MessageSummaryItems.UniqueId
                         | MessageSummaryItems.Envelope
+                        | MessageSummaryItems.Headers
                         | MessageSummaryItems.Flags
                         | MessageSummaryItems.InternalDate
                         | MessageSummaryItems.Size

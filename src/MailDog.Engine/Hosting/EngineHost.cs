@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using MailDog.Contracts.Dto;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
 using MailDog.Engine.Ipc;
@@ -43,8 +44,11 @@ public sealed class EngineHost : IAsyncDisposable
     private (long MessageId, string AccountId, long FolderId)? _lastNotification;
     private (long MessageId, string AccountId, long FolderId)? _pendingNavigation;
 
-    public EngineHost(string databasePath, bool hideConsole = true)
+    private readonly string? _startupActivation;
+
+    public EngineHost(string databasePath, bool hideConsole = true, string? startupActivation = null)
     {
+        _startupActivation = startupActivation;
         _log = new FileLogger();
         _databasePath = databasePath;
         _hideConsole = hideConsole;
@@ -85,13 +89,7 @@ public sealed class EngineHost : IAsyncDisposable
                 if (settings.NotificationsEnabled)
                 {
                     _lastNotification = (message.Latest.Id, message.AccountId, message.FolderId);
-                    _tray?.ShowNotification(
-                        "新邮件",
-                        $"{message.Latest.FromName}: {message.Latest.Subject}",
-                        settings.NotificationSoundEnabled,
-                        settings.NotificationSound,
-                        message.Latest.FromName,
-                        message.Latest.FromAddress);
+                    ShowNewMailNotification(message.Latest, message.AccountId, settings);
                 }
             }
         };
@@ -107,6 +105,12 @@ public sealed class EngineHost : IAsyncDisposable
         _log.Info($"Engine 启动，数据库：{_databasePath}");
         StartupRegistration.Apply(_store.GetSettings().RunAtStartup);
 
+        // 通知标题栏的小图标跟随应用标识：每次启动刷新一次，保证换图后能立刻生效。
+        Tray.AppIdentity.EnsureRegistered("MailDog");
+
+        // 点击通知（含通知中心里的历史）时，Windows 通过 maildog: 协议把请求交回本进程。
+        Tray.ShellIntegration.EnsureProtocolRegistered();
+
         _ipc.Start();
         _scheduler = SchedulerLoopAsync(_cts.Token);
         _outbox.Start();
@@ -115,6 +119,7 @@ public sealed class EngineHost : IAsyncDisposable
         _tray = new Win32Tray(
             OpenUi,
             HandleNotificationClicked,
+            Activate,
             () => _ = SyncAllAsync(_cts.Token),
             OnSystemResumed,
             () => _cts.Cancel(),
@@ -122,6 +127,12 @@ public sealed class EngineHost : IAsyncDisposable
 
         _tray.UpdateTooltip(BuildTooltip());
         _tray.UpdateUnreadCount(TotalUnread());
+
+        // 冷启动时就带着点击来源：直接把界面拉起来并落到那封邮件，而不是只留一条待办导航。
+        if (!string.IsNullOrWhiteSpace(_startupActivation))
+        {
+            Activate(_startupActivation);
+        }
 
         Console.CancelKeyPress += OnCancelKeyPress;
 
@@ -173,6 +184,108 @@ public sealed class EngineHost : IAsyncDisposable
         _pendingNavigation = _lastNotification;
     }
 
+    /// <summary>通知正文按设置拼：主题与正文摘要都可以单独关掉。</summary>
+    private void ShowNewMailNotification(MailSummaryDto latest, string accountId, AppSettingsDto settings)
+    {
+        var subject = string.IsNullOrWhiteSpace(latest.Subject) ? "（无主题）" : Collapse(latest.Subject);
+        var preview = Truncate(Collapse(latest.Preview), 90);
+        var sender = string.IsNullOrWhiteSpace(latest.FromName) ? latest.FromAddress : latest.FromName;
+
+        string body;
+        string? extraLine = null;
+
+        if (!settings.NotificationShowSubject)
+        {
+            // 不显示主题时至少给一句能看懂的话，避免通知看起来是空的。
+            body = settings.NotificationShowPreview && preview.Length > 0 ? preview : "收到一封新邮件";
+        }
+        else
+        {
+            body = subject;
+
+            if (settings.NotificationShowPreview && preview.Length > 0)
+            {
+                extraLine = preview;
+            }
+        }
+
+        _tray?.ShowNotification(
+            string.IsNullOrWhiteSpace(sender) ? "新邮件" : sender,
+            body,
+            settings.NotificationSoundEnabled,
+            settings.NotificationSound,
+            latest.FromName,
+            latest.FromAddress,
+            extraLine,
+            BuildActivationUri(latest.Id, accountId, latest.FolderId));
+    }
+
+    private static string BuildActivationUri(long messageId, string accountId, long folderId)
+        => $"{ShellIntegration.UriPrefix}mail?m={messageId}&a={Uri.EscapeDataString(accountId)}&f={folderId}";
+
+    private static string Collapse(string value)
+        => string.Join(' ', value.Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries)).Trim();
+
+    private static string Truncate(string value, int length)
+        => value.Length <= length ? value : value[..length].TrimEnd() + "…";
+
+    /// <summary>点通知后把用户带到那封邮件：能广播就广播，界面没开就顺手拉起。</summary>
+    public void Activate(string uri)
+    {
+        if (ParseActivation(uri) is { } target)
+        {
+            _pendingNavigation = target;
+        }
+
+        OpenUi();
+    }
+
+    private static (long MessageId, string AccountId, long FolderId)? ParseActivation(string uri)
+    {
+        try
+        {
+            if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed))
+            {
+                return null;
+            }
+
+            long messageId = 0;
+            long folderId = 0;
+            var accountId = string.Empty;
+
+            foreach (var pair in parsed.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = pair.Split('=', 2);
+
+                if (parts.Length != 2)
+                {
+                    continue;
+                }
+
+                switch (parts[0])
+                {
+                    case "m":
+                        long.TryParse(parts[1], out messageId);
+                        break;
+                    case "f":
+                        long.TryParse(parts[1], out folderId);
+                        break;
+                    case "a":
+                        accountId = Uri.UnescapeDataString(parts[1]);
+                        break;
+                }
+            }
+
+            return messageId > 0 && accountId.Length > 0
+                ? (messageId, accountId, folderId)
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private PendingNavigationResponse TakePendingNavigation()
     {
         var target = _pendingNavigation;
@@ -211,10 +324,12 @@ public sealed class EngineHost : IAsyncDisposable
 
         if (string.IsNullOrWhiteSpace(uiPath) || !File.Exists(uiPath))
         {
-            uiPath = Path.Combine(AppContext.BaseDirectory, "MailDog.UI.exe");
+            // 打包后 UI 与 Engine 同目录；开发时两者在不同项目的输出目录里，
+            // 光看同目录会一直"未找到 UI"，所以按仓库结构向上找一遍。
+            uiPath = LocateUi();
         }
 
-        if (!File.Exists(uiPath))
+        if (string.IsNullOrWhiteSpace(uiPath) || !File.Exists(uiPath))
         {
             _log.Warn($"未找到 UI：{uiPath}");
             return;
@@ -232,6 +347,54 @@ public sealed class EngineHost : IAsyncDisposable
         {
             _log.Error("启动 UI 失败。", exception);
         }
+    }
+
+    /// <summary>同目录优先（安装后就是这样）；找不到再按仓库里的 UI 构建目录向上搜。</summary>
+    private static string? LocateUi()
+    {
+        var sameDirectory = Path.Combine(AppContext.BaseDirectory, "MailDog.UI.exe");
+
+        if (File.Exists(sameDirectory))
+        {
+            return sameDirectory;
+        }
+
+        var configuration = AppContext.BaseDirectory.Contains(
+            $"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}",
+            StringComparison.OrdinalIgnoreCase)
+            ? "Release"
+            : "Debug";
+
+        var runtime = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture
+            == System.Runtime.InteropServices.Architecture.Arm64
+            ? "win-arm64"
+            : "win-x64";
+
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        for (var depth = 0; depth < 6 && directory is not null; depth++, directory = directory.Parent)
+        {
+            var uiRoot = Path.Combine(directory.FullName, "MailDog.UI", "bin", configuration);
+
+            if (!Directory.Exists(uiRoot))
+            {
+                continue;
+            }
+
+            foreach (var candidate in new[]
+                     {
+                         Path.Combine(uiRoot, "net11.0", runtime, "MailDog.UI.exe"),
+                         Path.Combine(uiRoot, "net11.0", "MailDog.UI.exe")
+                     })
+            {
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
     }
 
     private string BuildTooltip()

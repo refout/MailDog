@@ -44,6 +44,24 @@ public sealed class MarkdownRendererTests
     }
 
     [Fact]
+    public void EscapedMarkdownMarkersStayLiteral()
+    {
+        var html = MarkdownRenderer.ToHtml(@"\*\*不是粗体\*\*");
+
+        Assert.Contains("**不是粗体**", html);
+        Assert.DoesNotContain("<strong>", html);
+        Assert.DoesNotContain("<em>", html);
+    }
+
+    [Fact]
+    public void RendersStrikethrough()
+    {
+        var html = MarkdownRenderer.ToHtml("~~删除线~~");
+
+        Assert.Contains("<s>删除线</s>", html);
+    }
+
+    [Fact]
     public void RendersQuotesAndOrderedLists()
     {
         var html = MarkdownRenderer.ToHtml("> 引用\n\n1. 甲\n2. 乙");

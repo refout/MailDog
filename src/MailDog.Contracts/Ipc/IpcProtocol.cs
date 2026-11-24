@@ -40,6 +40,8 @@ public static class IpcMessageTypes
     public const string MessagesPage = "messagesPage";
     public const string SearchMessages = "searchMessages";
     public const string MessageSearch = "messageSearch";
+    public const string ListContacts = "listContacts";
+    public const string Contacts = "contacts";
     public const string GetMessageBody = "getMessageBody";
     public const string MessageBody = "messageBody";
     public const string MoveMessage = "moveMessage";

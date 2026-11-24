@@ -30,6 +30,8 @@ public sealed class SqliteStoreTests : IDisposable
             NotificationsEnabled = false,
             NotificationSoundEnabled = false,
             NotificationSound = "mail",
+            NotificationShowSubject = false,
+            NotificationShowPreview = true,
             SyncIntervalMinutes = 15,
             CacheDays = 30,
             MarkReadOnOpen = false,
@@ -49,6 +51,8 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.False(loaded.NotificationsEnabled);
         Assert.False(loaded.NotificationSoundEnabled);
         Assert.Equal("mail", loaded.NotificationSound);
+        Assert.False(loaded.NotificationShowSubject);
+        Assert.True(loaded.NotificationShowPreview);
         Assert.Equal(15, loaded.SyncIntervalMinutes);
         Assert.Equal(30, loaded.CacheDays);
         Assert.False(loaded.MarkReadOnOpen);
@@ -373,7 +377,8 @@ public sealed class SqliteStoreTests : IDisposable
             now,
             null,
             [],
-            IsMarkdown: true);
+            IsMarkdown: true,
+            BodyHtml: "<p>富文本</p>");
 
         var id = _store.InsertOutbox(record,
         [
@@ -384,6 +389,7 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.Equal("to@example.com", loaded.ToAddresses);
         Assert.Equal("<outbox@example.com>", loaded.MessageId);
         Assert.True(loaded.IsMarkdown);
+        Assert.Equal("<p>富文本</p>", loaded.BodyHtml);
         Assert.Single(loaded.Attachments);
 
         var due = _store.GetDueOutbox(now.AddSeconds(1), 5);

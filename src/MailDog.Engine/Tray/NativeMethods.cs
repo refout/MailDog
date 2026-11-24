@@ -160,6 +160,12 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     internal static extern bool DestroyIcon(IntPtr icon);
 
+    /// <summary>系统小图标边长，随 DPI 缩放变化（100% 为 16）。</summary>
+    internal const int SM_CXSMICON = 49;
+
+    [DllImport("user32.dll")]
+    internal static extern int GetSystemMetrics(int index);
+
     [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
     internal static extern bool PlaySound(string sound, IntPtr module, uint flags);
 

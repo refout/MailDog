@@ -56,6 +56,47 @@ public sealed class MailComposerTests : IDisposable
     }
 
     [Fact]
+    public void RichHtmlBodyProducesSanitizedHtmlAndPlainFallback()
+    {
+        var account = new AccountRecord(
+            "acc-1",
+            MailProvider.QQ,
+            "sender@example.com",
+            "发件人",
+            "password",
+            null,
+            DateTimeOffset.UtcNow,
+            null,
+            AccountStatus.Ok,
+            null);
+
+        using var message = MailComposer.Build(
+            account,
+            "to@example.com",
+            string.Empty,
+            string.Empty,
+            "富文本",
+            "富文本回退",
+            null,
+            "<rich@example.com>",
+            [],
+            bodyHtml: "<p><strong>你好</strong><u>下划线</u><s>删除线</s></p>"
+                + "<ul><li>一</li></ul><blockquote>引用</blockquote>"
+                + "<p><a href=\"https://example.com\">链接</a></p>"
+                + "<script>alert(1)</script>");
+
+        Assert.Contains("<strong>你好</strong>", message.HtmlBody);
+        Assert.Contains("<u>下划线</u>", message.HtmlBody);
+        Assert.Contains("<s>删除线</s>", message.HtmlBody);
+        Assert.Contains("<ul><li>一</li></ul>", message.HtmlBody);
+        Assert.Contains("<blockquote>引用</blockquote>", message.HtmlBody);
+        Assert.Contains("href=\"https://example.com\"", message.HtmlBody);
+        Assert.DoesNotContain("script", message.HtmlBody, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("你好", message.TextBody);
+        Assert.Equal("html", message.Headers["X-MailDog-Format"]);
+    }
+
+    [Fact]
     public void MarkdownBodyProducesFormattedHtml()
     {
         var account = new AccountRecord(

@@ -23,6 +23,9 @@ public sealed class MailSummaryDto
     public bool HasAttachments { get; init; }
 
     public int Size { get; init; }
+
+    /// <summary>会话根键；由 References / In-Reply-To 解析，旧数据为空。</summary>
+    public string? ThreadKey { get; init; }
 }
 
 public sealed class AttachmentDto
@@ -90,6 +93,16 @@ public sealed class MailListPage
     public long? NextId { get; init; }
 }
 
+/// <summary>收件人自动补全候选，来自本地邮件历史。</summary>
+public sealed class ContactSuggestionDto
+{
+    public string Name { get; init; } = string.Empty;
+
+    public string Address { get; init; } = string.Empty;
+
+    public DateTimeOffset LastSeen { get; init; }
+}
+
 /// <summary>草稿箱中的原始内容，用于重新打开撰写页继续编辑。</summary>
 public sealed class DraftContentDto
 {
@@ -104,6 +117,9 @@ public sealed class DraftContentDto
     public string Subject { get; init; } = string.Empty;
 
     public string BodyText { get; init; } = string.Empty;
+
+    /// <summary>富文本草稿的 HTML 正文；Markdown 或旧草稿为空。</summary>
+    public string? BodyHtml { get; init; }
 
     public bool IsMarkdown { get; init; }
 

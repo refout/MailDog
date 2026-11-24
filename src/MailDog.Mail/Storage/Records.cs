@@ -50,7 +50,8 @@ public sealed record MessageRecord(
     MailFlags Flags,
     bool HasAttachments,
     string Preview,
-    int BodyState)
+    int BodyState,
+    string? ThreadKey = null)
 {
     public bool IsRead => (Flags & MailFlags.Seen) != 0;
     public bool IsFlagged => (Flags & MailFlags.Flagged) != 0;
@@ -88,7 +89,8 @@ public sealed record OutboxRecord(
     DateTimeOffset CreatedUtc,
     DateTimeOffset? SentUtc,
     IReadOnlyList<OutboxAttachmentRecord> Attachments,
-    bool IsMarkdown = false);
+    bool IsMarkdown = false,
+    string? BodyHtml = null);
 
 public sealed record OutboxAttachmentRecord(
     long Id,

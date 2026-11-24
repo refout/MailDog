@@ -91,7 +91,8 @@ public sealed class SmtpSendService
                 CreatedUtc: now,
                 SentUtc: null,
                 Attachments: copies,
-                IsMarkdown: request.IsMarkdown);
+                IsMarkdown: request.IsMarkdown,
+                BodyHtml: request.BodyHtml);
 
             outboxId = _store.InsertOutbox(record, copies);
         }
@@ -151,7 +152,8 @@ public sealed class SmtpSendService
                 record.InReplyTo,
                 record.MessageId,
                 attachments,
-                record.IsMarkdown);
+                record.IsMarkdown,
+                bodyHtml: record.BodyHtml);
 
             await SendViaSmtpAsync(account, message, cancellationToken).ConfigureAwait(false);
 

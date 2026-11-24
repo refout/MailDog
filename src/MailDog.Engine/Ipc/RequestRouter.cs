@@ -114,7 +114,24 @@ public sealed class RequestRouter
             case GetMessagesRequest request:
                 return GetMessages(request);
 
+            case ListContactsRequest request:
+                return new ContactsResponse { Items = _store.QueryContacts(request.Limit).ToArray() };
+
             case SearchMessagesRequest request:
+                if (request.AllFolders)
+                {
+                    var items = _store.SearchMessageSummaries(
+                        request.Query,
+                        null,
+                        null,
+                        request.Limit);
+                    return new MessageSearchResponse
+                    {
+                        MessageIds = items.Select(item => item.Id).ToArray(),
+                        Items = items.ToArray()
+                    };
+                }
+
                 return new MessageSearchResponse
                 {
                     MessageIds = _store.SearchMessageIds(

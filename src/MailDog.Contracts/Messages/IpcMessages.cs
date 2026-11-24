@@ -182,11 +182,27 @@ public sealed class SearchMessagesRequest : Ipc.IIpcMessage
     public string Query { get; init; } = string.Empty;
 
     public int Limit { get; init; } = 200;
+
+    /// <summary>跨全部账户和文件夹搜索；设置后忽略 FolderId/Role。</summary>
+    public bool AllFolders { get; init; }
 }
 
 public sealed class MessageSearchResponse : Ipc.IIpcMessage
 {
     public long[] MessageIds { get; init; } = [];
+
+    /// <summary>跨文件夹搜索时附带摘要，供 UI 合并列表。</summary>
+    public MailSummaryDto[] Items { get; init; } = [];
+}
+
+public sealed class ListContactsRequest : Ipc.IIpcMessage
+{
+    public int Limit { get; init; } = 500;
+}
+
+public sealed class ContactsResponse : Ipc.IIpcMessage
+{
+    public ContactSuggestionDto[] Items { get; init; } = [];
 }
 
 public sealed class GetMessageBodyRequest : Ipc.IIpcMessage
@@ -259,6 +275,9 @@ public sealed class SendMailRequest : Ipc.IIpcMessage
 
     public string BodyText { get; init; } = string.Empty;
 
+    /// <summary>富文本模式下的 HTML 正文；Markdown 模式留空。</summary>
+    public string? BodyHtml { get; init; }
+
     public bool IsMarkdown { get; init; }
 
     public string? InReplyTo { get; init; }
@@ -294,6 +313,9 @@ public sealed class SaveDraftRequest : Ipc.IIpcMessage
     public string Subject { get; init; } = string.Empty;
 
     public string BodyText { get; init; } = string.Empty;
+
+    /// <summary>富文本模式下的 HTML 正文；Markdown 模式留空。</summary>
+    public string? BodyHtml { get; init; }
 
     public bool IsMarkdown { get; init; }
 
