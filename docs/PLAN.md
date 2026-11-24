@@ -1247,7 +1247,12 @@ GitHub Actions `windows-latest`：
 
 - 传输选择：以 **Streamable HTTP** 为主（MCP 2025-06-18 规范），stdio 只做兼容壳。理由很实际：stdio 模式下每个 AI 客户端都会各自拉起一个进程，重复连 Engine、日志分裂、每处配置都要填可执行文件绝对路径；而 Engine 本来就常驻、且只有它持有数据库连接与凭据，由它直接对外开一个本地 HTTP 端点，多个客户端可以同时连、共用一份会话与数据。
 - 端点：Engine 内宿主，单一入口 `http://127.0.0.1:<port>/mcp`（默认关闭，端口可配，建议 17891）。`POST` 收 JSON-RPC，响应可按请求头返回 `application/json` 或 `text/event-stream`；`initialize` 返回并后续校验 `Mcp-Session-Id`；`DELETE` 结束会话；本项目不需要服务端主动推送，`GET` 流式通道先不实现。
-- 实现手段：`System.Net.HttpListener`（Windows 自带、AOT 友好），不引 ASP.NET Core；JSON-RPC 手搓 `initialize` / `tools/list` / `tools/call`（外加 `notifications/initialized`），沿用 Contracts 的源生成序列化，零新增第三方包。
+- 协议实现：**优先用官方 SDK** `ModelContextProtocol`（微软与 Anthropic 共维护，2026-11 仍在发版），不自己重写 JSON-RPC 语义；`tools/list` 的 schema 由方法签名自动生成，省掉手写 JSON Schema 与客户端兼容性踩坑。
+- 选型探针（先行，半天）：AOT 是本项目硬门禁（CI `verify-aot` + Engine 体积预算 35 MiB），所以先探针再定案：
+  - 探针 A：`ModelContextProtocol`（Core）在 `PublishAot` 下能否 0 条 `IL` 警告、Engine 体积增量多少。
+  - 探针 B：`ModelContextProtocol.AspNetCore`（Streamable HTTP 的 Kestrel 宿主）在 AOT 下能否发布。ASP.NET Core 对 Native AOT 的支持一直有限，若失败即排除该包。
+  - 探针 C：Core 的 `IServerTransport` 自定义传输点是否稳定可用——用它把 SDK 接到自写 `HttpListener` 传输上。
+  - 判定：A、B 都过 → 全用官方包；A 过、B 不过 → 官方 Core + 自写 `HttpListener` 传输（预期结论）；A 不过 → 才退回手搓 `initialize`/`tools/list`/`tools/call` 三个方法。
 - 鉴权与边界：只绑定回环地址，不监听 `0.0.0.0`；启用时生成随机 32 字节令牌，`Authorization: Bearer` 校验，令牌用 DPAPI 存盘、设置页可一键复制与重生成；校验 `Origin`，跨站请求一律拒绝；同一会话内工具调用串行，避免并发抢 SQLite。
 - stdio 兼容壳：保留极薄 `MailDog.Mcp.exe`，只把 stdin/stdout 的 JSON-RPC 转发到本机 HTTP 端点，给只支持 `command` 配置的客户端用；**不复制第二套工具实现**。
 - 只读工具（v1，默认启用，一对一映射现有 IPC）：
