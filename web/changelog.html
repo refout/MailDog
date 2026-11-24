@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.2.0</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.2.1</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,9 +67,26 @@
 
     <article class="release">
       <div class="release-top">
-        <h2>v0.2.0</h2>
+        <h2>v0.2.1</h2>
         <span class="date">2026-11-24</span>
         <span class="latest">最新</span>
+      </div>
+      <p class="summary">这一版只重做设置里的「关于」页：信息按软件信息、功能概览、更新、第三方许可和支持分开，语气改成正式说明，翻起来不再是一大段混在一起的口语。</p>
+      <ul>
+        <li><b>关于页重新分区</b>：版本、平台、数据位置、网络通信和后台运行单独成表；功能概览按账户、存储、写信、规则、通知和命令行逐条列出。</li>
+        <li><b>开源许可可以收起来</b>：第三方许可默认折叠，点标题右侧的「展开」才显示组件、用途和许可证；完整版本与间接依赖仍指向仓库里的许可清单。</li>
+        <li><b>检查更新跟着版本走</b>：按钮挪到版本号「0.2.1」后面，点完在下方显示检查结果；「更新」区保留更新来源、SHA-256 校验和便携版不自动改装安装版的说明。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.2.1" target="_blank" rel="noopener">下载 v0.2.1</a>
+        <a href="https://github.com/refout/MailDog/compare/v0.2.0...v0.2.1" target="_blank" rel="noopener">对比 v0.2.0</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.2.0</h2>
+        <span class="date">2026-11-24</span>
       </div>
       <p class="summary">这一版把「收信」这件事收得更干净：通知不再一股脑地弹，来信能按规则自己归类，发信前会提醒你别忘附件，发出去还有几秒后悔的时间；另外多了一个命令行工具，脚本和助手也能用它收发信。</p>
       <ul>
