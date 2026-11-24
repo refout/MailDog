@@ -40,21 +40,30 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $false
           $exe = 'src/MailDog.Cli/bin/Release/net11.0/MailDog.Cli.exe'
           if (-not (Test-Path $exe)) { throw "找不到 CLI 可执行文件：$exe" }
+          Write-Host "CLI: $exe"
 
           $schema = & $exe schema | ConvertFrom-Json
+          foreach ($name in @('tool', 'commands', 'exitCodes')) {
+            if ($null -eq $schema.$name) { throw "schema 缺少 $name（原始输出可能不是合法 JSON）" }
+          }
+          Write-Host "schema ok: $($schema.commands.Count) 个命令"
           if ($schema.tool -ne 'maildog') { throw "schema.tool 应为 maildog，实际 $($schema.tool)" }
           if ($schema.commands.name -notcontains 'send') { throw 'schema 里缺少 send' }
           if ($schema.commands.name -notcontains 'move') { throw 'schema 里缺少 move' }
           if ($schema.exitCodes.'5' -notmatch '参数') { throw 'schema 退出码说明不对' }
 
           & $exe help | Out-Null
+          Write-Host "help exit: $LASTEXITCODE"
           if ($LASTEXITCODE -ne 0) { throw "help 应退出 0，实际 $LASTEXITCODE" }
 
           & $exe list --nope 2>$null
+          Write-Host "bad flag exit: $LASTEXITCODE"
           if ($LASTEXITCODE -ne 5) { throw "未知开关应退出 5，实际 $LASTEXITCODE" }
 
           # 注：不在这里断言“连不上 Engine 退出 3”——CI 机上没有 Engine 是 3，
           # 但开发机上 Engine 常驻时同一条命令会变成“没找到账号”的 2，不适合做稳定断言。
+          Write-Host "CLI smoke passed"
+          exit 0
 
       - name: Verify Native AOT
         shell: pwsh
