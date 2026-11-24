@@ -1245,9 +1245,11 @@ GitHub Actions `windows-latest`：
 
 #### P1 MCP 服务（MailDog 作为服务端，供 AI 助手读写邮箱）
 
-- 定位：本地单用户、stdio 传输的 MCP 服务，由 AI 客户端（豆包、Claude Code、Cursor 等）按需拉起，不复用 Engine 的常驻生命周期。
-- 架构：新项目 `MailDog.Mcp`（控制台 exe，`stdin/stdout` JSON-RPC）。进程内复用 `MailDog.Contracts` 的命名管道客户端；Engine 未运行时沿用 `EngineHost.LocateUi()` 式的路径探测自行拉起 Engine。
-- 协议实现：手搓 `initialize` / `tools/list` / `tools/call` 三个方法，沿用 Contracts 的源生成序列化，零新增第三方包，AOT 安全（不引入官方 SDK，除非其 AOT 清洁度经探针验证）。
+- 传输选择：以 **Streamable HTTP** 为主（MCP 2025-06-18 规范），stdio 只做兼容壳。理由很实际：stdio 模式下每个 AI 客户端都会各自拉起一个进程，重复连 Engine、日志分裂、每处配置都要填可执行文件绝对路径；而 Engine 本来就常驻、且只有它持有数据库连接与凭据，由它直接对外开一个本地 HTTP 端点，多个客户端可以同时连、共用一份会话与数据。
+- 端点：Engine 内宿主，单一入口 `http://127.0.0.1:<port>/mcp`（默认关闭，端口可配，建议 17891）。`POST` 收 JSON-RPC，响应可按请求头返回 `application/json` 或 `text/event-stream`；`initialize` 返回并后续校验 `Mcp-Session-Id`；`DELETE` 结束会话；本项目不需要服务端主动推送，`GET` 流式通道先不实现。
+- 实现手段：`System.Net.HttpListener`（Windows 自带、AOT 友好），不引 ASP.NET Core；JSON-RPC 手搓 `initialize` / `tools/list` / `tools/call`（外加 `notifications/initialized`），沿用 Contracts 的源生成序列化，零新增第三方包。
+- 鉴权与边界：只绑定回环地址，不监听 `0.0.0.0`；启用时生成随机 32 字节令牌，`Authorization: Bearer` 校验，令牌用 DPAPI 存盘、设置页可一键复制与重生成；校验 `Origin`，跨站请求一律拒绝；同一会话内工具调用串行，避免并发抢 SQLite。
+- stdio 兼容壳：保留极薄 `MailDog.Mcp.exe`，只把 stdin/stdout 的 JSON-RPC 转发到本机 HTTP 端点，给只支持 `command` 配置的客户端用；**不复制第二套工具实现**。
 - 只读工具（v1，默认启用，一对一映射现有 IPC）：
   - `list_accounts` → `getAccounts`
   - `list_folders` → `getFolders`
@@ -1255,9 +1257,9 @@ GitHub Actions `windows-latest`：
   - `get_mail(id)` → `getMessageBody`（返回头信息 + 纯文本正文，超长截断并标注已截断）
   - `get_attachment(id)` → `readAttachment`（落临时目录，返回路径与大小，不回传二进制）
 - 写操作（v2，默认关闭）：`save_draft` → `saveDraft`、`mark_read` → `markRead`、`move_message` → `moveMessage`；`send_mail` 独立一档，必须显式开启，且工具带 `dryRun`，默认只落草稿。
-- 设置页：新增"允许 AI 助手访问邮箱"三档（关闭 / 只读 / 可写），并展示可复制的 MCP 客户端配置片段（`{"command": "<安装目录>\\MailDog.Mcp.exe"}`）。
-- 打包与自测：`package.ps1` 增加 `MailDog.Mcp.exe` 产物；CI 增加 `MailDog.Mcp --selftest`（喂 `initialize` + `tools/list`，断言工具名与 JSON Schema），失败即门禁不过。
-- 安全边界：绝不暴露口令、OAuth 令牌、DPAPI 明文；正文与附件按需读取、有大小上限；管道 ACL 限当前用户；MCP 进程日志脱敏（不落正文，只落工具名与耗时）。
+- 设置页：新增"允许 AI 助手访问邮箱"三档（关闭 / 只读 / 可写），开启后展示端点 URL、Bearer 令牌与可复制的客户端配置片段（`{"type": "http", "url": "http://127.0.0.1:17891/mcp", "headers": {"Authorization": "Bearer <token>"}}`）。
+- 打包与自测：`package.ps1` 增加 `MailDog.Mcp.exe`（兼容壳）产物；CI 增加 `MailDog.Mcp --selftest`（起临时端点，喂 `initialize` + `tools/list`，断言工具名与 JSON Schema），失败即门禁不过。
+- 安全边界：绝不暴露口令、OAuth 令牌、DPAPI 明文；正文与附件按需读取、有大小上限；端点默认关闭，令牌可随时重生成使旧配置失效；日志脱敏（不落正文，只落工具名、会话与耗时）。
 
 #### P2 功能候选（排在 v0.2.0 之后）
 
