@@ -512,6 +512,7 @@ public sealed class SqliteStore : IDisposable
             }
 
             var newUids = new HashSet<long>();
+            var newIds = new List<long>();
 
             using (var transaction = _connection.BeginTransaction())
             {
@@ -571,19 +572,22 @@ public sealed class SqliteStore : IDisposable
                     command.Parameters.AddWithValue("$threadKey", (object?)message.ThreadKey ?? DBNull.Value);
                     command.ExecuteNonQuery();
 
+                    long rowId;
+
                     using (var rowIdCommand = _connection.CreateCommand())
                     {
                         rowIdCommand.Transaction = transaction;
                         rowIdCommand.CommandText = "SELECT id FROM messages WHERE folder_id = $folderId AND uid = $uid;";
                         rowIdCommand.Parameters.AddWithValue("$folderId", folderId);
                         rowIdCommand.Parameters.AddWithValue("$uid", message.Uid);
-                        var rowId = Convert.ToInt64(rowIdCommand.ExecuteScalar());
+                        rowId = Convert.ToInt64(rowIdCommand.ExecuteScalar());
                         UpdateMessageFts(transaction, rowId);
                     }
 
                     if (!existing.Contains(message.Uid))
                     {
                         newUids.Add(message.Uid);
+                        newIds.Add(rowId);
                     }
                 }
 
@@ -612,7 +616,7 @@ public sealed class SqliteStore : IDisposable
                 latest = page.Items.FirstOrDefault();
             }
 
-            return new NewMailResult(newUids.Count, latest);
+            return new NewMailResult(newUids.Count, latest, newIds);
         }
     }
 
@@ -1259,6 +1263,125 @@ public sealed class SqliteStore : IDisposable
         {
             using var transaction = _connection.BeginTransaction();
             UpsertSetting(transaction, key, value);
+            transaction.Commit();
+        }
+    }
+
+    // 本地来信规则
+
+    public IReadOnlyList<RuleDto> GetRules()
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                SELECT id, account_id, field, pattern, mark_read, flag, mute, enabled, hits
+                FROM rules
+                ORDER BY id;
+                """;
+
+            using var reader = command.ExecuteReader();
+            var result = new List<RuleDto>();
+
+            while (reader.Read())
+            {
+                result.Add(new RuleDto
+                {
+                    Id = reader.GetInt64(0),
+                    AccountId = reader.IsDBNull(1) ? null : reader.GetString(1),
+                    Field = reader.GetString(2),
+                    Pattern = reader.GetString(3),
+                    MarkRead = reader.GetInt32(4) != 0,
+                    Flag = reader.GetInt32(5) != 0,
+                    Mute = reader.GetInt32(6) != 0,
+                    Enabled = reader.GetInt32(7) != 0,
+                    Hits = reader.GetInt32(8)
+                });
+            }
+
+            return result;
+        }
+    }
+
+    /// <summary>新增或更新一条规则，返回规则 id。</summary>
+    public long SaveRule(RuleDto rule)
+    {
+        var field = rule.Field is "subject" or "any" ? rule.Field : "from";
+        var pattern = rule.Pattern.Trim();
+        var accountId = string.IsNullOrWhiteSpace(rule.AccountId) ? null : rule.AccountId;
+
+        lock (_gate)
+        {
+            if (rule.Id > 0)
+            {
+                using var update = _connection.CreateCommand();
+                update.CommandText = """
+                    UPDATE rules
+                    SET account_id = $accountId, field = $field, pattern = $pattern,
+                        mark_read = $markRead, flag = $flag, mute = $mute, enabled = $enabled
+                    WHERE id = $id;
+                    """;
+                update.Parameters.AddWithValue("$accountId", (object?)accountId ?? DBNull.Value);
+                update.Parameters.AddWithValue("$field", field);
+                update.Parameters.AddWithValue("$pattern", pattern);
+                update.Parameters.AddWithValue("$markRead", rule.MarkRead ? 1 : 0);
+                update.Parameters.AddWithValue("$flag", rule.Flag ? 1 : 0);
+                update.Parameters.AddWithValue("$mute", rule.Mute ? 1 : 0);
+                update.Parameters.AddWithValue("$enabled", rule.Enabled ? 1 : 0);
+                update.Parameters.AddWithValue("$id", rule.Id);
+                update.ExecuteNonQuery();
+                return rule.Id;
+            }
+
+            using var insert = _connection.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO rules (account_id, field, pattern, mark_read, flag, mute, enabled, hits, created_utc)
+                VALUES ($accountId, $field, $pattern, $markRead, $flag, $mute, $enabled, 0, $created)
+                RETURNING id;
+                """;
+            insert.Parameters.AddWithValue("$accountId", (object?)accountId ?? DBNull.Value);
+            insert.Parameters.AddWithValue("$field", field);
+            insert.Parameters.AddWithValue("$pattern", pattern);
+            insert.Parameters.AddWithValue("$markRead", rule.MarkRead ? 1 : 0);
+            insert.Parameters.AddWithValue("$flag", rule.Flag ? 1 : 0);
+            insert.Parameters.AddWithValue("$mute", rule.Mute ? 1 : 0);
+            insert.Parameters.AddWithValue("$enabled", rule.Enabled ? 1 : 0);
+            insert.Parameters.AddWithValue("$created", ToDb(DateTimeOffset.UtcNow));
+            return Convert.ToInt64(insert.ExecuteScalar(), CultureInfo.InvariantCulture);
+        }
+    }
+
+    public bool DeleteRule(long id)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = "DELETE FROM rules WHERE id = $id;";
+            command.Parameters.AddWithValue("$id", id);
+            return command.ExecuteNonQuery() > 0;
+        }
+    }
+
+    public void IncrementRuleHits(IReadOnlyList<long> ruleIds)
+    {
+        if (ruleIds.Count == 0)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            using var transaction = _connection.BeginTransaction();
+
+            foreach (var id in ruleIds)
+            {
+                using var command = _connection.CreateCommand();
+                command.Transaction = transaction;
+                command.CommandText = "UPDATE rules SET hits = hits + 1 WHERE id = $id;";
+                command.Parameters.AddWithValue("$id", id);
+                command.ExecuteNonQuery();
+            }
+
             transaction.Commit();
         }
     }
@@ -2136,6 +2259,27 @@ public sealed class SqliteStore : IDisposable
                 PRAGMA user_version = 9;
                 """);
         }
+
+        if (version < 10)
+        {
+            Execute("""
+                CREATE TABLE IF NOT EXISTS rules (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    account_id  TEXT,
+                    field       TEXT NOT NULL DEFAULT 'from',
+                    pattern     TEXT NOT NULL,
+                    mark_read   INTEGER NOT NULL DEFAULT 0,
+                    flag        INTEGER NOT NULL DEFAULT 0,
+                    mute        INTEGER NOT NULL DEFAULT 0,
+                    enabled     INTEGER NOT NULL DEFAULT 1,
+                    hits        INTEGER NOT NULL DEFAULT 0,
+                    created_utc TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS ix_rules_enabled ON rules(enabled);
+                PRAGMA user_version = 10;
+                """);
+        }
     }
 
     private void CreateSchemaV1()
@@ -2421,4 +2565,4 @@ public sealed class SqliteStore : IDisposable
     }
 }
 
-public sealed record NewMailResult(int Count, MailSummaryDto? Latest);
+public sealed record NewMailResult(int Count, MailSummaryDto? Latest, IReadOnlyList<long>? NewIds = null);

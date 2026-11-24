@@ -486,6 +486,25 @@ public sealed class DeleteOutboxRequest : Ipc.IIpcMessage
     public long OutboxId { get; init; }
 }
 
+public sealed class GetRulesRequest : Ipc.IIpcMessage
+{
+}
+
+public sealed class RulesResponse : Ipc.IIpcMessage
+{
+    public RuleDto[] Items { get; init; } = [];
+}
+
+public sealed class SaveRuleRequest : Ipc.IIpcMessage
+{
+    public RuleDto Rule { get; init; } = new();
+}
+
+public sealed class DeleteRuleRequest : Ipc.IIpcMessage
+{
+    public long Id { get; init; }
+}
+
 // 事件
 
 public sealed class NewMailEvent : Ipc.IIpcMessage
@@ -497,6 +516,9 @@ public sealed class NewMailEvent : Ipc.IIpcMessage
     public int Count { get; init; }
 
     public MailSummaryDto? Latest { get; init; }
+
+    /// <summary>这一批新入库的邮件 id，供本地规则逐条判断。</summary>
+    public long[] NewMessageIds { get; init; } = [];
 }
 
 public sealed class SyncStateEvent : Ipc.IIpcMessage

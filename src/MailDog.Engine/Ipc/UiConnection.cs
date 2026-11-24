@@ -211,6 +211,7 @@ public sealed class UiConnection : IAsyncDisposable
             IpcMessageTypes.RestoreBackup => IpcMessageTypes.RestoreResult,
             IpcMessageTypes.ExportMessage => IpcMessageTypes.MessageExport,
             IpcMessageTypes.ListOutbox => IpcMessageTypes.OutboxList,
+            IpcMessageTypes.GetRules => IpcMessageTypes.RulesList,
             IpcMessageTypes.GetSettings => IpcMessageTypes.Settings,
             IpcMessageTypes.TakePendingNavigation => IpcMessageTypes.PendingNavigation,
             IpcMessageTypes.MarkRead => IpcMessageTypes.Ok,

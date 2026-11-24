@@ -1241,7 +1241,8 @@ public sealed class ImapSyncService : IAsyncDisposable
                     AccountId = account.Id,
                     FolderId = folderRecord.Id,
                     Count = result.Count,
-                    Latest = result.Latest
+                    Latest = result.Latest,
+                    NewMessageIds = result.NewIds?.ToArray() ?? []
                 });
             }
         }

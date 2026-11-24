@@ -1277,7 +1277,7 @@ GitHub Actions `windows-latest`：
 
 #### P1 邮件可靠性：本地规则、延迟发送、附件防漏
 
-- **本地规则过滤器**：按发件人 / 域名 / 主题关键字匹配，命中后自动移到指定文件夹、标已读、加旗标、不弹通知。规则在"新邮件入库"那一刻应用（同步写入路径），存 SQLite（`rules` 表：匹配字段、模式、动作、启用、顺序），设置页给一个列表 + 命中计数；不做服务端规则，避免与 IMAP 侧行为冲突。
+- ✅ **本地规则过滤器**（2026-11-24 完成）：按发件人（显示名 + 地址联合匹配）/ 主题 / 两者关键字做"包含"匹配（忽略大小写，不做正则），可限定到单个账号；命中后标已读、加旗标、不弹通知，可多选。规则在新邮件入库那一刻按 `NewMailEvent.NewMessageIds` 逐封应用，存储为 SQLite `rules` 表（`account_id`、`field`、`pattern`、`mark_read`、`flag`、`mute`、`enabled`、`hits`），命中计数用于判断规则是否写得太宽。设置页「同步」区提供规则列表（启用开关、命中次数、删除）与新增表单，走 `getRules` / `saveRule` / `deleteRule` 三个 IPC。标已读与加旗标会同步到服务器（失败只记日志，不影响来信入库）；**不做**"自动移到文件夹"，避免与拖拽/客户端排序冲突，也暂不对历史邮件回溯应用。匹配单测见 `RuleMatcherTests`（5 条），存储单测见 `SqliteStoreTests.RulesRoundTripAndHits`。
 - ✅ **延迟发送 + 撤销窗口**（2026-11-24 完成）：`SendDelaySeconds` 设置（0/5/10/30，默认 10，设置页「延迟发送」）。入队时 `NextAttemptUtc = now + 延迟`，窗口内不碰 SMTP，直接返回 `queued + delaySeconds`；写信窗口显示倒计时与「撤回」，CLI 显示 `outboxId` 并提供 `maildog cancel <outboxId>`。发件箱轮询从 30 秒缩到 5 秒，保证延迟到期后及时投递。撤回走已有 `deleteOutbox`，只删 `pending`，已在发送中的不动。
 - ✅ **附件防漏提醒**（2026-11-24 完成）：检查放在 Engine 的发送路径（`MailDog.Mail/Smtp/SendGuard.cs`），UI 与 CLI 共用同一套判断。正文（含 HTML 去标签后）出现"附件 / 见附件 / 附上 / attach / enclosed"等词但附件为空、单附件超 25 MiB、合计超 40 MiB 时，Engine 不发送、回 `status=confirm_required`；UI 弹出提醒条（「去加附件」/「仍然发送」），CLI 打印提醒并退出 `6`，确认后加 `--force-send` 重发。只提醒不硬拦，重发时带 `SkipSendChecks`。测试见 `SendGuardTests`（9 条）。
 

@@ -80,6 +80,10 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.OutboxList, IpcJsonContext.Default.OutboxListResponse);
         Register(IpcMessageTypes.RetryOutbox, IpcJsonContext.Default.RetryOutboxRequest);
         Register(IpcMessageTypes.DeleteOutbox, IpcJsonContext.Default.DeleteOutboxRequest);
+        Register(IpcMessageTypes.GetRules, IpcJsonContext.Default.GetRulesRequest);
+        Register(IpcMessageTypes.RulesList, IpcJsonContext.Default.RulesResponse);
+        Register(IpcMessageTypes.SaveRule, IpcJsonContext.Default.SaveRuleRequest);
+        Register(IpcMessageTypes.DeleteRule, IpcJsonContext.Default.DeleteRuleRequest);
 
         Register(IpcMessageTypes.NewMail, IpcJsonContext.Default.NewMailEvent);
         Register(IpcMessageTypes.SyncState, IpcJsonContext.Default.SyncStateEvent);

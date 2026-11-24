@@ -515,6 +515,112 @@
                                          IsChecked="{Binding IsSendDelay30Seconds}" />
                           </WrapPanel>
                         </StackPanel>
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="来信规则" Classes="section" Margin="0,8,0,0" />
+                          <TextBlock Text="新邮件到达时按关键词自动处理：标已读、加旗标，或者不弹通知。规则只对之后收到的邮件生效，也不会删除邮件。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                          <TextBlock Text="还没有规则。下面加一条试试。"
+                                     Classes="caption"
+                                     IsVisible="{Binding HasNoRules}" />
+                          <ItemsControl ItemsSource="{Binding Rules}" IsVisible="{Binding HasRules}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:RuleViewModel">
+                                <Border BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                        BorderThickness="0,0,0,1"
+                                        Padding="0,10"
+                                        Margin="0,0,0,2">
+                                  <Grid ColumnDefinitions="*,Auto,Auto">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                      <TextBlock Text="{Binding Title}"
+                                                 FontSize="13"
+                                                 FontWeight="SemiBold"
+                                                 TextTrimming="CharacterEllipsis" />
+                                      <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding ActionLabel}" Classes="caption" />
+                                        <TextBlock Text="·" Classes="caption" />
+                                        <TextBlock Text="{Binding HitsLabel}" Classes="caption" />
+                                      </StackPanel>
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1"
+                                                  Margin="0,0,8,0"
+                                                  VerticalAlignment="Center"
+                                                  IsChecked="{Binding Enabled}"
+                                                  OnContent=""
+                                                  OffContent=""
+                                                  AutomationProperties.Name="启用规则" />
+                                    <Button Grid.Column="2"
+                                            Classes="icon sm subtle"
+                                            Command="{Binding DeleteCommand}"
+                                            VerticalAlignment="Center"
+                                            ToolTip.Tip="删除规则"
+                                            AutomationProperties.Name="删除规则">
+                                      <ic:FluentIcon Icon="Delete" IconSize="Size16" />
+                                    </Button>
+                                  </Grid>
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <Border BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                  BorderThickness="1"
+                                  CornerRadius="6"
+                                  Padding="12">
+                            <StackPanel Spacing="10">
+                              <TextBlock Text="新增规则" FontSize="13" FontWeight="SemiBold" />
+                              <Grid ColumnDefinitions="*,180" ColumnSpacing="8">
+                                <TextBox Text="{Binding NewRulePattern}"
+                                         PlaceholderText="关键词，例如 noreply@ 或 账单"
+                                         AutomationProperties.Name="规则关键词" />
+                                <ComboBox Grid.Column="1"
+                                          ItemsSource="{Binding RuleAccounts}"
+                                          SelectedItem="{Binding SelectedRuleAccount}">
+                                  <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:RuleAccountOption">
+                                      <TextBlock Text="{Binding Label}" />
+                                    </DataTemplate>
+                                  </ComboBox.ItemTemplate>
+                                </ComboBox>
+                              </Grid>
+                              <WrapPanel>
+                                <RadioButton GroupName="rulefield"
+                                             Content="发件人"
+                                             Margin="0,0,16,4"
+                                             IsChecked="{Binding IsRuleFieldFrom}" />
+                                <RadioButton GroupName="rulefield"
+                                             Content="主题"
+                                             Margin="0,0,16,4"
+                                             IsChecked="{Binding IsRuleFieldSubject}" />
+                                <RadioButton GroupName="rulefield"
+                                             Content="主题或发件人"
+                                             Margin="0,0,16,4"
+                                             IsChecked="{Binding IsRuleFieldAny}" />
+                              </WrapPanel>
+                              <WrapPanel>
+                                <CheckBox Content="标为已读"
+                                          Margin="0,0,16,4"
+                                          IsChecked="{Binding NewRuleMarkRead}" />
+                                <CheckBox Content="加旗标"
+                                          Margin="0,0,16,4"
+                                          IsChecked="{Binding NewRuleFlag}" />
+                                <CheckBox Content="不弹通知"
+                                          Margin="0,0,16,4"
+                                          IsChecked="{Binding NewRuleMute}" />
+                              </WrapPanel>
+                              <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button Classes="primary"
+                                        Content="添加规则"
+                                        Command="{Binding AddRuleCommand}"
+                                        AutomationProperties.Name="添加来信规则" />
+                                <TextBlock Text="{Binding RuleHint}"
+                                           Classes="caption"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           IsVisible="{Binding HasRuleHint}" />
+                              </StackPanel>
+                            </StackPanel>
+                          </Border>
+                        </StackPanel>
                       </StackPanel>
 
                       <StackPanel IsVisible="{Binding IsAccountSection}" Spacing="16">

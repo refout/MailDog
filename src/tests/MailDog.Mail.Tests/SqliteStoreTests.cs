@@ -633,6 +633,63 @@ public sealed class SqliteStoreTests : IDisposable
             AccountStatus.Ok,
             null);
 
+    [Fact]
+    public void RulesRoundTripAndHits()
+    {
+        var fromRule = new RuleDto
+        {
+            Field = " from ",
+            Pattern = "  noreply@  ",
+            AccountId = "account-a",
+            MarkRead = true,
+            Mute = true,
+            Enabled = true
+        };
+
+        var firstId = _store.SaveRule(fromRule);
+        var anyRule = new RuleDto { Field = "any", Pattern = "账单", Flag = true };
+        var secondId = _store.SaveRule(anyRule);
+
+        var rules = _store.GetRules();
+
+        Assert.Equal(2, rules.Count);
+        var first = Assert.Single(rules, rule => rule.Id == firstId);
+        Assert.Equal("from", first.Field);
+        Assert.Equal("noreply@", first.Pattern);
+        Assert.Equal("account-a", first.AccountId);
+        Assert.True(first.MarkRead);
+        Assert.True(first.Mute);
+        Assert.False(first.Flag);
+        Assert.Equal(0, first.Hits);
+
+        var second = Assert.Single(rules, rule => rule.Id == secondId);
+        Assert.Null(second.AccountId);
+        Assert.True(second.Flag);
+
+        _store.IncrementRuleHits([firstId, firstId, secondId]);
+        var afterHits = _store.GetRules();
+        Assert.Equal(2, Assert.Single(afterHits, rule => rule.Id == firstId).Hits);
+        Assert.Equal(1, Assert.Single(afterHits, rule => rule.Id == secondId).Hits);
+
+        var disabled = new RuleDto
+        {
+            Id = firstId,
+            Field = first.Field,
+            Pattern = first.Pattern,
+            AccountId = first.AccountId,
+            MarkRead = first.MarkRead,
+            Mute = first.Mute,
+            Enabled = false
+        };
+
+        Assert.Equal(firstId, _store.SaveRule(disabled));
+        Assert.False(Assert.Single(_store.GetRules(), rule => rule.Id == firstId).Enabled);
+
+        Assert.True(_store.DeleteRule(secondId));
+        Assert.False(_store.DeleteRule(secondId));
+        Assert.Single(_store.GetRules());
+    }
+
     public void Dispose()
     {
         _store.Dispose();

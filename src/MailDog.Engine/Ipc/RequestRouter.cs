@@ -311,6 +311,15 @@ public sealed class RequestRouter
                         : 0
                 };
 
+            case GetRulesRequest:
+                return new RulesResponse { Items = _store.GetRules().ToArray() };
+
+            case SaveRuleRequest request:
+                return new OkResponse { Affected = (int)_store.SaveRule(request.Rule) };
+
+            case DeleteRuleRequest request:
+                return new OkResponse { Affected = _store.DeleteRule(request.Id) ? 1 : 0 };
+
             case TakePendingNavigationRequest:
                 return TakePendingNavigation?.Invoke() ?? new PendingNavigationResponse();
 

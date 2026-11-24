@@ -90,10 +90,11 @@ public sealed class EngineHost : IAsyncDisposable
         _idle.MailArrived += accountId => _ = SyncFromIdleAsync(accountId);
         _sync.NewMail += message =>
         {
+            var muted = ApplyRules(message);
             _ipc.Broadcast(IpcMessageTypes.NewMail, message);
             _tray?.UpdateUnreadCount(TotalUnread());
 
-            if (message.Latest is not null)
+            if (message.Latest is not null && !muted)
             {
                 var settings = _store.GetSettings();
 
@@ -197,6 +198,106 @@ public sealed class EngineHost : IAsyncDisposable
     }
 
     /// <summary>要不要弹、弹一条还是合并，全在这里决定；真正弹窗放到批次末尾统一做。</summary>
+    /// <summary>把本地规则套到这一批新邮件上，返回最新一封是否应该静音通知。</summary>
+    private bool ApplyRules(NewMailEvent message)
+    {
+        try
+        {
+            if (message.NewMessageIds.Length == 0)
+            {
+                return false;
+            }
+
+            var rules = _store.GetRules();
+
+            if (rules.Count == 0)
+            {
+                return false;
+            }
+
+            var hits = new List<long>();
+            var mutedIds = new HashSet<long>();
+
+            foreach (var id in message.NewMessageIds)
+            {
+                var record = _store.GetMessage(id);
+
+                if (record is null)
+                {
+                    continue;
+                }
+
+                foreach (var rule in rules)
+                {
+                    if (!rule.Enabled || string.IsNullOrWhiteSpace(rule.Pattern))
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrEmpty(rule.AccountId) && rule.AccountId != message.AccountId)
+                    {
+                        continue;
+                    }
+
+                    if (!MatchesRule(rule, record))
+                    {
+                        continue;
+                    }
+
+                    hits.Add(rule.Id);
+
+                    if (rule.Mute)
+                    {
+                        mutedIds.Add(id);
+                    }
+
+                    if (rule.MarkRead || rule.Flag)
+                    {
+                        ApplyRuleFlagsAsync(id, rule.MarkRead, rule.Flag);
+                    }
+                }
+            }
+
+            if (hits.Count > 0)
+            {
+                _store.IncrementRuleHits(hits.Distinct().ToArray());
+            }
+
+            return message.Latest is not null && mutedIds.Contains(message.Latest.Id);
+        }
+        catch (Exception exception)
+        {
+            _log.Warn($"应用本地规则失败：{exception.Message}");
+            return false;
+        }
+    }
+
+    private static bool MatchesRule(RuleDto rule, MessageRecord record)
+        => RuleMatcher.Matches(rule, record.Subject, record.FromName, record.FromAddress);
+
+    private void ApplyRuleFlagsAsync(long messageId, bool markRead, bool flag)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (markRead)
+                {
+                    await _sync.SetSeenAsync(messageId, true, CancellationToken.None).ConfigureAwait(false);
+                }
+
+                if (flag)
+                {
+                    await _sync.SetFlaggedAsync(messageId, true, CancellationToken.None).ConfigureAwait(false);
+                }
+            }
+            catch (Exception exception)
+            {
+                _log.Warn($"规则应用到邮件 #{messageId} 失败：{exception.Message}");
+            }
+        });
+    }
+
     private void QueueNotification(MailSummaryDto latest, string accountId, long folderId, AppSettingsDto settings, int count)
     {
         if (settings.NotificationInboxOnly && _store.GetFolder(folderId)?.Role != FolderRole.Inbox)

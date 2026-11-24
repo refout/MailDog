@@ -1125,6 +1125,216 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    public ObservableCollection<RuleViewModel> Rules { get; } = [];
+
+    public ObservableCollection<RuleAccountOption> RuleAccounts { get; } = [];
+
+    [ObservableProperty]
+    private RuleAccountOption? _selectedRuleAccount;
+
+    [ObservableProperty]
+    private string _newRulePattern = string.Empty;
+
+    [ObservableProperty]
+    private int _newRuleFieldIndex;
+
+    [ObservableProperty]
+    private bool _newRuleMarkRead = true;
+
+    [ObservableProperty]
+    private bool _newRuleFlag;
+
+    [ObservableProperty]
+    private bool _newRuleMute;
+
+    [ObservableProperty]
+    private string? _ruleHint;
+
+    public bool HasRules => Rules.Count > 0;
+
+    public bool HasNoRules => Rules.Count == 0;
+
+    public bool HasRuleHint => !string.IsNullOrEmpty(RuleHint);
+
+    public bool IsRuleFieldFrom
+    {
+        get => NewRuleFieldIndex == 0;
+        set
+        {
+            if (value)
+            {
+                NewRuleFieldIndex = 0;
+            }
+        }
+    }
+
+    public bool IsRuleFieldSubject
+    {
+        get => NewRuleFieldIndex == 1;
+        set
+        {
+            if (value)
+            {
+                NewRuleFieldIndex = 1;
+            }
+        }
+    }
+
+    public bool IsRuleFieldAny
+    {
+        get => NewRuleFieldIndex == 2;
+        set
+        {
+            if (value)
+            {
+                NewRuleFieldIndex = 2;
+            }
+        }
+    }
+
+    partial void OnNewRuleFieldIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsRuleFieldFrom));
+        OnPropertyChanged(nameof(IsRuleFieldSubject));
+        OnPropertyChanged(nameof(IsRuleFieldAny));
+    }
+
+    partial void OnRuleHintChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasRuleHint));
+    }
+
+    [RelayCommand]
+    private async Task AddRuleAsync()
+    {
+        var pattern = NewRulePattern.Trim();
+
+        if (pattern.Length == 0)
+        {
+            RuleHint = "请输入要匹配的关键词";
+            return;
+        }
+
+        if (!NewRuleMarkRead && !NewRuleFlag && !NewRuleMute)
+        {
+            RuleHint = "至少选择一个动作";
+            return;
+        }
+
+        var rule = new RuleDto
+        {
+            AccountId = SelectedRuleAccount?.Id,
+            Field = NewRuleFieldIndex switch
+            {
+                1 => "subject",
+                2 => "any",
+                _ => "from"
+            },
+            Pattern = pattern,
+            MarkRead = NewRuleMarkRead,
+            Flag = NewRuleFlag,
+            Mute = NewRuleMute,
+            Enabled = true
+        };
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.SaveRule,
+                new SaveRuleRequest { Rule = rule });
+
+            NewRulePattern = string.Empty;
+            NewRuleMarkRead = true;
+            NewRuleFlag = false;
+            NewRuleMute = false;
+            RuleHint = "规则已保存，新的来信会立即生效";
+            await LoadRulesAsync();
+        }
+        catch (Exception exception)
+        {
+            RuleHint = $"保存规则失败：{exception.Message}";
+        }
+    }
+
+    private async Task SaveRuleAsync(RuleViewModel item)
+    {
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.SaveRule,
+                new SaveRuleRequest { Rule = item.ToDto() });
+        }
+        catch (Exception exception)
+        {
+            RuleHint = $"更新规则失败：{exception.Message}";
+        }
+    }
+
+    private async Task DeleteRuleAsync(RuleViewModel item)
+    {
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.DeleteRule,
+                new DeleteRuleRequest { Id = item.RuleId });
+
+            Rules.Remove(item);
+            NotifyRulesChanged();
+            RuleHint = "规则已删除";
+        }
+        catch (Exception exception)
+        {
+            RuleHint = $"删除规则失败：{exception.Message}";
+        }
+    }
+
+    /// <summary>规则集合变化后刷新空态与计数。</summary>
+    private void NotifyRulesChanged()
+    {
+        OnPropertyChanged(nameof(HasRules));
+        OnPropertyChanged(nameof(HasNoRules));
+    }
+
+    private async Task LoadRulesAsync()
+    {
+        if (Accounts.Count > 0)
+        {
+            var previous = SelectedRuleAccount?.Id;
+            RuleAccounts.Clear();
+            RuleAccounts.Add(new RuleAccountOption(null, "全部账号"));
+
+            foreach (var account in Accounts)
+            {
+                RuleAccounts.Add(new RuleAccountOption(account.Id, account.Email));
+            }
+
+            SelectedRuleAccount = RuleAccounts.FirstOrDefault(o => o.Id == previous) ?? RuleAccounts[0];
+        }
+
+        RulesResponse response;
+
+        try
+        {
+            response = await _engine.RequestAsync<RulesResponse>(
+                IpcMessageTypes.GetRules,
+                new GetRulesRequest());
+        }
+        catch (Exception exception)
+        {
+            RuleHint = $"读取规则失败：{exception.Message}";
+            return;
+        }
+
+        Rules.Clear();
+
+        foreach (var rule in response.Items)
+        {
+            Rules.Add(new RuleViewModel(rule, SaveRuleAsync, DeleteRuleAsync));
+        }
+
+        NotifyRulesChanged();
+    }
+
     public bool IsSoundDefault
     {
         get => NotificationSound == "default";
@@ -3863,6 +4073,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             _suppressAutoSave = false;
         }
+
+        await LoadRulesAsync();
     }
 
     private async Task LoadContactsAsync()

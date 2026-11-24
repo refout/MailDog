@@ -81,6 +81,10 @@ public static class IpcMessageTypes
     public const string OutboxList = "outboxList";
     public const string RetryOutbox = "retryOutbox";
     public const string DeleteOutbox = "deleteOutbox";
+    public const string GetRules = "getRules";
+    public const string RulesList = "rulesList";
+    public const string SaveRule = "saveRule";
+    public const string DeleteRule = "deleteRule";
 
     public const string NewMail = "newMail";
     public const string SyncState = "syncState";
