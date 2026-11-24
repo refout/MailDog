@@ -38,6 +38,7 @@ Windows 上把 QQ 邮箱和 Outlook 收进同一个窗口的桌面邮件客户�
 - **开机就能接着收**：设置页“启动”可以开关登录 Windows 时自动启动；开启后写入当前用户启动项，关闭后移除，不影响账户和邮件数据。
 - **只专注邮件**：日历、联系人、待办、记事本模块已移除，左侧只保留账户、文件夹与设置，界面始终停留在邮件列表和阅读区。
 - **下载就能跑**：两个 Native AOT 单文件，不用先装 .NET 运行时，不用另装数据库，也没有要注册的账号。UI 约 46 MB，后台进程约 13.6 MB。
+- **脚本和助手也能用**：发布包里带 `maildog` 命令行，查账号、列文件夹、搜信、读信、存附件；写信、发送、标已读、移动也支持，但默认只打印预览，加 `--confirm` 才真的动。`--json` 适合自己的脚本，`maildog schema` 让助手自己发现有哪些能力。
 
 ## 下载
 
@@ -53,6 +54,21 @@ Windows 上把 QQ 邮箱和 Outlook 收进同一个窗口的桌面邮件客户�
 - **Outlook**：点“使用浏览器登录”，应用已内置 Entra 公共客户端（公共客户端 ID 不属于机密）。想换成自己注册的应用，设环境变量 `MAILDOG_ENTRA_CLIENT_ID`。
 - **更新**：关于页与托盘里有「检查更新」，安装版可一键下载、校验 SHA-256 后静默升级并自动重启；便携版只提示去下载页换包。
 - **数据放哪**：数据库、日志、原生库都在 `%LOCALAPPDATA%\MailDog\`。
+
+## 命令行
+
+发布目录里有 `MailDog.Cli.exe` 和 `maildog.cmd`；把安装目录加进 PATH 后直接敲 `maildog`：
+
+```powershell
+maildog accounts
+maildog list --folder inbox --limit 10 --unread
+maildog search 发票 --json
+maildog show 35211 --max-chars 0
+maildog attachment 35211 1 --out D:\tmp
+maildog send --account me@example.com --to you@example.com --subject "周报" --text "见附件" --attach D:\周报.pdf
+```
+
+写命令（`draft` / `send` / `mark` / `move`）默认只打印预览，确认无误再加 `--confirm` 才真正执行。`maildog schema` 输出全部命令、开关、输出字段与退出码的 JSON。命令都通过命名管道交给后台 Engine，自己不碰数据库；Engine 没开着会自动拉起来。
 
 ## 版本变化
 
@@ -177,7 +193,7 @@ dist/
 | 10 | 真实账户验收、许可证与发布说明 | 待真实邮箱凭据与许可证决定 |
 | 11 | 列表悬停/无障碍、搜索范围、会话聚合、收件人 chips 与快捷键 | ✅ 已完成（随 v0.1.2 发布） |
 | 12 | 通知链路收口（点击激活、路径自校验、合并与免打扰）、自动更新 | ✅ 已完成（2026-11-24，待发布后真机验证升级；见 `docs/PLAN.md`） |
-| 13 | 命令行 `MailDog.Cli`：查账号/文件夹/搜索/读信/取附件，写命令需确认，`--json` 与 `schema` 自描述供脚本与助手调用（MCP 方案已取消） | 🚧 v0.2.0，见 `docs/PLAN.md` |
+| 13 | 命令行 `MailDog.Cli`：查账号/文件夹/搜索/读信/取附件，写命令需确认，`--json` 与 `schema` 自描述供脚本与助手调用（MCP 方案已取消；解析层计划迁到 `System.CommandLine`） | 🚧 v0.2.0，见 `docs/PLAN.md` |
 | 14 | 本地规则过滤器、延迟发送 + 撤销、附件防漏提醒 | 🚧 v0.2.0 同期，见 `docs/PLAN.md` |
 | 15 | Windows 集成（mailto / 默认邮件程序 / SendTo / 拖入 .eml / JumpList）、诊断包、账号健康面板 | 🚧 v0.3，见 `docs/PLAN.md` |
 | — | 远期不做：HTTP/SOCKS5 代理、S/MIME/PGP、多语言界面 | ⛔ 已记结论，见 `docs/PLAN.md` |

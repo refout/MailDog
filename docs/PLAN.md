@@ -1250,25 +1250,30 @@ GitHub Actions `windows-latest`：
 
 - 形态：新项目 `MailDog.Cli`（AOT 控制台 exe，与 Engine/UI 同目录分发，安装包可加入 PATH）。参数解析手写，不引入长期预发布状态的命令行库。
 - 与 Engine 的关系：不直连数据库、不自己发信，全部走现有命名管道 IPC（`getAccounts` / `getFolders` / `getMessages` / `searchMessages` / `getMessageBody` / `readAttachment` / `saveDraft` / `sendMail` / `markRead` / `moveMessage`）；Engine 没运行就按 `EngineHost` 的路径探测先拉起来，避免出现第二个写库进程。
-- 只读子命令（v1）：
+- 只读子命令（✅ 已实现，真机跑过）：
   - `maildog accounts` — 账号清单（地址、类型、状态、未读数）
   - `maildog folders [--account <id>]` — 文件夹与未读数
   - `maildog list [--folder inbox] [--account <id>] [--limit 20] [--unread]` — 邮件摘要
   - `maildog search <query> [--folder|--all] [--account] [--limit]` — 复用现有 FTS + LIKE 回退
   - `maildog show <id> [--body] [--headers]` — 头信息与纯文本正文（超长按 `--max-chars` 截断）
   - `maildog attachment <message-id> <attachment-id> [--out <dir>]` — 落盘并打印路径
-- 写入子命令（v2，需显式确认）：`draft`（写草稿）、`mark`（已读/旗标）、`move`、`send`。`send` 必须带 `--confirm` 才真正发送，缺省等于 `--dry-run`（打印收件人、主题、正文预览后退出）。
+- 写入子命令（✅ 已实现，默认 dry-run，加 `--confirm` 才执行）：`draft`（写草稿）、`mark`（已读/旗标）、`move`、`send`。`send` 必须带 `--confirm` 才真正发送，缺省等于 `--dry-run`（打印收件人、主题、正文预览后退出）。
 - 机器可读的自描述：`maildog schema`（或 `maildog help --json`）输出所有子命令、参数、`--json` 结果结构与退出码，供助手自己发现能力——替代 MCP `tools/list` 当初承担的那点发现作用，也便于脚本与文档自动生成。
 - 输出约定：默认人读表格；`--json` 输出稳定 JSON（列表为每行一条 JSON，便于管道）；禁止在输出里出现口令、令牌、DPAPI 明文。
 - 退出码：`0` 成功、`2` 未找到、`3` 账号未登录或离线、`4` 被权限/配置拒绝、`5` 参数错误。
-- 测试：CI 用临时数据库种子三封邮件，跑 `accounts` / `search --json` / `show` / `send --dry-run` / `schema` 断言结构与退出码；写命令只在临时库上验证。
-- 打包：`package.ps1` 增加 `MailDog.Cli.exe` 产物（含 `maildog.cmd` 别名），安装包可选加入 PATH 的勾选项。
+- 测试：✅ CI 已加轻量冒烟（`schema` 结构、`help` 退出 0、未知开关退出 5、`--no-start` 连不上退出 3，不需要 Engine）；⏳ 临时库种子跑 `accounts` / `search --json` / `show` / `send --dry-run` 与写命令的版本待补。
+- 打包：✅ `publish.ps1` 产出 `MailDog.Cli.exe` 与 `maildog.cmd` 转发壳，zip 与安装包一并带上；PATH 自动改写暂不做（避免卸载误删整条 Path），需要时手动把安装目录加进 PATH。
 - 配套 Agent Skill（**待 CLI 跑通之后再产出，当前不产出**）：`maildog-cli`，落在 `workspace/.user_skills/maildog-cli`。硬约束：
   - 内容必须以 `maildog schema --json` 的真实输出为准（命令名、参数、字段名、退出码），并用本机真实账号逐条跑过；CLI 未实现前写出来的 Skill 只会误导，禁止提前创建。
   - 必须写明"找不到 `maildog` 时提示先构建，禁止退回去直读 sqlite 或凭截图臆测"。
   - 必须写明"id 只能来自 `list` / `search`，不猜 id"。
   - 必须写明"`send` 先 dry-run 给用户看，确认后才加 `--confirm`；`draft` / `mark` / `move` 同样要用户明确同意"。
   - 写入时机：CLI 只读命令验收通过那一版一并提交，作为 v0.2.0 的收尾交付物。
+- ⏳ **解析层迁移到 `System.CommandLine`**（v0.3 起，单独一批提交）：当前为手写解析（约 150 行），换来的是零依赖、中文文案与退出码完全可控；代价是边界情况全靠自己维护——`--name=value`、`--` 终止符、值以 `-` 开头、可重复开关的去重与顺序、拼错开关时的提示，都要逐条补测试，长期属于"自造小轮子"的维护负担。
+  - 现状依据：`System.CommandLine` 已有正式版（2.0.x 到 2.0.15，3.0.0 已发布），不再是当年长期 beta 的状态；AOT/裁剪场景可用，仍是微软官方维护。微软那篇中文教程用的是 beta 期 API（`CommandLineBuilder` / `UseDefaults`），迁移时以官方当前文档的 `RootCommand` / `Option<T>` / `ParseResult` 为准，不要照教程抄。
+  - 迁移范围只限 `Arguments.cs` + `Program.cs`；**对外契约不得变化**：命令名、开关名、`--json` 输出结构、退出码（0/2/3/4/5）、`maildog schema` 的 JSON 全部保持原样，`Schema.cs` / `Output.cs` / `Commands.cs` 不动。
+  - 迁移后必须补的验收：`schema` / `help` / 未知开关退回 5 / `--name=value` / `--` 后接 `-` 开头的正文 / 可重复 `--to`、`--attach` / AOT 发布无 IL 警告 / 本机真实账号跑一遍只读命令。
+  - 迁移失败即回滚单条提交，手写版保留在 git 历史里可随时取回。
 
 #### P1 邮件可靠性：本地规则、延迟发送、附件防漏
 

@@ -33,6 +33,27 @@ jobs:
         shell: pwsh
         run: ./src/build/verify-dependencies.ps1
 
+      - name: CLI smoke
+        shell: pwsh
+        run: |
+          $exe = 'src/MailDog.Cli/bin/Release/net11.0/MailDog.Cli.exe'
+          if (-not (Test-Path $exe)) { throw "找不到 CLI 可执行文件：$exe" }
+
+          $schema = & $exe schema | ConvertFrom-Json
+          if ($schema.tool -ne 'maildog') { throw "schema.tool 应为 maildog，实际 $($schema.tool)" }
+          if ($schema.commands.name -notcontains 'send') { throw 'schema 里缺少 send' }
+          if ($schema.commands.name -notcontains 'move') { throw 'schema 里缺少 move' }
+          if ($schema.exitCodes.'5' -notmatch '参数') { throw 'schema 退出码说明不对' }
+
+          & $exe help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "help 应退出 0，实际 $LASTEXITCODE" }
+
+          & $exe list --nope 2>$null
+          if ($LASTEXITCODE -ne 5) { throw "未知开关应退出 5，实际 $LASTEXITCODE" }
+
+          & $exe send --account nobody@example.com --to a@example.com --text hi --no-start 2>$null
+          if ($LASTEXITCODE -ne 3) { throw "连不上 Engine 应退出 3，实际 $LASTEXITCODE" }
+
       - name: Verify Native AOT
         shell: pwsh
         run: ./src/build/verify-aot.ps1 -Runtime win-x64

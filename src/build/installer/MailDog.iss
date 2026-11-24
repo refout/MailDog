@@ -51,6 +51,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "{#MySourceDir}\MailDog.Engine.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MySourceDir}\MailDog.UI.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MySourceDir}\MailDog.Cli.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MySourceDir}\maildog.cmd"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\MailDog"; Filename: "{app}\MailDog.UI.exe"

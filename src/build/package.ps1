@@ -47,7 +47,9 @@ if (-not $SkipPublish) {
 
 $engineExe = Join-Path $appDir 'MailDog.Engine.exe'
 $uiExe = Join-Path $appDir 'MailDog.UI.exe'
-foreach ($file in @($engineExe, $uiExe)) {
+$cliExe = Join-Path $appDir 'MailDog.Cli.exe'
+$cliShim = Join-Path $appDir 'maildog.cmd'
+foreach ($file in @($engineExe, $uiExe, $cliExe, $cliShim)) {
     if (-not (Test-Path $file)) {
         throw "缺少发布文件：$file（先运行 publish.ps1 或去掉 -SkipPublish）。"
     }

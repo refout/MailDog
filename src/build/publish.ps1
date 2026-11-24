@@ -40,6 +40,10 @@ try {
     Write-Host "Publishing MailDog.UI ($Runtime, $Configuration)..."
     dotnet publish (Join-Path $srcRoot 'MailDog.UI/MailDog.UI.csproj') @publishArgs -o (Join-Path $artifacts 'ui')
     if ($LASTEXITCODE -ne 0) { throw "UI publish failed with exit code $LASTEXITCODE." }
+
+    Write-Host "Publishing MailDog.Cli ($Runtime, $Configuration)..."
+    dotnet publish (Join-Path $srcRoot 'MailDog.Cli/MailDog.Cli.csproj') @publishArgs -o (Join-Path $artifacts 'cli')
+    if ($LASTEXITCODE -ne 0) { throw "CLI publish failed with exit code $LASTEXITCODE." }
 }
 finally {
     Pop-Location
@@ -48,6 +52,14 @@ finally {
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 Copy-Item (Join-Path $artifacts 'engine/MailDog.Engine.exe') $dist -Force
 Copy-Item (Join-Path $artifacts 'ui/MailDog.UI.exe') $dist -Force
+Copy-Item (Join-Path $artifacts 'cli/MailDog.Cli.exe') $dist -Force
+
+# maildog.cmd 只是个转发壳：命令行里敲 maildog 实际跑同目录的 MailDog.Cli.exe。
+$shim = Join-Path $dist 'maildog.cmd'
+Set-Content -Path $shim -Encoding ascii -NoNewline -Value @"
+@echo off
+"%~dp0MailDog.Cli.exe" %*
+"@
 
 $package = Join-Path (Split-Path -Parent $dist) "MailDog-$Runtime.zip"
 Remove-Item $package -Force -ErrorAction SilentlyContinue
