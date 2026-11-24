@@ -81,6 +81,21 @@ public sealed class AppSettingsDto
     /// <summary>通知是否附带正文摘要（只取开头一小段）。</summary>
     public bool NotificationShowPreview { get; init; }
 
+    /// <summary>同一批到达的多封邮件合并成一条"有 N 封新邮件"。</summary>
+    public bool NotificationMerge { get; init; } = true;
+
+    /// <summary>只给收件箱弹通知，订阅文件夹与自定义文件夹不打扰。</summary>
+    public bool NotificationInboxOnly { get; init; } = true;
+
+    /// <summary>免打扰时段：期间只入库不弹窗。</summary>
+    public bool NotificationQuietEnabled { get; init; }
+
+    /// <summary>免打扰开始时间，24 小时制 "HH:mm"。</summary>
+    public string NotificationQuietStart { get; init; } = "22:00";
+
+    /// <summary>免打扰结束时间，24 小时制 "HH:mm"，可小于开始时间表示跨夜。</summary>
+    public string NotificationQuietEnd { get; init; } = "08:00";
+
     public int SyncIntervalMinutes { get; init; } = 1;
 
     public int CacheDays { get; init; } = 90;

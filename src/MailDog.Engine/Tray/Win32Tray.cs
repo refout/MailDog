@@ -180,15 +180,16 @@ public sealed class Win32Tray : IDisposable
         string? senderName = null,
         string? senderAddress = null,
         string? preview = null,
-        string? activationUri = null)
+        string? activationUri = null,
+        string? tag = null)
     {
         // 优先走正式 toast：只有 toast 会落进通知中心，也才有头部应用图标。
         var avatarPath = _avatars.GetAvatarPng(senderName, senderAddress);
-        var tag = string.IsNullOrWhiteSpace(senderAddress)
+        var effectiveTag = tag ?? (string.IsNullOrWhiteSpace(senderAddress)
             ? message
-            : $"{senderAddress}_{message}";
+            : $"{senderAddress}_{message}");
 
-        if (ToastNotifier.TryShow(title, message, preview, senderAddress, avatarPath, playSound, tag, activationUri))
+        if (ToastNotifier.TryShow(title, message, preview, senderAddress, avatarPath, playSound, effectiveTag, activationUri))
         {
             return;
         }

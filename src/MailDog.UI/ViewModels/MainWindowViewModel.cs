@@ -711,6 +711,26 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _notificationShowPreview;
 
+    /// <summary>同一批多封邮件合并成一条通知。</summary>
+    [ObservableProperty]
+    private bool _notificationMerge = true;
+
+    /// <summary>只给收件箱弹通知。</summary>
+    [ObservableProperty]
+    private bool _notificationInboxOnly = true;
+
+    /// <summary>免打扰时段总开关。</summary>
+    [ObservableProperty]
+    private bool _notificationQuietEnabled;
+
+    /// <summary>免打扰开始时间，"HH:mm"。</summary>
+    [ObservableProperty]
+    private string _notificationQuietStart = "22:00";
+
+    /// <summary>免打扰结束时间，"HH:mm"。</summary>
+    [ObservableProperty]
+    private string _notificationQuietEnd = "08:00";
+
     [ObservableProperty]
     private int _syncIntervalIndex;
 
@@ -799,6 +819,31 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     partial void OnNotificationShowPreviewChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnNotificationMergeChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnNotificationInboxOnlyChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnNotificationQuietEnabledChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnNotificationQuietStartChanged(string value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnNotificationQuietEndChanged(string value)
     {
         QueueSettingsSave();
     }
@@ -2451,6 +2496,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             NotificationSound = NotificationSound,
             NotificationShowSubject = NotificationShowSubject,
             NotificationShowPreview = NotificationShowPreview,
+            NotificationMerge = NotificationMerge,
+            NotificationInboxOnly = NotificationInboxOnly,
+            NotificationQuietEnabled = NotificationQuietEnabled,
+            NotificationQuietStart = NotificationQuietStart,
+            NotificationQuietEnd = NotificationQuietEnd,
             SyncIntervalMinutes = SyncIntervalValues[Math.Clamp(SyncIntervalIndex, 0, SyncIntervalValues.Length - 1)],
             CacheDays = _settings.CacheDays,
             MarkReadOnOpen = MarkReadOnOpen,
@@ -3589,6 +3639,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 : "default";
             NotificationShowSubject = _settings.NotificationShowSubject;
             NotificationShowPreview = _settings.NotificationShowPreview;
+            NotificationMerge = _settings.NotificationMerge;
+            NotificationInboxOnly = _settings.NotificationInboxOnly;
+            NotificationQuietEnabled = _settings.NotificationQuietEnabled;
+            NotificationQuietStart = _settings.NotificationQuietStart;
+            NotificationQuietEnd = _settings.NotificationQuietEnd;
             var intervalIndex = Array.IndexOf(SyncIntervalValues, _settings.SyncIntervalMinutes);
             SyncIntervalIndex = intervalIndex >= 0 ? intervalIndex : 0;
             MarkReadOnOpen = _settings.MarkReadOnOpen;

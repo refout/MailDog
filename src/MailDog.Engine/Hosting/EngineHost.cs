@@ -44,6 +44,16 @@ public sealed class EngineHost : IAsyncDisposable
     private (long MessageId, string AccountId, long FolderId)? _lastNotification;
     private (long MessageId, string AccountId, long FolderId)? _pendingNavigation;
 
+    // 同一批同步里可能一次进来好几封，攒一小会儿再弹，避免通知刷屏。
+    private readonly object _notificationGate = new();
+    private readonly List<NewMailBatchItem> _pendingNotifications = [];
+    private Timer? _notificationTimer;
+    private DateTimeOffset _notificationBatchStart = DateTimeOffset.MinValue;
+    private const int NotificationBatchDelayMs = 1500;
+    private static readonly TimeSpan NotificationBatchWindow = TimeSpan.FromSeconds(4);
+
+    private sealed record NewMailBatchItem(MailSummaryDto Summary, string AccountId, long FolderId, int Count);
+
     private readonly string? _startupActivation;
 
     public EngineHost(string databasePath, bool hideConsole = true, string? startupActivation = null)
@@ -89,7 +99,7 @@ public sealed class EngineHost : IAsyncDisposable
                 if (settings.NotificationsEnabled)
                 {
                     _lastNotification = (message.Latest.Id, message.AccountId, message.FolderId);
-                    ShowNewMailNotification(message.Latest, message.AccountId, settings);
+                    QueueNotification(message.Latest, message.AccountId, message.FolderId, settings, message.Count);
                 }
             }
         };
@@ -184,23 +194,109 @@ public sealed class EngineHost : IAsyncDisposable
         _pendingNavigation = _lastNotification;
     }
 
+    /// <summary>要不要弹、弹一条还是合并，全在这里决定；真正弹窗放到批次末尾统一做。</summary>
+    private void QueueNotification(MailSummaryDto latest, string accountId, long folderId, AppSettingsDto settings, int count)
+    {
+        if (settings.NotificationInboxOnly && _store.GetFolder(folderId)?.Role != FolderRole.Inbox)
+        {
+            // 订阅文件夹、自定义文件夹的新邮件只入库，不打扰。
+            return;
+        }
+
+        if (NotificationPolicy.IsQuietTime(settings, DateTimeOffset.Now))
+        {
+            _log.Info($"免打扰时段，跳过通知：{latest.Subject}");
+            return;
+        }
+
+        lock (_notificationGate)
+        {
+            _pendingNotifications.Add(new NewMailBatchItem(latest, accountId, folderId, Math.Max(count, 1)));
+
+            if (_notificationBatchStart == DateTimeOffset.MinValue)
+            {
+                _notificationBatchStart = DateTimeOffset.Now;
+            }
+
+            _notificationTimer ??= new Timer(_ => FlushNotifications(), null, Timeout.Infinite, Timeout.Infinite);
+
+            // 攒够窗口就立刻弹，否则再等一小会儿，让同批邮件合并成一条。
+            var waited = DateTimeOffset.Now - _notificationBatchStart;
+            var delay = waited >= NotificationBatchWindow ? 0 : NotificationBatchDelayMs;
+            _notificationTimer.Change(delay, Timeout.Infinite);
+        }
+    }
+
+    private void FlushNotifications()
+    {
+        List<NewMailBatchItem> batch;
+
+        lock (_notificationGate)
+        {
+            if (_pendingNotifications.Count == 0)
+            {
+                return;
+            }
+
+            batch = [.. _pendingNotifications];
+            _pendingNotifications.Clear();
+            _notificationBatchStart = DateTimeOffset.MinValue;
+        }
+
+        var settings = _store.GetSettings();
+
+        if (!settings.NotificationsEnabled)
+        {
+            // 攒的过程中用户把通知关掉了。
+            return;
+        }
+
+        if (NotificationPolicy.IsPrivacyMode())
+        {
+            var first = batch[0];
+            ShowNewMailNotification(first.Summary, first.AccountId, settings, privacy: true);
+            return;
+        }
+
+        if (settings.NotificationMerge && batch.Count > 1)
+        {
+            var total = batch.Sum(item => item.Count);
+            ShowMergedNotification(batch, total, settings);
+            return;
+        }
+
+        foreach (var item in batch)
+        {
+            ShowNewMailNotification(item.Summary, item.AccountId, settings, privacy: false);
+        }
+    }
+
     /// <summary>通知正文按设置拼：主题与正文摘要都可以单独关掉。</summary>
-    private void ShowNewMailNotification(MailSummaryDto latest, string accountId, AppSettingsDto settings)
+    private void ShowNewMailNotification(MailSummaryDto latest, string accountId, AppSettingsDto settings, bool privacy)
     {
         var subject = string.IsNullOrWhiteSpace(latest.Subject) ? "（无主题）" : Collapse(latest.Subject);
         var preview = Truncate(Collapse(latest.Preview), 90);
         var sender = string.IsNullOrWhiteSpace(latest.FromName) ? latest.FromAddress : latest.FromName;
 
+        string title;
         string body;
         string? extraLine = null;
 
-        if (!settings.NotificationShowSubject)
+        if (privacy)
+        {
+            // 锁屏时把主题、摘要、发件人都收起来，只留一句"有新邮件"。
+            title = "MailDog";
+            body = "收到一封新邮件";
+        }
+        else if (!settings.NotificationShowSubject)
         {
             // 不显示主题时至少给一句能看懂的话，避免通知看起来是空的。
+            title = string.IsNullOrWhiteSpace(sender) ? "新邮件" : sender;
             body = settings.NotificationShowPreview && preview.Length > 0 ? preview : "收到一封新邮件";
         }
         else
         {
+            title = string.IsNullOrWhiteSpace(sender) ? "新邮件" : sender;
             body = subject;
 
             if (settings.NotificationShowPreview && preview.Length > 0)
@@ -210,14 +306,40 @@ public sealed class EngineHost : IAsyncDisposable
         }
 
         _tray?.ShowNotification(
-            string.IsNullOrWhiteSpace(sender) ? "新邮件" : sender,
+            title,
             body,
             settings.NotificationSoundEnabled,
             settings.NotificationSound,
-            latest.FromName,
-            latest.FromAddress,
-            extraLine,
+            privacy ? null : latest.FromName,
+            privacy ? null : latest.FromAddress,
+            privacy ? null : extraLine,
             BuildActivationUri(latest.Id, accountId, latest.FolderId));
+    }
+
+    /// <summary>同一批到达的多封邮件合并成一条，只显示数量与最新一封。</summary>
+    private void ShowMergedNotification(IReadOnlyList<NewMailBatchItem> batch, int total, AppSettingsDto settings)
+    {
+        var newest = batch[^1];
+        var subject = string.IsNullOrWhiteSpace(newest.Summary.Subject) ? "（无主题）" : Collapse(newest.Summary.Subject);
+        var sender = string.IsNullOrWhiteSpace(newest.Summary.FromName)
+            ? newest.Summary.FromAddress
+            : newest.Summary.FromName;
+
+        var title = $"收到 {total} 封新邮件";
+        var body = settings.NotificationShowSubject
+            ? $"{Collapse(sender)}：{subject}"
+            : "打开 MailDog 查看收件箱";
+
+        _tray?.ShowNotification(
+            title,
+            body,
+            settings.NotificationSoundEnabled,
+            settings.NotificationSound,
+            null,
+            null,
+            null,
+            BuildActivationUri(newest.Summary.Id, newest.AccountId, newest.Summary.FolderId),
+            tag: "digest");
     }
 
     private static string BuildActivationUri(long messageId, string accountId, long folderId)
@@ -620,6 +742,14 @@ public sealed class EngineHost : IAsyncDisposable
         await _flagSync.DisposeAsync().ConfigureAwait(false);
         await _sync.DisposeAsync().ConfigureAwait(false);
         await _ipc.DisposeAsync().ConfigureAwait(false);
+
+        lock (_notificationGate)
+        {
+            _notificationTimer?.Dispose();
+            _notificationTimer = null;
+            _pendingNotifications.Clear();
+        }
+
         _tray?.Dispose();
         _outlookAuth.Dispose();
         _store.Dispose();

@@ -32,6 +32,11 @@ public sealed class SqliteStoreTests : IDisposable
             NotificationSound = "mail",
             NotificationShowSubject = false,
             NotificationShowPreview = true,
+            NotificationMerge = false,
+            NotificationInboxOnly = false,
+            NotificationQuietEnabled = true,
+            NotificationQuietStart = "23:30",
+            NotificationQuietEnd = "7:05",
             SyncIntervalMinutes = 15,
             CacheDays = 30,
             MarkReadOnOpen = false,
@@ -53,6 +58,12 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.Equal("mail", loaded.NotificationSound);
         Assert.False(loaded.NotificationShowSubject);
         Assert.True(loaded.NotificationShowPreview);
+        Assert.False(loaded.NotificationMerge);
+        Assert.False(loaded.NotificationInboxOnly);
+        Assert.True(loaded.NotificationQuietEnabled);
+        Assert.Equal("23:30", loaded.NotificationQuietStart);
+        // 读回时补零，避免界面上出现 "7:05" 这种不成对的写法。
+        Assert.Equal("07:05", loaded.NotificationQuietEnd);
         Assert.Equal(15, loaded.SyncIntervalMinutes);
         Assert.Equal(30, loaded.CacheDays);
         Assert.False(loaded.MarkReadOnOpen);

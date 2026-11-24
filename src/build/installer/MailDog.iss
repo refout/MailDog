@@ -59,6 +59,11 @@ Name: "{autodesktop}\MailDog"; Filename: "{app}\MailDog.UI.exe"; Tasks: desktopi
 [Run]
 Filename: "{app}\MailDog.UI.exe"; Description: "{cm:LaunchProgram,MailDog}"; Flags: nowait postinstall skipifsilent
 
+[Registry]
+; 协议与应用标识是运行时写进 HKCU 的，卸载时一并清掉，避免留下指向已删除程序的条目。
+Root: HKCU; Subkey: "Software\Classes\maildog"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\AppUserModelId\MailDog.MailDog.App"; Flags: uninsdeletekey
+
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C taskkill /IM MailDog.UI.exe /F"; Flags: runhidden; RunOnceId: "KillUI"
 Filename: "{cmd}"; Parameters: "/C taskkill /IM MailDog.Engine.exe /F"; Flags: runhidden; RunOnceId: "KillEngine"

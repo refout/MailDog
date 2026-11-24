@@ -1188,6 +1188,11 @@ public sealed class SqliteStore : IDisposable
                 : "default",
             NotificationShowSubject = !values.TryGetValue("notificationSubject", out var notificationSubject) || notificationSubject != "0",
             NotificationShowPreview = values.GetValueOrDefault("notificationPreview") == "1",
+            NotificationMerge = !values.TryGetValue("notificationMerge", out var notificationMerge) || notificationMerge != "0",
+            NotificationInboxOnly = !values.TryGetValue("notificationInboxOnly", out var notificationInboxOnly) || notificationInboxOnly != "0",
+            NotificationQuietEnabled = values.GetValueOrDefault("notificationQuiet") == "1",
+            NotificationQuietStart = NormalizeClock(values.GetValueOrDefault("notificationQuietStart"), "22:00"),
+            NotificationQuietEnd = NormalizeClock(values.GetValueOrDefault("notificationQuietEnd"), "08:00"),
             SyncIntervalMinutes = int.TryParse(values.GetValueOrDefault("syncIntervalMinutes"), out var interval)
                 ? Math.Clamp(interval, 1, 60)
                 : 1,
@@ -1216,6 +1221,11 @@ public sealed class SqliteStore : IDisposable
             UpsertSetting(transaction, "notificationSoundName", settings.NotificationSound);
             UpsertSetting(transaction, "notificationSubject", settings.NotificationShowSubject ? "1" : "0");
             UpsertSetting(transaction, "notificationPreview", settings.NotificationShowPreview ? "1" : "0");
+            UpsertSetting(transaction, "notificationMerge", settings.NotificationMerge ? "1" : "0");
+            UpsertSetting(transaction, "notificationInboxOnly", settings.NotificationInboxOnly ? "1" : "0");
+            UpsertSetting(transaction, "notificationQuiet", settings.NotificationQuietEnabled ? "1" : "0");
+            UpsertSetting(transaction, "notificationQuietStart", settings.NotificationQuietStart);
+            UpsertSetting(transaction, "notificationQuietEnd", settings.NotificationQuietEnd);
             UpsertSetting(transaction, "syncIntervalMinutes", settings.SyncIntervalMinutes.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "cacheDays", settings.CacheDays.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "markReadOnOpen", settings.MarkReadOnOpen ? "1" : "0");
@@ -2336,6 +2346,28 @@ public sealed class SqliteStore : IDisposable
 
     private static DateTimeOffset FromDb(string value)
         => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+
+    /// <summary>把 "HH:mm" 规整成两位小时与两位分钟，读坏值回落到默认。</summary>
+    private static string NormalizeClock(string? value, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        var parts = value.Trim().Split(':');
+
+        if (parts.Length != 2
+            || !int.TryParse(parts[0], out var hour)
+            || !int.TryParse(parts[1], out var minute)
+            || hour is < 0 or > 23
+            || minute is < 0 or > 59)
+        {
+            return fallback;
+        }
+
+        return $"{hour:00}:{minute:00}";
+    }
 
     private static string BuildPreview(string? plainText)
     {

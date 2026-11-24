@@ -1231,11 +1231,11 @@ GitHub Actions `windows-latest`：
 
 #### P0 通知链路收口（v0.1.2 遗留）
 
-- 真机点击验证：`activationType="protocol"` 在 ToastGeneric 上是否被鼠标点击认可，目前只验证到命令层（协议注册 → `--activate` → `WM_COPYDATA` → `Activate` → 广播/拉起 UI）。若失效，退回"开始菜单快捷方式 + COM 激活器"。
-- 协议路径自校验：安装包装到非仓库路径后，`HKCU\Software\Classes\maildog\shell\open\command` 仍指向构建目录。启动时比对自身可执行文件路径，不一致即重写。
-- 生命周期清理：卸载/升级时删除 `HKCU\Software\Classes\maildog` 与 `HKCU\Software\Classes\AppUserModelId\MailDog.MailDog.App`，并重写 AUMID 的 IconUri 指向新安装目录。
-- 通知节流与合并：同一时刻多封新邮件合并为一条"收件箱有 N 封新邮件"。复用现有 Group=`mail` + Tag 覆盖机制。
-- 免打扰与隐私：免打扰时段（静默不弹、仍入库）；锁屏状态下隐藏主题与摘要，只显示"收到新邮件"；只通知收件箱，不给订阅文件夹弹。
+- ⏳ 真机点击验证：`activationType="protocol"` 在 ToastGeneric 上是否被鼠标点击认可，目前只验证到命令层（协议注册 → `--activate` → `WM_COPYDATA` → `Activate` → 广播/拉起 UI）。若失效，退回"开始菜单快捷方式 + COM 激活器"。
+- ✅ 协议路径自校验（2026-11-24）：启动时比对 `HKCU\Software\Classes\maildog\shell\open\command` 里的 exe 与当前进程，不一致即重写；实测把命令改成 `C:\nowhere\...` 后重启 Engine，值已恢复为当前路径。
+- ✅ 生命周期清理（2026-11-24）：安装包加 `[Registry]` 两项（`Software\Classes\maildog` 与 `Software\Classes\AppUserModelId\MailDog.MailDog.App`，`Flags: uninsdeletekey`），卸载/升级一并删除；AUMID 的 `IconUri` 每次 Engine 启动重写，跟随新安装目录。
+- ✅ 通知节流与合并（2026-11-24）：`EngineHost` 里攒 1.5 秒再弹（单批最长等 4 秒），多封合成"收到 N 封新邮件"，Tag 固定 `digest` 让后来的汇总覆盖前一条；设置里有"多封合并"开关。
+- ✅ 免打扰与隐私（2026-11-24）：免打扰时段（`HH:mm` 起止，可跨夜，默认 22:00–08:00，默认关）；锁屏（`OpenInputDesktop` 打不开输入桌面）时只显示"收到一封新邮件"，主题/摘要/发件人都不上屏；只通知收件箱（按 `folders.role` 判断，订阅与自定义文件夹只入库）。
 
 #### P0 自动更新
 

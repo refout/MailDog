@@ -292,6 +292,66 @@
                             <TextBlock Text="关掉主题后只显示发件人和一句“收到一封新邮件”；摘要取正文开头几十个字。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
+                            <TextBlock Text="通知节奏" Classes="section" Margin="0,8,0,0" />
+                            <Grid ColumnDefinitions="*,Auto">
+                              <StackPanel Spacing="2">
+                                <TextBlock Text="多封合并" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="同一批到达好几封时只弹一条“收到 N 封新邮件”，点它跳到最新一封。"
+                                           Classes="caption"
+                                           TextWrapping="Wrap" />
+                              </StackPanel>
+                              <ToggleSwitch Grid.Column="1"
+                                            IsChecked="{Binding NotificationMerge}"
+                                            OnContent=""
+                                            OffContent=""
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.Name="多封合并" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                              <StackPanel Spacing="2">
+                                <TextBlock Text="只通知收件箱" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="订阅文件夹和自定义文件夹的新邮件照常入库，只是不弹窗。"
+                                           Classes="caption"
+                                           TextWrapping="Wrap" />
+                              </StackPanel>
+                              <ToggleSwitch Grid.Column="1"
+                                            IsChecked="{Binding NotificationInboxOnly}"
+                                            OnContent=""
+                                            OffContent=""
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.Name="只通知收件箱" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                              <StackPanel Spacing="2">
+                                <TextBlock Text="免打扰时段" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="这段时间只收信不弹窗，醒来再在列表里看。"
+                                           Classes="caption"
+                                           TextWrapping="Wrap" />
+                              </StackPanel>
+                              <ToggleSwitch Grid.Column="1"
+                                            IsChecked="{Binding NotificationQuietEnabled}"
+                                            OnContent=""
+                                            OffContent=""
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.Name="免打扰时段" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        IsEnabled="{Binding NotificationQuietEnabled}">
+                              <TextBox Width="88"
+                                       Text="{Binding NotificationQuietStart}"
+                                       PlaceholderText="22:00"
+                                       AutomationProperties.Name="免打扰开始时间" />
+                              <TextBlock Text="到" VerticalAlignment="Center" />
+                              <TextBox Width="88"
+                                       Text="{Binding NotificationQuietEnd}"
+                                       PlaceholderText="08:00"
+                                       AutomationProperties.Name="免打扰结束时间" />
+                              <TextBlock Text="24 小时制；结束早于开始表示跨夜。"
+                                         Classes="caption"
+                                         VerticalAlignment="Center"
+                                         TextWrapping="Wrap" />
+                            </StackPanel>
                           </StackPanel>
                         </StackPanel>
                         <StackPanel Spacing="8"
