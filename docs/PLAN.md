@@ -1262,6 +1262,12 @@ GitHub Actions `windows-latest`：
 - 退出码：`0` 成功、`2` 未找到、`3` 账号未登录或离线、`4` 被权限/配置拒绝、`5` 参数错误。
 - 测试：CI 用临时数据库种子三封邮件，跑 `accounts` / `search --json` / `show` / `send --dry-run` / `schema` 断言结构与退出码；写命令只在临时库上验证。
 - 打包：`package.ps1` 增加 `MailDog.Cli.exe` 产物（含 `maildog.cmd` 别名），安装包可选加入 PATH 的勾选项。
+- 配套 Agent Skill（**待 CLI 跑通之后再产出，当前不产出**）：`maildog-cli`，落在 `workspace/.user_skills/maildog-cli`。硬约束：
+  - 内容必须以 `maildog schema --json` 的真实输出为准（命令名、参数、字段名、退出码），并用本机真实账号逐条跑过；CLI 未实现前写出来的 Skill 只会误导，禁止提前创建。
+  - 必须写明"找不到 `maildog` 时提示先构建，禁止退回去直读 sqlite 或凭截图臆测"。
+  - 必须写明"id 只能来自 `list` / `search`，不猜 id"。
+  - 必须写明"`send` 先 dry-run 给用户看，确认后才加 `--confirm`；`draft` / `mark` / `move` 同样要用户明确同意"。
+  - 写入时机：CLI 只读命令验收通过那一版一并提交，作为 v0.2.0 的收尾交付物。
 
 #### P2 功能候选（排在 v0.2.0 之后）
 
