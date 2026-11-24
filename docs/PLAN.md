@@ -1231,7 +1231,8 @@ GitHub Actions `windows-latest`：
 
 - ✅ 版式：删除「更新」分区及其状态文本、「下载并安装」按钮和 GitHub Releases/SHA-256/便携版说明；版本号仍在品牌区只出现一次，第三方许可与支持区保持不变。
 - ✅ 验证：`dotnet build` 0 警告 0 错误；`dotnet test` 82 通过；UI Automation 实测关于页只剩品牌区「检查更新」按钮，无「更新」分区。
-- ⏳ 发布：待 tag 与 Release；产物尺寸与安装包 SHA-256 发布后回填。
+- ✅ 发布：tag `v0.2.4`，Release <https://github.com/refout/MailDog/releases/tag/v0.2.4>；x64 便携包 32.6 MiB、arm64 便携包 31.2 MiB、x64 安装包 23.4 MiB，安装包 SHA-256 `ac3347a6206a09ec860ec9377d17a7d136d1ad43bd757d74917a1683419dfb8e`。
+- ✅ 真机升级（2026-11-24）：本机从 0.2.3 以 `/SILENT /CLOSEAPPLICATIONS /LAUNCHAPP=1` 升级，安装器退出码 0，`FileVersion` 为 0.2.4.0；旧 UI 关闭后安装器拉起新 PID，窗口正常出现。
 
 ### v0.2.3（2026-11-24 发布）
 
