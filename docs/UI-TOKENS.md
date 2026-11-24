@@ -148,18 +148,18 @@ Hover→FillHover（新增，悬停底色统一 5%/8% 透明）
 
 | 变体 | 底色 | 描边 | 文字 | 悬停 | 按下 |
 |---|---|---|---|---|---|
-| 默认（secondary） | `SurfaceCard` | `StrokeDefault` | `TextPrimary` | `FillHover` | 再加一档 |
+| 默认（secondary） | `SurfaceSubtle` | `StrokeDefault` | `TextPrimary` | `FillHover` | 再加一档 |
 | `.primary` | `AccentBase` | 无 | `TextOnAccent` | `AccentHover` | `AccentPressed` |
 | `.subtle` | 透明 | 无 | `TextPrimary` | `FillHover` | `FillHover` + 1 档 |
 | `.icon` | 透明 | 无 | `TextSecondary` | `FillHover` | 同上 |
 | `.danger` | 透明 | 无 | `StatusDanger` | 危险色 8% 底 | 12% 底 |
 
-尺寸（`sm` / 默认 `md` / `lg`）：高度取对应 token；水平内边距 8 / 12 / 16；图标 16；图标与文字间距 8；圆角 `RadiusControl`；字号 `TypeBody`。图标按钮为正方形（边长 = 高度），列表行内用 `sm`。
+尺寸（`sm` / 默认 `md` / `lg`）：高度取对应 token；水平内边距 8 / 12 / 16；图标 16；图标与文字间距 8；圆角 `RadiusControl`；字号 `TypeBody`。图标按钮为正方形（边长 = 高度），列表行内用 `icon.sm`（24×24）。
 
 现有 class 的去向：
 
 ```
-.accent        → .primary（保留 alias，内部并入）
+.accent        → .primary（视图里已全部替换，不再保留 alias）
 .account-add   → 删除，改用 .subtle + 自定义内容模板
 .side-item     → 改名 .nav-item（导航项，不属于按钮体系）
 .jump-item     → 改名 .menu-item（菜单项）
@@ -341,13 +341,112 @@ src/MailDog.UI/
 ### 12.2 验证
 
 - `dotnet build src/MailDog.slnx`：0 警告 0 错误。
-- `dotnet test src/MailDog.slnx`：64 通过（Contracts 6 / Html 28 / Mail 30）。
-- 真机 916×639：暗色收件箱、设置外观/通知/阅读/同步/账户管理（含“编辑账户”进入表单）、亮色设置页均正常；返回按钮回到收件箱。
+- `dotnet test src/MailDog.slnx`：66 通过（Contracts 6 / Html 29 / Mail 31）。
+- 真机 916×639：暗色收件箱、设置外观/通知/阅读/同步/账户管理（含“编辑账户”进入表单）、亮色设置页均正常；设置页顶部返回按钮回到收件箱。
 - 密度切换后行高与控件高度变化，`density=standard` 入库并在重启后保留。
 
-### 12.3 仍待处理
+### 12.3 写信页富文本（2026-11-19）
+
+| 项 | 实际结果 |
+|---|---|
+| 默认模式 | 正文改为 `MailDogRichEditor`（继承 `AvaloniaRichEditor.RichEditor` 1.3.0，MIT，纯 C#），启动即富文本；不再使用 `NativeWebView` + TipTap，不依赖 WebView2 |
+| 工具栏 | 加粗、斜体、下划线、删除线、H1/H2/H3/正文、项目符号、编号、引用、链接、插入图片、撤销/重做；按钮统一 `.icon.toolbar`，选中态用 AccentTint；`GetCaretFormat()` 同步状态 |
+| 标题与图片 | `RichEditor.SetHeading(1..3/0)` 作用于当前段落，不扩大到整篇；`AllowImages=True`，工具栏「插入图片」走系统文件选择器并调用 `InsertImageFromFileAsync()`，图片以 data URI 进入正文，出站清洗已放行 `data:image/*` |
+| 链接 | 走编辑器内置 `Ctrl+K` 对话框；工具栏按钮由 `MailDogRichEditor.OpenLinkDialog()` 复用同一路径；标题、确定、取消、右键菜单链接项已注册中文 |
+| Markdown | 复选框切换为 Markdown 源码 + 实时预览；源码用现有 `MarkdownRenderer`，HTML→Markdown 由新增 `HtmlMarkdownConverter` 负责；`~~删除线~~` 已补渲染 |
+| 预览布局 | 宽度 ≥ 590 时左右分栏：编辑区 `*`、6px `GridSplitter`、预览像素列；预览初始 340、夹在 220–420，并为编辑区预留至少 380；拖动或窗口缩放都保留用户宽度。宽度 < 590 时上下堆叠（编辑 `*`、6px 分隔、预览 `0.45*`）。正文区为星号行，预览与编辑区都填满剩余高度 |
+| 主题 | 编辑器 `DefaultForeground` / `CaretBrush` / `SelectionBrush` 走语义令牌；预览用显式 `BuildMarkdownPreviewHtml(bool dark)`，标题、列表、表格、代码、引用、链接颜色跟主题一致 |
+| 数据 | `BodyHtml` 从 `SendMailRequest` / `SaveDraftRequest` 贯通到 `OutboxRecord.body_html`（schema v8）；`MailComposer` 输出 HTML + `HtmlTextConverter` 纯文本回退，出站 HTML 经 `HtmlSanitizer` 清洗；MIME 头 `X-MailDog-Format: html|markdown` |
+| 引用 | 回复/转发改成 HTML 引用块（发件人、时间、收件人、抄送 + 原文），不再拼纯文本破折线 |
+| 只读 | 发送/保存时 `RichEditor.IsReadOnly` 跟随 `CanEdit`，工具栏同步禁用 |
+| 附件 | 固定底栏右侧「附件」按钮始终可见，调用系统文件选择器；已选附件在底栏左侧显示名称与移除按钮（总大小见悬停提示），无附件时显示「未添加附件」；附件区用 `WrapPanel` 横向优先换行，最大高度 102，超出改纵向滚动，不再出现横向滚动条遮挡 chip |
+| 按钮 | 全局 `Button` 默认改为 `SurfaceSubtle + 1px StrokeDefault` 中性描边；`primary` 主色，`icon` 32×32，`icon.sm` 24×24；写信底栏保存/关闭/发送均带 14px 图标并使用 `Padding="8,0"`，与主界面写邮件、保存统一走同一套规格 |
+| 旧内核清理 | `Controls/RichTextEditor.*`、`Assets/ComposeEditor/`、`tools/compose-editor/` 及其资源项已删除；仓库不再保留 WebView + TipTap 写信实现，WebView 仅用于读信与 Markdown 预览 |
+
+**验证**
+
+- `dotnet build src/MailDog.slnx`：0 警告 0 错误。
+- `dotnet test src/MailDog.slnx`：71 通过（Contracts 6 / Html 34 / Mail 31）；新增 `HtmlMarkdownConverter` 标题、样式粗斜体、空段落与脚本清理、编辑器标题不重复加粗等断言。
+- 真机 916×639：亮色富文本输入、Ctrl+A + 工具栏加粗、链接对话框（中文标题与按钮）、Markdown 源码往返（标题/粗斜/列表/引用/链接保持）、写信页滚动与固定底栏均正常。
+- 附件：底栏「附件」入口可打开系统文件选择器；实机选中 `sample-attachment.txt` 后底栏出现名称/移除 chip，移除后恢复「未添加附件」；`ComposeViewModel` 的数量与大小汇总验证正确；MIME 附件由已有 `MailComposerTests` 覆盖。
+- 未验证：真实账户草稿保存（演示库账户缺 IMAP 凭据，UI 返回“认证失败，请重新登录”）、发送 MIME 端到端、中文输入法逐字输入、AOT 发布。
+
+### 12.4 仍待处理
 
 - 第 3 步剩余视图（侧栏、列表、阅读、欢迎页、账户表单）尚未独立成文件；`MainWindow` 目前保留这三栏与壳。
 - `ApplyPalette` 仍按自定义背景色重算表面色与文字/描边回退色；这些值不再被 XAML 直接引用，但尚未全部从令牌读取。
 - 自定义背景色预设本身是产品数据（16 进制字面量），不属于界面令牌，保留在 ViewModel。
 - 页内仍有少量内联字号（13/12/11）与 `Margin`；已不影响控件等高与按钮一致性，后续可按视图逐步替换为 `Body/Caption`。
+
+### 12.5 正文高度、附件换行与邮件签名（2026-11-19）
+
+| 项 | 实际结果 |
+|---|---|
+| 正文高度 | 写信页根布局改为 `Auto,*,Auto`：头部随内容、正文占剩余高度、底栏固定；去掉外层整页 `ScrollViewer`。富文本与 Markdown 源码 `MinHeight=160`，实际高度跟随星号行拉伸，输入超过一屏时在编辑区内滚动，不再被外层裁切 |
+| 头部压缩 | 抄送/密送合并为一行 `64,*,64,*`；头部 `RowSpacing` 10→8、上边距 18→14，为正文腾出高度；主题行保持「主题」标签对齐 |
+| 附件换行 | 附件面板由横向 `ScrollViewer + StackPanel` 改为 `WrapPanel`；chip 增加 `0,0,6,6` 外边距，`MaxHeight=102`，关闭横向滚动条。916×639 实测 5 个长文件名附件排成 3 行，第 5 个仍完整可见 |
+| 签名存储 | `AppSettingsDto.Signature` → SQLite `signature` → `MainWindowViewModel.SignatureText`，修改后自动保存；设置页账户分区顶部新增「邮件签名」多行输入，说明「新写、回复和转发时自动插入到正文下方；留空则不插入」 |
+| 签名插入 | 新写、回复、回复全部、转发统一由 `OpenCompose` 传入签名；草稿打开不重复插入。签名按行转成独立 `<p>`，空行用 `<p><br/></p>`；开头加一个 `&nbsp;` 空段落作为输入起点，避免用户输入与签名首行合并 |
+| 仅签名判定 | `ComposeViewModel` 记录签名基线 `_signatureOnlyHtml/_signatureOnlyText`；新写页只有签名、无收件人/主题/附件时视为空，关闭不会误存草稿 |
+| 图片与签名共存 | 全新写信页从工具栏插入示例图片后，签名段落仍在图片下方显示；旧截图中「签名消失」来自已输入文字/H1/选区状态不确定的自动化测试，不是图片插入删除了签名 |
+
+**验证**
+
+- `dotnet build src/MailDog.slnx`：0 警告 0 错误。
+- 真机 916×639：富文本正文占满剩余高度；Markdown 左右分栏，编辑区约 310–380px、预览约 220–280px 且占满高度；拖动分隔条与键盘左右键均可调整预览宽度。
+- 工具栏 H1 只放大当前标题行，签名保持正文字号；插入图片后签名仍在。
+- 5 个长文件名附件显示 3 行，底栏未被横向滚动条遮挡。
+- 仅签名的新写信页点「关闭写信」直接回到收件箱，不弹草稿保存。
+- `dotnet test src/MailDog.slnx`：71 通过（Contracts 6 / Html 34 / Mail 31）；签名逐行段落改动后重跑通过。
+
+### 12.6 设置去卡片、只保留富文本与可选工作台（2026-11-21）
+
+| 项 | 当前结果 |
+|---|---|
+| 设置页 | 通知 / 阅读 / 同步 / 账户 / 本地文件 / 关于的内容直接铺在页面，删除 `settings-card` 与 section 外层 Border；账户列表改为底部分隔线，不再使用卡片行 |
+| 启动 | 从“外观”移到独立“启动”分区，导航顺序为外观 / 通知 / 阅读 / 同步 / 功能 / 账户管理 / 本地文件 / 启动 / 关于；启动页直接显示复选框 |
+| 写信页 | 删除 Markdown 开关、源码框、预览分栏和 WebView 预览；正文只保留 `MailDogRichEditor`，发送/存草稿始终写 `BodyHtml`，`IsMarkdown=false`；旧 Markdown 草稿首次打开时转成 HTML |
+| 工作台 | 左侧“工具”分组 2×2 入口；日历、联系人、待办、记事本共用整页覆盖层；设置 → 功能可单独开关，关闭后入口隐藏、数据保留。12.7 已改为单列入口与右侧内容页 |
+| 账户关联 | 每条记录可绑定邮箱账户；数据存 `%LOCALAPPDATA%\MailDog\workspace.json`；Outlook Graph 同步尚未接入 |
+| 状态栏 | 设置、工作台、写信覆盖层打开时隐藏底部状态栏，避免邮件同步状态串到设置/工作台页面 |
+
+### 12.7 工具入口单列、工作台右侧内容页与内联编辑（2026-11-22）
+
+| 项 | 当前结果 |
+|---|---|
+| 工具入口 | 左侧“工具”分组改为每行一个菜单项（日历 / 联系人 / 待办 / 记事本），复用 `side-item` 与 `active` 选中态，不再使用 2×2 宫格 |
+| 工作台容器 | `ToolsView` 从整页覆盖层移到主窗口 `Grid.Column=1`、`ColumnSpan=2`，占用邮件列表与阅读区；左栏账户/文件夹常驻，打开工作台时邮件列表与阅读区隐藏，避免内容透出 |
+| 导航 | 删除工作台内部 220px 导航；顶部 `PageHeader` 显示“工作台”与返回按钮；点击邮件文件夹也直接回到邮件 |
+| 编辑 | 新建/编辑改为右侧 340px 内联编辑栏，与内容同页展开，左侧同步收窄；不使用遮罩、独立窗口或居中弹窗 |
+| 日历 | 去掉日期区外层卡片，星期、日期格和当天日程直接铺在页面；动作行在标题下换行排列，窄窗口不挤压 |
+| 反馈 | 保存/删除结果显示在工作台底部状态条；主窗口状态栏在工作台打开时仍隐藏 |
+| 最小高度 | 窗口最小高度从 600 调到 680，保证四行工具入口与账户树同时可用；默认高度仍为 800 |
+| 验证 | 真机 916×839 与 916×719 检查单列入口、日历、待办、内联编辑器、保存后列表和返回收件箱；`dotnet build` 0 警告 0 错误，67 测试通过 |
+
+### 12.8 移除可选工作台，只保留邮件（2026-11-22）
+
+| 项 | 当前结果 |
+|---|---|
+| 范围 | 删除日历、联系人、待办、记事本四个入口、页面、视图模型、`WorkspaceStore`、模块专用控件与样式；MailDog 回到纯邮件客户端 |
+| 设置 | 删除“功能”页和四个模块开关，导航顺序变为外观 / 通知 / 阅读 / 同步 / 账户管理 / 本地文件 / 启动 / 关于；账户、本地文件、启动、关于的索引同步前移 |
+| 布局 | 邮件列表与阅读区不再受 `IsFeaturesOpen` 遮挡；左侧栏行结构改为标题、文件夹树、设置三段 |
+| 保留 | 邮件“跳转”面板继续使用 `CalendarDayViewModel`、`CalendarDays` 及 `date-field` / `calendar-day` / `calendar-weekday` / `jump-item` 样式 |
+| 数据 | `%LOCALAPPDATA%\MailDog\workspace.json` 未删除，作为本地历史数据保留；应用不再读取或写入该文件 |
+### 12.9 列表与写信交互补齐（2026-11-22）
+
+| 项 | 当前结果 |
+|---|---|
+| 悬停操作 | `ListBoxItem` 容器上订阅指针事件，行右侧浮出归档 / 切换已读 / 删除 3 个 24×24 图标按钮；不改变行高，容器复用时退订复位；已读按钮的 tooltip、无障碍名称与图标随邮件状态变化（未读→标记为已读 / 已读→标记为未读） |
+| 三栏底边距 | 中栏内容 `Grid` 增加 `Margin="0,0,0,12"`，邮件列表与底部状态栏之间保留 12px；与左栏内边距一致，不再贴窗口底边 |
+| 紧凑预览 | 紧凑档两行（发件人+时间 / 主题），标准档恢复摘要第三行；附件、旗标、会话徽标移到主题行尾部，不产生裁切 |
+| 无障碍 | 容器生成时写 `AutomationProperties.Name`（未读前缀 + 发件人 + 主题）；监听 `IsRead` 变化即时刷新名称；图标按钮全部有可读名称 |
+| 搜索 | 清除按钮（`Dismiss`）清空关键词并把范围复位到当前文件夹；「当前文件夹 / 全部邮箱」范围切换；命中词浅蓝底 + 加粗 |
+| 会话 | 列表按 `ThreadKey` 折叠，行尾数字徽标；阅读页「会话 N 封」按钮打开 Flyout，选较早邮件只换正文、不改列表选中项 |
+| 写信收件人 | To/Cc/Bcc 三列 chip + 联系人候选；chip 是发送/草稿/判空的权威值，输入框只保留未提交文本；分隔符与 Enter 均可提交 |
+| 快捷键 | `Ctrl+N` / `Ctrl+R` / `Ctrl+Shift+R` / `Ctrl+Shift+F` / `Delete` / `F5` / `Ctrl+A` / `Esc` / `Ctrl+F` / `Ctrl+,`；`Esc` 在写信页按关闭语义保存草稿 |
+| 验证 | `dotnet build` 0 警告 0 错误；`dotnet test` 67 通过（Html 30 / Contracts 6 / Mail 31）；实机 1296×839 验收悬停、无障碍名称刷新、紧凑列表、全局搜索、会话折叠与 Flyout、收件人 chips |
+
+**验证备注**
+
+- 会话折叠曾用临时 `thread_key='thread-test-r28'` 把两封 QQ 收件箱邮件归组，确认列表「2」徽标、阅读页「会话 2 封」和 Flyout 两项；验收后已恢复原 `thread_key`，生产数据不再带测试分组。
+- 全局搜索清空后范围复位为「当前文件夹」；统一收件箱未读徽标在后台同步完成后可能从局部的 354 跳到全量 1862，属于账户文件夹计数刷新，不是搜索残留。

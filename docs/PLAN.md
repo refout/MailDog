@@ -69,7 +69,7 @@
 - 撰写/回复/转发/发件（SMTP 发信与 Outbox）。
 - 附件下载、内嵌图片（`cid:`）解析、附件预览。
 - 全文搜索（FTS5 可先埋点，v1 只搜主题/发件人/预览）。
-- 规则、标签、会话聚合、日程、通讯录。
+- 规则、标签、日程、通讯录。
 - 多窗口、拖拽、打印。
 - macOS / Linux。
 - 自动更新、安装包签名分发。
@@ -499,6 +499,7 @@ CREATE TABLE messages (
     folder_id       INTEGER NOT NULL REFERENCES folders(id) ON DELETE CASCADE,
     uid             INTEGER NOT NULL,
     message_id      TEXT,
+    thread_key      TEXT,                 -- 会话聚合键（References/In-Reply-To 首条或规范化主题哈希）
     subject         TEXT NOT NULL DEFAULT '',
     from_name       TEXT NOT NULL DEFAULT '',
     from_addr       TEXT NOT NULL DEFAULT '',
@@ -516,6 +517,7 @@ CREATE TABLE messages (
 CREATE INDEX ix_messages_folder_date ON messages(folder_id, date_utc DESC, id DESC);
 CREATE INDEX ix_messages_account_date ON messages(account_id, date_utc DESC, id DESC);
 CREATE INDEX ix_messages_message_id ON messages(message_id);
+CREATE INDEX ix_messages_thread_key ON messages(thread_key);
 
 CREATE TABLE bodies (
     message_row_id    INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
@@ -1186,7 +1188,7 @@ GitHub Actions `windows-latest`：
 
 - Win32 托盘、菜单、气泡通知、任务栏重建处理。
 - 单实例、托盘拉起 UI、`showMainWindow`。
-- 开机自启开关（注册表 Run）。**已完成**：设置页“登录 Windows 时自动启动”，Engine 在设置保存与启动时同步 HKCU Run。
+- 开机自启开关（注册表 Run）。**已完成**：设置页“启动”分区的“登录 Windows 时自动启动”，Engine 在设置保存与启动时同步 HKCU Run。
 
 **退出标准**
 
@@ -1198,13 +1200,30 @@ GitHub Actions `windows-latest`：
 
 - 已读/旗标双向同步、重试队列。
 - SMTP：QQ PLAIN / Outlook OAuth2；Outbox 表与重试。
-- 撰写页、草稿、附件。撰写为主窗口内嵌页，不弹独立窗口；支持可选 Markdown 正文并在发送/存草稿时转换为 HTML。
+- 撰写页、草稿、附件。撰写为主窗口内嵌页，不弹独立窗口；正文只保留富文本编辑器，旧 Markdown 草稿首次打开时转成 HTML。
 - 自定义 IMAP/SMTP 服务器、cid 内嵌图、附件默认程序打开。
 
 ### Stage 8：分发（v1.1，部分完成）
 
 - 压缩包、Inno Setup 安装包与 GitHub Release 流水线已完成。
 - 仍待：代码签名证书（需 OV/EV 证书与签名密钥）、自动更新检查、崩溃报告（可选）。
+
+### Stage 9：可选工作台（v1.2，已移除）
+
+> 2026-11-22 已整体移除日历、联系人、待办、记事本四个模块及设置开关；以下保留为历史记录。MailDog 现在只保留邮件功能。
+
+- 日历、联系人、待办、记事本四个模块，设置 → 功能可单独开关。
+- 本地 `workspace.json` 持久化，记录可绑定邮箱账户；关闭模块只隐藏入口，不删数据。
+- 待接入：Outlook Microsoft Graph 的日历/联系人/待办双向同步，需要扩展 OAuth scope 并处理首次重新授权。
+
+### v1.2 邮件交互补齐（2026-11-22，已完成）
+
+- 列表：行容器悬停浮出归档/切换已读/删除；容器级无障碍名称（未读前缀 + 发件人 + 主题）随已读状态刷新；紧凑档两行、标准档三行。
+- 搜索：清除按钮；「当前文件夹 / 全部邮箱」范围切换（`SearchMessagesRequest.AllFolders`）；主题/发件人/预览命中词高亮。
+- 会话：`messages.thread_key` migration v9 + 索引，`MimeConverter.BuildThreadKey` 取 References/In-Reply-To 或规范化主题；列表按线程折叠并在阅读页提供会话 Flyout。
+- 写信：To/Cc/Bcc chip、联系人候选（`listContacts` / `contacts` IPC，聚合 `messages.from_addr`）、发送/草稿/判空统一使用 `*RecipientsValue`。
+- 快捷键：`Ctrl+N` / `Ctrl+R` / `Ctrl+Shift+R` / `Ctrl+Shift+F` / `Delete` / `F5` / `Ctrl+A` / `Esc` / `Ctrl+F` / `Ctrl+,`。
+- 验证：`dotnet build` 0 警告 0 错误；`dotnet test` 67 通过；1296×839 实机逐项验收，测试线程键已还原。
 
 ---
 

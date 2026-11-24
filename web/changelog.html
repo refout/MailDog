@@ -10,7 +10,7 @@
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0e13" />
 <link rel="canonical" href="https://refout.github.io/MailDog/changelog.html" />
 <link rel="icon" type="image/png" sizes="64x64" href="./assets/favicon-64.png" />
-<link rel="apple-touch-icon" href="./assets/avatar-96.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="./assets/avatar-180.png" />
 
 <meta property="og:type" content="article" />
 <meta property="og:site_name" content="MailDog" />
@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.1.1</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.1.2</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,9 +67,30 @@
 
     <article class="release">
       <div class="release-top">
+        <h2>v0.1.2</h2>
+        <span class="date">2026-11-24</span>
+        <span class="latest">最新</span>
+      </div>
+      <p class="summary">换了新图标，通知也换了新做法：弹出来能认得出是谁发的，点一下就能翻到那封信，关掉窗口也照样跳。</p>
+      <ul>
+        <li><b>新图标</b>：圆角蓝底上一个白色 M，右下角蹲着自家那只白博美。程序图标、任务栏、托盘、官网都换成了它。</li>
+        <li><b>通知是系统的正式通知</b>：顶部带应用图标，大图是发件人头像，边缘不再有锯齿；以前那种一会儿就没、还留不下记录的气泡通知不用了。</li>
+        <li><b>点通知能翻到那封信</b>：点一下就把窗口拉到前面，并定位到对应的邮件；窗口关着的话会先把窗口拉起来。</li>
+        <li><b>通知能留底</b>：弹出的通知会进系统通知中心，事后翻历史还能看到当时来的是什么信，也能从历史点回那封信。</li>
+        <li><b>通知里显示什么自己定</b>：设置里可以选通知里带不带邮件主题、带不带正文开头那几句。</li>
+        <li><b>背景很透也能看清字</b>：窗口调得很透的时候，邮件列表和阅读区会自动更实一点，灰色小字也会跟着变清楚，不会被桌面上的东西透过来搅乱。</li>
+        <li><b>关于页重做</b>：图标放大，说明改成日常说法，另外加了一份开源致谢，用到的每个库都能查到出处。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.1.2" target="_blank" rel="noopener">下载 v0.1.2</a>
+        <a href="https://github.com/refout/MailDog/compare/v0.1.1...v0.1.2" target="_blank" rel="noopener">对比 v0.1.1</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
         <h2>v0.1.1</h2>
         <span class="date">2026-11-18</span>
-        <span class="latest">最新</span>
       </div>
       <p class="summary">关掉窗口也能继续收信：新邮件立刻推到你眼前，两个邮箱的收件箱也能在同一个列表里看。</p>
       <ul>
