@@ -268,6 +268,13 @@ public static class MarkdownRenderer
         {
             var current = text[index];
 
+            if (current == '\\' && index + 1 < text.Length && IsEscapable(text[index + 1]))
+            {
+                html.Append(WebUtility.HtmlEncode(text[index + 1].ToString()));
+                index += 2;
+                continue;
+            }
+
             if (current == '`')
             {
                 var end = text.IndexOf('`', index + 1);
@@ -277,6 +284,19 @@ public static class MarkdownRenderer
                         .Append(WebUtility.HtmlEncode(text[(index + 1)..end]))
                         .Append("</code>");
                     index = end + 1;
+                    continue;
+                }
+            }
+
+            if (current == '~' && index + 1 < text.Length && text[index + 1] == '~')
+            {
+                var end = text.IndexOf("~~", index + 2, StringComparison.Ordinal);
+                if (end > index)
+                {
+                    html.Append("<s>")
+                        .Append(RenderInline(text[(index + 2)..end]))
+                        .Append("</s>");
+                    index = end + 2;
                     continue;
                 }
             }
@@ -354,6 +374,10 @@ public static class MarkdownRenderer
 
         return html.ToString();
     }
+
+    private static bool IsEscapable(char value)
+        => value is '\\' or '`' or '*' or '_' or '[' or ']' or '(' or ')' or '#'
+            or '+' or '-' or '.' or '!' or '>' or '|' or '~' or '<' or '=' or ':';
 
     private static void AppendImage(StringBuilder html, string alt, string url)
     {

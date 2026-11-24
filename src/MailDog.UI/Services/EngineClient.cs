@@ -223,12 +223,25 @@ public sealed class EngineClient : IAsyncDisposable
 
         try
         {
-            Process.Start(new ProcessStartInfo(path)
+            var startInfo = new ProcessStartInfo(path)
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WorkingDirectory = Path.GetDirectoryName(path) ?? string.Empty
-            });
+            };
+
+            var uiPath = Environment.ProcessPath;
+            if (!string.Equals(Path.GetFileName(uiPath), "MailDog.UI.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                uiPath = Path.Combine(AppContext.BaseDirectory, "MailDog.UI.exe");
+            }
+
+            if (File.Exists(uiPath))
+            {
+                startInfo.Environment["MAILDOG_UI_PATH"] = uiPath;
+            }
+
+            Process.Start(startInfo);
         }
         catch
         {
@@ -288,24 +301,37 @@ public sealed class EngineClient : IAsyncDisposable
                     }
                 }
 
-                // 优先使用 RID 发布产物，避免误用旧的非 RID apphost。
-                var published = Path.Combine(
-                    binRoot,
-                    configuration,
-                    "net11.0",
-                    runtime,
-                    "MailDog.Engine.exe");
+                // Engine 的目标框架带 Windows 版本（它要用 WinRT 发通知），
+                // 目录名不是固定的 net11.0，所以按前缀找一遍。
+                string[] targetFrameworks;
 
-                if (File.Exists(published))
+                try
                 {
-                    return published;
+                    targetFrameworks = Directory.GetDirectories(
+                        Path.Combine(binRoot, configuration),
+                        "net11.0*");
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    targetFrameworks = [];
                 }
 
-                var candidate = Path.Combine(binRoot, configuration, "net11.0", "MailDog.Engine.exe");
-
-                if (File.Exists(candidate))
+                foreach (var targetFramework in targetFrameworks)
                 {
-                    return candidate;
+                    // 优先使用 RID 发布产物，避免误用旧的非 RID apphost。
+                    var published = Path.Combine(targetFramework, runtime, "MailDog.Engine.exe");
+
+                    if (File.Exists(published))
+                    {
+                        return published;
+                    }
+
+                    var candidate = Path.Combine(targetFramework, "MailDog.Engine.exe");
+
+                    if (File.Exists(candidate))
+                    {
+                        return candidate;
+                    }
                 }
             }
         }

@@ -33,9 +33,10 @@ public sealed partial class AccountViewModel : ObservableObject
             AccountStatus.AuthRequired => Color.Parse("#9D5D00"),
             _ => Color.Parse("#8A8A8A")
         });
-        Initial = string.IsNullOrWhiteSpace(DisplayName)
+        var initialSource = string.IsNullOrWhiteSpace(DisplayName) ? Email : DisplayName;
+        Initial = string.IsNullOrWhiteSpace(initialSource)
             ? "?"
-            : DisplayName[..1].ToUpperInvariant();
+            : initialSource[..1].ToUpperInvariant();
     }
 
     public string Id { get; }
@@ -43,6 +44,12 @@ public sealed partial class AccountViewModel : ObservableObject
     public string Email { get; }
 
     public string DisplayName { get; }
+
+    /// <summary>侧栏账户主标题：显示名与邮箱相同时退回邮箱类型，避免两行重复地址。</summary>
+    public string Title => string.IsNullOrWhiteSpace(DisplayName)
+        || string.Equals(DisplayName.Trim(), Email, StringComparison.OrdinalIgnoreCase)
+            ? ProviderText
+            : DisplayName;
 
     public MailProvider Provider { get; }
 

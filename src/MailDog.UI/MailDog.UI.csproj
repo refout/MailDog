@@ -23,6 +23,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Angle.Windows.Natives" GeneratePathProperty="true" PrivateAssets="all" />
     <PackageReference Include="Avalonia.Controls.WebView" />
+    <PackageReference Include="AvaloniaRichEditor" />
     <PackageReference Include="FluentIcons.Avalonia" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="SkiaSharp" />

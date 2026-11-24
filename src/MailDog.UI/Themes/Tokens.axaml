@@ -15,7 +15,9 @@
       <Color x:Key="MailDogColorSurfaceSubtle">#FAFAFA</Color>
       <Color x:Key="MailDogColorSurfaceCard">#FFFFFF</Color>
       <Color x:Key="MailDogColorSurfacePopup">#FFFFFF</Color>
+      <Color x:Key="MailDogColorSurfaceSolid">#FFFFFF</Color>
       <Color x:Key="MailDogColorAccentTint">#EBF3FC</Color>
+      <Color x:Key="MailDogColorSelectionTint">#DCE9F7</Color>
       <Color x:Key="MailDogColorFillHover">#0A000000</Color>
       <Color x:Key="MailDogColorStatusDanger">#C42B1C</Color>
       <Color x:Key="MailDogColorStatusDangerTint">#FDF3F4</Color>
@@ -33,6 +35,17 @@
       <Color x:Key="MailDogColorAccentBase">#0F6CBD</Color>
       <Color x:Key="MailDogColorAccentHover">#115EA3</Color>
       <Color x:Key="MailDogColorAccentPressed">#0B4F8A</Color>
+
+      <!-- 覆盖 Fluent 默认高饱和选中蓝，列表与导航统一使用柔和 accent tint。 -->
+      <SolidColorBrush x:Key="SystemControlHighlightListAccentLowBrush" Color="#EBF3FC" />
+      <SolidColorBrush x:Key="SystemControlHighlightListAccentMediumBrush" Color="#DCEBFA" />
+      <SolidColorBrush x:Key="SystemControlHighlightListAccentHighBrush" Color="#CDE1F7" />
+      <SolidColorBrush x:Key="TreeViewItemBackgroundSelected" Color="#EBF3FC" />
+      <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPointerOver" Color="#DCEBFA" />
+      <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPressed" Color="#CDE1F7" />
+      <SolidColorBrush x:Key="TreeViewItemForegroundSelected" Color="#1B1B1B" />
+      <SolidColorBrush x:Key="TreeViewItemForegroundSelectedPointerOver" Color="#1B1B1B" />
+      <SolidColorBrush x:Key="TreeViewItemForegroundSelectedPressed" Color="#1B1B1B" />
     </ResourceDictionary>
 
     <ResourceDictionary x:Key="Dark">
@@ -41,7 +54,9 @@
       <Color x:Key="MailDogColorSurfaceSubtle">#1F1F1F</Color>
       <Color x:Key="MailDogColorSurfaceCard">#272727</Color>
       <Color x:Key="MailDogColorSurfacePopup">#272727</Color>
+      <Color x:Key="MailDogColorSurfaceSolid">#2A2A2A</Color>
       <Color x:Key="MailDogColorAccentTint">#1A3A5C</Color>
+      <Color x:Key="MailDogColorSelectionTint">#23476C</Color>
       <Color x:Key="MailDogColorFillHover">#0FFFFFFF</Color>
       <Color x:Key="MailDogColorStatusDanger">#FF99A4</Color>
       <Color x:Key="MailDogColorStatusDangerTint">#3B1A1A</Color>
@@ -59,6 +74,16 @@
       <Color x:Key="MailDogColorAccentBase">#479EF5</Color>
       <Color x:Key="MailDogColorAccentHover">#62ABF5</Color>
       <Color x:Key="MailDogColorAccentPressed">#3D8BF8</Color>
+
+      <SolidColorBrush x:Key="SystemControlHighlightListAccentLowBrush" Color="#1A3A5C" />
+      <SolidColorBrush x:Key="SystemControlHighlightListAccentMediumBrush" Color="#21466B" />
+      <SolidColorBrush x:Key="SystemControlHighlightListAccentHighBrush" Color="#28537C" />
+      <SolidColorBrush x:Key="TreeViewItemBackgroundSelected" Color="#1A3A5C" />
+      <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPointerOver" Color="#21466B" />
+      <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPressed" Color="#28537C" />
+      <SolidColorBrush x:Key="TreeViewItemForegroundSelected" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="TreeViewItemForegroundSelectedPointerOver" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="TreeViewItemForegroundSelectedPressed" Color="#FFFFFF" />
     </ResourceDictionary>
 
   </ResourceDictionary.ThemeDictionaries>
@@ -66,9 +91,12 @@
   <!-- ========== 语义画刷（新名，视图迁移目标） ========== -->
   <SolidColorBrush x:Key="MailDogBrushSurfaceWindow" Color="{DynamicResource MailDogColorSurfaceWindow}" />
   <SolidColorBrush x:Key="MailDogBrushSurfacePane" Color="{DynamicResource MailDogColorSurfacePane}" />
+  <!-- 承字面：列表与阅读区。它比 Pane 更实，避免桌面内容透过文字（见 MainWindow.ApplyPalette）。 -->
+  <SolidColorBrush x:Key="MailDogBrushSurfaceContent" Color="{DynamicResource MailDogColorSurfacePane}" />
   <SolidColorBrush x:Key="MailDogBrushSurfaceSubtle" Color="{DynamicResource MailDogColorSurfaceSubtle}" />
   <SolidColorBrush x:Key="MailDogBrushSurfaceCard" Color="{DynamicResource MailDogColorSurfaceCard}" />
   <SolidColorBrush x:Key="MailDogBrushSurfacePopup" Color="{DynamicResource MailDogColorSurfacePopup}" />
+  <SolidColorBrush x:Key="MailDogBrushSurfaceSolid" Color="{DynamicResource MailDogColorSurfaceSolid}" />
   <SolidColorBrush x:Key="MailDogBrushFillHover" Color="{DynamicResource MailDogColorFillHover}" />
 
   <SolidColorBrush x:Key="MailDogBrushTextPrimary" Color="{DynamicResource MailDogColorTextPrimary}" />
@@ -85,6 +113,7 @@
   <SolidColorBrush x:Key="MailDogBrushAccentHover" Color="{DynamicResource MailDogColorAccentHover}" />
   <SolidColorBrush x:Key="MailDogBrushAccentPressed" Color="{DynamicResource MailDogColorAccentPressed}" />
   <SolidColorBrush x:Key="MailDogBrushAccentTint" Color="{DynamicResource MailDogColorAccentTint}" />
+  <SolidColorBrush x:Key="MailDogBrushSelectionTint" Color="{DynamicResource MailDogColorSelectionTint}" />
 
   <SolidColorBrush x:Key="MailDogBrushStatusDanger" Color="{DynamicResource MailDogColorStatusDanger}" />
   <SolidColorBrush x:Key="MailDogBrushStatusDangerTint" Color="{DynamicResource MailDogColorStatusDangerTint}" />
@@ -98,6 +127,7 @@
   <x:Double x:Key="MailDogSizeControlHeightLg">32</x:Double>
   <x:Double x:Key="MailDogSizeRowOneLine">32</x:Double>
   <x:Double x:Key="MailDogSizeRowTwoLine">56</x:Double>
+  <x:Double x:Key="MailDogSizeMailRow">64</x:Double>
   <x:Double x:Key="MailDogSizeCommandBar">40</x:Double>
   <x:Double x:Key="MailDogSizePagePadding">16</x:Double>
   <x:Double x:Key="MailDogSizeSectionGap">12</x:Double>

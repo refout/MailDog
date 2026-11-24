@@ -21,6 +21,7 @@ public partial class PageHeader : UserControl
     {
         InitializeComponent();
         TitleText.Text = Title;
+        TitleText.IsVisible = !string.IsNullOrWhiteSpace(Title);
         BackButton.IsVisible = ShowBack;
     }
 
@@ -49,6 +50,7 @@ public partial class PageHeader : UserControl
         if (change.Property == TitleProperty)
         {
             TitleText.Text = Title;
+            TitleText.IsVisible = !string.IsNullOrWhiteSpace(Title);
         }
         else if (change.Property == ShowBackProperty)
         {

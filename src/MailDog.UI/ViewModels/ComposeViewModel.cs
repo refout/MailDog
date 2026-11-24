@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Net;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MailDog.Contracts.Dto;
@@ -33,24 +34,81 @@ public sealed class ComposeAccount
 
     public string DisplayName { get; }
 
-    public string Label => string.IsNullOrWhiteSpace(DisplayName) ? Email : $"{DisplayName} <{Email}>";
+    public string Label => string.IsNullOrWhiteSpace(DisplayName)
+        || string.Equals(DisplayName.Trim(), Email, StringComparison.OrdinalIgnoreCase)
+            ? Email
+            : $"{DisplayName} <{Email}>";
+}
+
+public sealed partial class RecipientChipViewModel : ObservableObject
+{
+    private readonly Action<RecipientChipViewModel> _remove;
+
+    public RecipientChipViewModel(string label, string address, Action<RecipientChipViewModel> remove)
+    {
+        Label = label;
+        Address = address;
+        _remove = remove;
+    }
+
+    public string Label { get; }
+
+    public string Address { get; }
+
+    public string RemoveAutomationName => $"移除收件人 {Label}";
+
+    [RelayCommand]
+    private void Remove() => _remove(this);
+}
+
+public sealed partial class RecipientSuggestionViewModel : ObservableObject
+{
+    private readonly Action<RecipientSuggestionViewModel> _select;
+
+    public RecipientSuggestionViewModel(
+        string name,
+        string address,
+        Action<RecipientSuggestionViewModel> select)
+    {
+        Name = name;
+        Address = address;
+        _select = select;
+    }
+
+    public string Name { get; }
+
+    public string Address { get; }
+
+    public string DisplayName => string.IsNullOrWhiteSpace(Name)
+                                || string.Equals(Name, Address, StringComparison.OrdinalIgnoreCase)
+        ? Address
+        : Name;
+
+    public string Label => DisplayName == Address ? Address : $"{Name} <{Address}>";
+
+    public string SelectAutomationName => $"选择联系人 {DisplayName}";
+
+    [RelayCommand]
+    private void Select() => _select(this);
 }
 
 public sealed partial class ComposeAttachmentViewModel : ObservableObject
-{
-    private readonly Action<ComposeAttachmentViewModel> _remove;
+{    private readonly Action<ComposeAttachmentViewModel> _remove;
 
     public ComposeAttachmentViewModel(string path, Action<ComposeAttachmentViewModel> remove)
     {
         Path = path;
         FileName = System.IO.Path.GetFileName(path);
-        SizeText = FormatSize(new FileInfo(path).Length);
+        SizeBytes = new FileInfo(path).Length;
+        SizeText = FormatSize(SizeBytes);
         _remove = remove;
     }
 
     public string Path { get; }
 
     public string FileName { get; }
+
+    public long SizeBytes { get; }
 
     public string SizeText { get; }
 
@@ -79,9 +137,14 @@ public sealed partial class ComposeViewModel : ObservableObject
 
     private readonly EngineClient _engine;
     private readonly MailBodyDto? _original;
+    private readonly string _signature;
+    private readonly IReadOnlyList<ContactSuggestionDto> _contacts;
     private long? _draftMessageId;
     private bool _sent;
     private bool _draftSaved;
+    private bool _updatingRecipientText;
+    private string? _signatureOnlyHtml;
+    private string? _signatureOnlyText;
 
     public ComposeViewModel(
         EngineClient engine,
@@ -89,10 +152,14 @@ public sealed partial class ComposeViewModel : ObservableObject
         ComposeMode mode,
         MailBodyDto? original,
         DraftContentDto? draft = null,
-        string? draftAccountId = null)
+        string? draftAccountId = null,
+        string? signature = null,
+        IReadOnlyList<ContactSuggestionDto>? contacts = null)
     {
         _engine = engine;
         _original = original;
+        _signature = signature?.Trim() ?? string.Empty;
+        _contacts = contacts ?? [];
         Mode = mode;
         Accounts = new ObservableCollection<ComposeAccount>(accounts);
         SelectedAccount = Accounts.FirstOrDefault(account =>
@@ -114,12 +181,21 @@ public sealed partial class ComposeViewModel : ObservableObject
         if (draft is not null)
         {
             _draftMessageId = draft.MessageId;
-            ToText = draft.To;
-            CcText = draft.Cc;
-            BccText = draft.Bcc;
+            SeedRecipients(draft.To, ToRecipients, nameof(HasToRecipients), nameof(ToRecipientsValue));
+            SeedRecipients(draft.Cc, CcRecipients, nameof(HasCcRecipients), nameof(CcRecipientsValue));
+            SeedRecipients(draft.Bcc, BccRecipients, nameof(HasBccRecipients), nameof(BccRecipientsValue));
             SubjectText = draft.Subject;
-            BodyText = draft.BodyText;
-            IsMarkdown = draft.IsMarkdown;
+            if (draft.IsMarkdown)
+            {
+                // 兼容旧 Markdown 草稿：首次打开时转成 HTML，后续只走富文本。
+                BodyHtml = MarkdownRenderer.ToHtml(draft.BodyText);
+                BodyText = HtmlTextConverter.ToPlainText(BodyHtml);
+            }
+            else
+            {
+                BodyText = draft.BodyText;
+                BodyHtml = draft.BodyHtml;
+            }
 
             if (draft.AttachmentNames.Length > 0)
             {
@@ -129,6 +205,11 @@ public sealed partial class ComposeViewModel : ObservableObject
         else if (original is not null && mode != ComposeMode.New)
         {
             ApplyOriginal(mode, original);
+        }
+
+        if (draft is null)
+        {
+            ApplySignature();
         }
     }
 
@@ -142,59 +223,476 @@ public sealed partial class ComposeViewModel : ObservableObject
     private ComposeAccount? _selectedAccount;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
     private string _toText = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
     private string _ccText = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
     private string _bccText = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
     private string _subjectText = string.Empty;
+
+    public ObservableCollection<RecipientChipViewModel> ToRecipients { get; } = [];
+
+    public ObservableCollection<RecipientChipViewModel> CcRecipients { get; } = [];
+
+    public ObservableCollection<RecipientChipViewModel> BccRecipients { get; } = [];
+
+    public ObservableCollection<RecipientSuggestionViewModel> ToSuggestions { get; } = [];
+
+    public ObservableCollection<RecipientSuggestionViewModel> CcSuggestions { get; } = [];
+
+    public ObservableCollection<RecipientSuggestionViewModel> BccSuggestions { get; } = [];
+
+    public bool HasToRecipients => ToRecipients.Count > 0;
+
+    public bool HasCcRecipients => CcRecipients.Count > 0;
+
+    public bool HasBccRecipients => BccRecipients.Count > 0;
+
+    public bool HasToSuggestions => ToSuggestions.Count > 0;
+
+    public bool HasCcSuggestions => CcSuggestions.Count > 0;
+
+    public bool HasBccSuggestions => BccSuggestions.Count > 0;
+
+    /// <summary>已完成的收件人 chip 加上输入框中未提交的有效地址。</summary>
+    public string ToRecipientsValue => BuildRecipientValue(ToRecipients, ToText);
+
+    public string CcRecipientsValue => BuildRecipientValue(CcRecipients, CcText);
+
+    public string BccRecipientsValue => BuildRecipientValue(BccRecipients, BccText);
 
     [ObservableProperty]
     private string _bodyText = string.Empty;
 
+    /// <summary>富文本正文的 HTML。</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(BodyPlaceholder))]
-    private bool _isMarkdown;
+    private string? _bodyHtml;
 
-    public string BodyPlaceholder
-        => IsMarkdown
-            ? "正文（Markdown：标题、列表、表格、图片、粗体、链接、代码块）"
-            : "正文";
-
-    public string BuildMarkdownPreviewHtml()
+    partial void OnToTextChanged(string value)
     {
-        const string head = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-            <meta charset="utf-8" />
-            <meta name="color-scheme" content="light dark" />
-            <style>
-            body { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 14px; line-height: 1.6; padding: 12px; color: #1f1f1f; background: #ffffff; }
-            table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-            th, td { border: 1px solid #d0d0d0; padding: 6px; }
-            pre { background: #f6f6f6; padding: 10px; border-radius: 6px; overflow: auto; }
-            blockquote { margin: 8px 0; padding: 6px 12px; border-left: 3px solid #c8c8c8; color: #555; }
-            img { max-width: 100%; height: auto; }
-            @media (prefers-color-scheme: dark) {
-                body { color: #e8e8e8; background: #1f1f1f; }
-                th, td { border-color: #555; }
-                pre { background: #2b2b2b; }
-                blockquote { border-left-color: #777; color: #bbb; }
-            }
-            </style>
-            </head>
-            <body>
-            """;
+        if (_updatingRecipientText)
+        {
+            return;
+        }
 
-        return head + MarkdownRenderer.ToHtml(BodyText) + "</body></html>";
+        var remaining = CommitCompletedRecipients(
+            value,
+            ToRecipients,
+            nameof(HasToRecipients),
+            nameof(ToRecipientsValue));
+        if (remaining is not null)
+        {
+            SetRecipientText(remaining, next => ToText = next);
+        }
+
+        UpdateSuggestions(
+            ToText,
+            ToSuggestions,
+            ToRecipients,
+            nameof(HasToSuggestions),
+            suggestion => SelectSuggestion(
+                suggestion,
+                ToRecipients,
+                () => ToText,
+                next => ToText = next,
+                ToSuggestions,
+                nameof(HasToRecipients),
+                nameof(ToRecipientsValue),
+                nameof(HasToSuggestions)));
+        OnPropertyChanged(nameof(ToRecipientsValue));
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    partial void OnCcTextChanged(string value)
+    {
+        if (_updatingRecipientText)
+        {
+            return;
+        }
+
+        var remaining = CommitCompletedRecipients(
+            value,
+            CcRecipients,
+            nameof(HasCcRecipients),
+            nameof(CcRecipientsValue));
+        if (remaining is not null)
+        {
+            SetRecipientText(remaining, next => CcText = next);
+        }
+
+        UpdateSuggestions(
+            CcText,
+            CcSuggestions,
+            CcRecipients,
+            nameof(HasCcSuggestions),
+            suggestion => SelectSuggestion(
+                suggestion,
+                CcRecipients,
+                () => CcText,
+                next => CcText = next,
+                CcSuggestions,
+                nameof(HasCcRecipients),
+                nameof(CcRecipientsValue),
+                nameof(HasCcSuggestions)));
+        OnPropertyChanged(nameof(CcRecipientsValue));
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    partial void OnBccTextChanged(string value)
+    {
+        if (_updatingRecipientText)
+        {
+            return;
+        }
+
+        var remaining = CommitCompletedRecipients(
+            value,
+            BccRecipients,
+            nameof(HasBccRecipients),
+            nameof(BccRecipientsValue));
+        if (remaining is not null)
+        {
+            SetRecipientText(remaining, next => BccText = next);
+        }
+
+        UpdateSuggestions(
+            BccText,
+            BccSuggestions,
+            BccRecipients,
+            nameof(HasBccSuggestions),
+            suggestion => SelectSuggestion(
+                suggestion,
+                BccRecipients,
+                () => BccText,
+                next => BccText = next,
+                BccSuggestions,
+                nameof(HasBccRecipients),
+                nameof(BccRecipientsValue),
+                nameof(HasBccSuggestions)));
+        OnPropertyChanged(nameof(BccRecipientsValue));
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    /// <summary>把已用分号/逗号结束的地址转成 chip，输入框只保留还没提交的文本。</summary>
+    private string? CommitCompletedRecipients(
+        string text,
+        ObservableCollection<RecipientChipViewModel> target,
+        string hasProperty,
+        string valueProperty)
+    {
+        var lastSeparator = Math.Max(text.LastIndexOf(';'), text.LastIndexOf(','));
+        if (lastSeparator < 0)
+        {
+            return null;
+        }
+
+        var pending = text[(lastSeparator + 1)..].TrimStart();
+        var kept = new List<string>();
+        var recognized = false;
+        foreach (var token in SplitRecipientTokens(text[..(lastSeparator + 1)]))
+        {
+            if (ParseRecipientToken(token) is { } recipient)
+            {
+                recognized = true;
+                AddRecipient(target, recipient.Label, recipient.Address, hasProperty, valueProperty);
+            }
+            else
+            {
+                kept.Add(token);
+            }
+        }
+
+        if (!recognized)
+        {
+            return null;
+        }
+
+        if (pending.Length > 0)
+        {
+            kept.Add(pending);
+        }
+
+        return string.Join("; ", kept);
+    }
+
+    private void SelectSuggestion(
+        RecipientSuggestionViewModel suggestion,
+        ObservableCollection<RecipientChipViewModel> target,
+        Func<string> getText,
+        Action<string> setText,
+        ObservableCollection<RecipientSuggestionViewModel> suggestions,
+        string hasRecipientsProperty,
+        string valueProperty,
+        string hasSuggestionsProperty)
+    {
+        AddRecipient(
+            target,
+            suggestion.Name,
+            suggestion.Address,
+            hasRecipientsProperty,
+            valueProperty);
+        SetRecipientText(RemoveLastRecipientToken(getText()), setText);
+        suggestions.Clear();
+        OnPropertyChanged(hasSuggestionsProperty);
+        OnPropertyChanged(valueProperty);
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    private void AddRecipient(
+        ObservableCollection<RecipientChipViewModel> target,
+        string label,
+        string address,
+        string hasProperty,
+        string valueProperty)
+    {
+        if (target.Any(item =>
+                string.Equals(item.Address, address, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        var chip = new RecipientChipViewModel(
+            label,
+            address,
+            item =>
+            {
+                target.Remove(item);
+                NotifyRecipientState(hasProperty, valueProperty);
+            });
+        target.Add(chip);
+        NotifyRecipientState(hasProperty, valueProperty);
+    }
+
+    private void NotifyRecipientState(string hasProperty, string valueProperty)
+    {
+        OnPropertyChanged(hasProperty);
+        OnPropertyChanged(valueProperty);
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    private void SeedRecipients(
+        string text,
+        ObservableCollection<RecipientChipViewModel> target,
+        string hasProperty,
+        string valueProperty)
+    {
+        foreach (var token in SplitRecipientTokens(text))
+        {
+            if (ParseRecipientToken(token) is { } recipient)
+            {
+                AddRecipient(target, recipient.Label, recipient.Address, hasProperty, valueProperty);
+            }
+        }
+    }
+
+    private void SetRecipientText(string value, Action<string> setText)
+    {
+        _updatingRecipientText = true;
+        try
+        {
+            setText(value);
+        }
+        finally
+        {
+            _updatingRecipientText = false;
+        }
+    }
+
+    private static string BuildRecipientValue(
+        IEnumerable<RecipientChipViewModel> chips,
+        string input)
+    {
+        var addresses = chips
+            .Select(chip => chip.Address)
+            .ToList();
+        foreach (var token in SplitRecipientTokens(input))
+        {
+            if (ParseRecipientToken(token) is not { } recipient)
+            {
+                continue;
+            }
+
+            if (!addresses.Any(address =>
+                    string.Equals(address, recipient.Address, StringComparison.OrdinalIgnoreCase)))
+            {
+                addresses.Add(recipient.Address);
+            }
+        }
+
+        return string.Join("; ", addresses);
+    }
+
+    private void UpdateSuggestions(
+        string text,
+        ObservableCollection<RecipientSuggestionViewModel> target,
+        ObservableCollection<RecipientChipViewModel> chips,
+        string hasProperty,
+        Action<RecipientSuggestionViewModel> select)
+    {
+        target.Clear();
+
+        var token = LastRecipientToken(text).Trim();
+        if (token.StartsWith('<'))
+        {
+            token = token[1..];
+        }
+
+        var query = token.Trim().Trim('<', '>', ' ');
+        if (query.Length < 2)
+        {
+            OnPropertyChanged(hasProperty);
+            return;
+        }
+
+        var existing = SplitRecipientTokens(text)
+            .Select(ParseRecipientToken)
+            .Where(recipient => recipient is not null)
+            .Select(recipient => recipient!.Value.Address)
+            .ToList();
+        existing.AddRange(chips.Select(chip => chip.Address));
+        var existingSet = existing.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var matches = _contacts
+            .Where(contact => !existingSet.Contains(contact.Address))
+            .Where(contact => contact.Address.Contains(query, StringComparison.OrdinalIgnoreCase)
+                              || contact.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(contact =>
+                contact.Address.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+            .ThenBy(contact => contact.Name, StringComparer.CurrentCulture)
+            .Take(5)
+            .Select(contact => new RecipientSuggestionViewModel(
+                contact.Name,
+                contact.Address,
+                select));
+
+        foreach (var suggestion in matches)
+        {
+            target.Add(suggestion);
+        }
+
+        OnPropertyChanged(hasProperty);
+    }
+
+    private static string RemoveLastRecipientToken(string text)
+    {
+        var separator = Math.Max(text.LastIndexOf(';'), text.LastIndexOf(','));
+        var prefix = separator >= 0 ? text[..(separator + 1)].TrimEnd() : string.Empty;
+        return prefix.Length == 0 ? string.Empty : $"{prefix} ";
+    }
+
+    private static string LastRecipientToken(string text)
+    {
+        var separator = Math.Max(text.LastIndexOf(';'), text.LastIndexOf(','));
+        return separator >= 0 ? text[(separator + 1)..] : text;
+    }
+
+    private static string[] SplitRecipientTokens(string text)
+        => text.Split([';', ','], StringSplitOptions.RemoveEmptyEntries)
+            .Select(token => token.Trim())
+            .Where(token => token.Length > 0)
+            .ToArray();
+
+    private static RecipientToken? ParseRecipientToken(string token)
+    {
+        var value = token.Trim();
+        if (value.Length == 0)
+        {
+            return null;
+        }
+
+        var open = value.LastIndexOf('<');
+        var close = value.LastIndexOf('>');
+        if (open >= 0 && close > open)
+        {
+            var address = value[(open + 1)..close].Trim();
+            if (!address.Contains('@'))
+            {
+                return null;
+            }
+
+            var label = value[..open].Trim().Trim('"').Trim();
+            return new RecipientToken(address, string.IsNullOrWhiteSpace(label) ? address : label);
+        }
+
+        return value.Contains('@') && !value.Contains(' ')
+            ? new RecipientToken(value, value)
+            : null;
+    }
+
+    private readonly record struct RecipientToken(string Address, string Label);
+
+    public string BodyPlaceholder => "正文";
+
+    public string BuildStartingHtml()
+    {
+        if (!string.IsNullOrWhiteSpace(BodyHtml))
+        {
+            return BodyHtml;
+        }
+
+        if (string.IsNullOrWhiteSpace(BodyText))
+        {
+            return "<p></p>";
+        }
+
+        return "<p>"
+               + WebUtility.HtmlEncode(BodyText).Replace("\r\n", "\n").Replace("\n", "<br/>")
+               + "</p>";
+    }
+
+    /// <summary>富文本编辑器回传内容后同步纯文本回退。</summary>
+    public void UpdateRichBody(string? html)
+    {
+        BodyHtml = html;
+        BodyText = HtmlTextConverter.ToPlainText(html);
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    public void DropRichBody()
+    {
+        BodyHtml = null;
     }
 
     public ObservableCollection<ComposeAttachmentViewModel> Attachments { get; } = [];
+
+    public bool HasAttachments => Attachments.Count > 0;
+
+    public string AttachmentSummaryText
+    {
+        get
+        {
+            if (Attachments.Count == 0)
+            {
+                return "未添加附件";
+            }
+
+            var total = Attachments.Sum(item => item.SizeBytes);
+            return $"附件 {Attachments.Count} 个 · {FormatAttachmentSize(total)}";
+        }
+    }
+
+    private static string FormatAttachmentSize(long bytes)
+    {
+        if (bytes < 1024)
+        {
+            return $"{bytes} B";
+        }
+
+        if (bytes < 1024 * 1024)
+        {
+            return $"{bytes / 1024.0:0.#} KB";
+        }
+
+        return $"{bytes / (1024.0 * 1024.0):0.#} MiB";
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSend))]
@@ -227,12 +725,22 @@ public sealed partial class ComposeViewModel : ObservableObject
     public bool CanCloseSilently => IsQueued || _sent || _draftSaved;
 
     public bool IsEmpty
-        => string.IsNullOrWhiteSpace(ToText)
-           && string.IsNullOrWhiteSpace(CcText)
-           && string.IsNullOrWhiteSpace(BccText)
-           && string.IsNullOrWhiteSpace(SubjectText)
-           && string.IsNullOrWhiteSpace(BodyText)
-           && Attachments.Count == 0;
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(ToRecipientsValue)
+                || !string.IsNullOrWhiteSpace(CcRecipientsValue)
+                || !string.IsNullOrWhiteSpace(BccRecipientsValue)
+                || !string.IsNullOrWhiteSpace(SubjectText)
+                || Attachments.Count > 0)
+            {
+                return false;
+            }
+
+            return (string.IsNullOrWhiteSpace(BodyText) && string.IsNullOrWhiteSpace(BodyHtml))
+                   || IsSignatureOnly;
+        }
+    }
 
     /// <summary>发送或草稿保存成功、或用户主动放弃时请求关闭窗口。</summary>
     public event Action? CloseRequested;
@@ -256,7 +764,7 @@ public sealed partial class ComposeViewModel : ObservableObject
             return;
         }
 
-        var total = Attachments.Sum(item => new FileInfo(item.Path).Length) + new FileInfo(path).Length;
+        var total = Attachments.Sum(item => item.SizeBytes) + new FileInfo(path).Length;
         if (total > MaxAttachmentBytes)
         {
             Error = "附件总大小不能超过 25 MiB。";
@@ -265,6 +773,8 @@ public sealed partial class ComposeViewModel : ObservableObject
 
         Attachments.Add(new ComposeAttachmentViewModel(path, RemoveAttachment));
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(HasAttachments));
+        OnPropertyChanged(nameof(AttachmentSummaryText));
     }
 
     public async Task<bool> SaveDraftAsync()
@@ -329,7 +839,7 @@ public sealed partial class ComposeViewModel : ObservableObject
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(ToText))
+        if (string.IsNullOrWhiteSpace(ToRecipientsValue))
         {
             Error = "请填写至少一个收件人。";
             return;
@@ -410,12 +920,12 @@ public sealed partial class ComposeViewModel : ObservableObject
         => new()
         {
             AccountId = SelectedAccount!.Id,
-            To = ToText.Trim(),
-            Cc = CcText.Trim(),
-            Bcc = BccText.Trim(),
+            To = ToRecipientsValue.Trim(),
+            Cc = CcRecipientsValue.Trim(),
+            Bcc = BccRecipientsValue.Trim(),
             Subject = SubjectText.Trim(),
             BodyText = BodyText,
-            IsMarkdown = IsMarkdown,
+            BodyHtml = BodyHtml,
             InReplyTo = Mode is ComposeMode.Reply or ComposeMode.ReplyAll ? _original?.RfcMessageId : null,
             AttachmentPaths = Attachments.Select(item => item.Path).ToArray()
         };
@@ -424,12 +934,12 @@ public sealed partial class ComposeViewModel : ObservableObject
         => new()
         {
             AccountId = SelectedAccount!.Id,
-            To = ToText.Trim(),
-            Cc = CcText.Trim(),
-            Bcc = BccText.Trim(),
+            To = ToRecipientsValue.Trim(),
+            Cc = CcRecipientsValue.Trim(),
+            Bcc = BccRecipientsValue.Trim(),
             Subject = SubjectText.Trim(),
             BodyText = BodyText,
-            IsMarkdown = IsMarkdown,
+            BodyHtml = BodyHtml,
             ReplaceDraftMessageId = _draftMessageId,
             AttachmentPaths = Attachments.Select(item => item.Path).ToArray()
         };
@@ -453,34 +963,82 @@ public sealed partial class ComposeViewModel : ObservableObject
     {
         Attachments.Remove(attachment);
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(HasAttachments));
+        OnPropertyChanged(nameof(AttachmentSummaryText));
     }
 
     private void ApplyOriginal(ComposeMode mode, MailBodyDto original)
     {
         var subject = original.Subject ?? string.Empty;
-        var quote = BuildQuote(original);
+        var quoteHtml = BuildQuoteHtml(original);
+        var quoteText = HtmlTextConverter.ToPlainText(quoteHtml);
 
         switch (mode)
         {
             case ComposeMode.Reply:
-                ToText = original.FromAddress;
+                SeedRecipients(
+                    original.FromAddress,
+                    ToRecipients,
+                    nameof(HasToRecipients),
+                    nameof(ToRecipientsValue));
                 SubjectText = PrefixSubject(subject, "Re:");
-                BodyText = quote;
+                BodyText = quoteText;
+                BodyHtml = quoteHtml;
                 break;
 
             case ComposeMode.ReplyAll:
-                ToText = original.FromAddress;
-                CcText = BuildReplyAllCc(original);
+                SeedRecipients(
+                    original.FromAddress,
+                    ToRecipients,
+                    nameof(HasToRecipients),
+                    nameof(ToRecipientsValue));
+                SeedRecipients(
+                    BuildReplyAllCc(original),
+                    CcRecipients,
+                    nameof(HasCcRecipients),
+                    nameof(CcRecipientsValue));
                 SubjectText = PrefixSubject(subject, "Re:");
-                BodyText = quote;
+                BodyText = quoteText;
+                BodyHtml = quoteHtml;
                 break;
 
             case ComposeMode.Forward:
                 SubjectText = PrefixSubject(subject, "Fwd:");
-                BodyText = quote;
+                BodyText = quoteText;
+                BodyHtml = quoteHtml;
                 break;
         }
     }
+
+    private void ApplySignature()
+    {
+        if (string.IsNullOrWhiteSpace(_signature))
+        {
+            return;
+        }
+
+        var signature = _signature.Replace("\r\n", "\n").Replace('\r', '\n').TrimEnd();
+        var signatureHtml = string.Join(
+            string.Empty,
+            signature.Split('\n').Select(line => string.IsNullOrWhiteSpace(line)
+                ? "<p><br/></p>"
+                : "<p>" + WebUtility.HtmlEncode(line) + "</p>"));
+
+        // 第一行留空给用户直接输入，签名放在正文下方、引用上方。
+        BodyHtml = "<p>&nbsp;</p>" + signatureHtml + BodyHtml;
+        BodyText = "\n\n" + signature + "\n\n" + BodyText;
+
+        if (Mode == ComposeMode.New)
+        {
+            _signatureOnlyHtml = BodyHtml;
+            _signatureOnlyText = BodyText;
+        }
+    }
+
+    private bool IsSignatureOnly
+        => _signatureOnlyHtml is not null
+           && string.Equals(BodyHtml, _signatureOnlyHtml, StringComparison.Ordinal)
+           && string.Equals(BodyText, _signatureOnlyText, StringComparison.Ordinal);
 
     private string BuildReplyAllCc(MailBodyDto original)
     {
@@ -500,7 +1058,22 @@ public sealed partial class ComposeViewModel : ObservableObject
             ? subject
             : $"{prefix} {subject}";
 
-    private static string BuildQuote(MailBodyDto original)
+    private static string BuildQuoteHtml(MailBodyDto original)
+    {
+        var safe = new HtmlSanitizer().Sanitize(original.Html, allowRemoteImages: false).Html;
+        var quoteContent = string.IsNullOrWhiteSpace(safe)
+            ? "<p>" + WebUtility.HtmlEncode(BuildQuotePlain(original)).Replace("\n", "<br/>") + "</p>"
+            : safe;
+        var header = WebUtility.HtmlEncode(BuildQuoteHeader(original)).Replace("\n", "<br/>");
+
+        return "<p><br/></p><blockquote><p>"
+               + header
+               + "</p>"
+               + quoteContent
+               + "</blockquote>";
+    }
+
+    private static string BuildQuotePlain(MailBodyDto original)
     {
         var plain = original.PlainText;
         if (string.IsNullOrWhiteSpace(plain) && !string.IsNullOrWhiteSpace(original.Html))
@@ -508,6 +1081,11 @@ public sealed partial class ComposeViewModel : ObservableObject
             plain = HtmlTextConverter.ToPlainText(original.Html);
         }
 
+        return plain ?? string.Empty;
+    }
+
+    private static string BuildQuoteHeader(MailBodyDto original)
+    {
         var from = string.IsNullOrWhiteSpace(original.FromName)
             ? original.FromAddress
             : $"{original.FromName} <{original.FromAddress}>";
@@ -524,6 +1102,6 @@ public sealed partial class ComposeViewModel : ObservableObject
             header += $"\n抄送: {string.Join("; ", original.CcAddresses)}";
         }
 
-        return $"\n\n-----原始邮件-----\n{header}\n\n{plain ?? string.Empty}";
+        return header;
     }
 }

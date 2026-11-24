@@ -1,30 +1,38 @@
+using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Platform;
 using Avalonia.Platform.Storage;
-using Avalonia.Styling;
+using AvaloniaRichEditor.Documents;
 using MailDog.UI.ViewModels;
 
 namespace MailDog.UI.Views;
 
 public partial class ComposeView : UserControl
 {
+    private readonly Dictionary<string, Button> _formatButtons = [];
     private ComposeViewModel? _viewModel;
-    private bool _previewAdapterReady;
-    private bool _previewInternalNavigation;
-    private string? _pendingPreviewHtml;
+    private string? _lastRichHtml;
+    private bool _suppressRichChanged;
 
     public ComposeView()
     {
         InitializeComponent();
-        AttachedToVisualTree += (_, _) => BodyBox.Focus();
         DataContextChanged += OnDataContextChanged;
-        MarkdownPreview.EnvironmentRequested += OnPreviewEnvironmentRequested;
-        MarkdownPreview.AdapterCreated += OnPreviewAdapterCreated;
-        MarkdownPreview.NavigationStarted += OnPreviewNavigationStarted;
+
+        foreach (var child in FormatToolbar.Children)
+        {
+            if (child is Button button && button.Tag is string tag)
+            {
+                _formatButtons[tag] = button;
+            }
+        }
+
+        RichEditor.TextChanged += OnRichTextChanged;
+        RichEditor.SelectionChanged += OnRichSelectionChanged;
+        RichEditor.StatusChanged += OnRichStatusChanged;
+        RichEditor.IsReadOnly = true;
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -38,96 +46,198 @@ public partial class ComposeView : UserControl
         if (_viewModel is not null)
         {
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+            LoadCompose(_viewModel);
+        }
+    }
+
+    private void LoadCompose(ComposeViewModel viewModel)
+    {
+        LoadRichHtml(viewModel.BuildStartingHtml());
+        RichEditor.IsReadOnly = !viewModel.CanEdit;
+        RichEditor.Focus();
+    }
+
+    private void OnRichTextChanged(object? sender, EventArgs e)
+    {
+        PublishRichBody();
+    }
+
+    // Formatting commands (bold, link, lists) change runs without changing text, so TextChanged
+    // alone leaves BodyHtml stale; StatusChanged fires after those commands and keeps it in sync.
+    private void OnRichStatusChanged(object? sender, EventArgs e)
+    {
+        PublishRichBody();
+    }
+
+    private void PublishRichBody()
+    {
+        if (_suppressRichChanged || _viewModel is null)
+        {
+            return;
         }
 
-        UpdatePreview();
+        var html = RichEditor.ToHtml();
+        if (string.Equals(html, _lastRichHtml, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastRichHtml = html;
+        _viewModel.UpdateRichBody(html);
+    }
+
+    private void OnRichSelectionChanged(object? sender, EventArgs e)
+    {
+        RefreshFormatState();
+    }
+
+    private void RefreshFormatState()
+    {
+        var format = RichEditor.GetCaretFormat();
+        SetActive("bold", format.Bold);
+        SetActive("italic", format.Italic);
+        SetActive("underline", format.Underline);
+        SetActive("strike", format.Strike);
+        SetActive("bulletList", format.List == ListKind.Bullet);
+        SetActive("orderedList", format.List == ListKind.Ordered);
+        SetActive("blockquote", format.Quote);
+        // 编辑器没有公开“光标处是否在链接内”的查询，链接按钮只作为命令入口。
+        SetActive("link", false);
+    }
+
+    private void SetActive(string tag, bool active)
+    {
+        if (!_formatButtons.TryGetValue(tag, out var button))
+        {
+            return;
+        }
+
+        if (active)
+        {
+            if (!button.Classes.Contains("active"))
+            {
+                button.Classes.Add("active");
+            }
+        }
+        else
+        {
+            button.Classes.Remove("active");
+        }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(ComposeViewModel.BodyText) or nameof(ComposeViewModel.IsMarkdown))
+        if (e.PropertyName is nameof(ComposeViewModel.CanEdit))
         {
-            UpdatePreview();
+            RichEditor.IsReadOnly = _viewModel?.CanEdit != true;
         }
     }
 
-    private void UpdatePreview()
+    private async void OnFormatCommandClick(object? sender, RoutedEventArgs e)
     {
-        if (_viewModel is null || !_viewModel.IsMarkdown)
-        {
-            _pendingPreviewHtml = null;
-            return;
-        }
-
-        _pendingPreviewHtml = _viewModel.BuildMarkdownPreviewHtml();
-        if (_previewAdapterReady)
-        {
-            NavigatePreview();
-        }
-    }
-
-    private void NavigatePreview()
-    {
-        if (!_previewAdapterReady || string.IsNullOrEmpty(_pendingPreviewHtml))
+        if (sender is not Button button || button.Tag is not string command)
         {
             return;
         }
 
-        _previewInternalNavigation = true;
-        MarkdownPreview.NavigateToString(_pendingPreviewHtml);
-    }
-
-    private void OnPreviewEnvironmentRequested(object? sender, WebViewEnvironmentRequestedEventArgs e)
-    {
-        if (e is WindowsWebView2EnvironmentRequestedEventArgs windows)
+        switch (command)
         {
-            var folder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "MailDog",
-                "WebView2");
-
-            Directory.CreateDirectory(folder);
-            windows.UserDataFolder = folder;
-            windows.ProfileName = "MailDog";
-            windows.Language = "zh-CN";
+            case "bold":
+                RichEditor.ToggleBold();
+                break;
+            case "italic":
+                RichEditor.ToggleItalic();
+                break;
+            case "underline":
+                RichEditor.ToggleUnderline();
+                break;
+            case "strike":
+                RichEditor.ToggleStrikethrough();
+                break;
+            case "heading1":
+                RichEditor.SetHeading(1);
+                break;
+            case "heading2":
+                RichEditor.SetHeading(2);
+                break;
+            case "heading3":
+                RichEditor.SetHeading(3);
+                break;
+            case "bodyText":
+                RichEditor.SetHeading(0);
+                break;
+            case "bulletList":
+                RichEditor.ToggleBullet();
+                break;
+            case "orderedList":
+                RichEditor.ToggleNumbering();
+                break;
+            case "blockquote":
+                RichEditor.ToggleQuote();
+                break;
+            case "link":
+                OpenLinkDialog();
+                break;
+            case "image":
+                await InsertRichImageAsync();
+                break;
+            case "undo":
+                RichEditor.Undo();
+                break;
+            case "redo":
+                RichEditor.Redo();
+                break;
         }
+
+        RefreshFormatState();
+        PublishRichBody();
     }
 
-    private void OnPreviewAdapterCreated(object? sender, WebViewAdapterEventArgs e)
+    private async Task InsertRichImageAsync()
     {
-        _previewAdapterReady = true;
-        NavigatePreview();
-    }
-
-    private void OnPreviewNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
-    {
-        if (_previewInternalNavigation)
+        if (_viewModel?.CanEdit != true)
         {
-            _previewInternalNavigation = false;
             return;
         }
 
-        var request = e.Request;
-        e.Cancel = true;
-        if (request is { Scheme: "http" or "https" or "mailto" })
+        try
         {
-            try
+            await RichEditor.InsertImageFromFileAsync();
+            PublishRichBody();
+        }
+        catch (Exception exception)
+        {
+            if (_viewModel is not null)
             {
-                Process.Start(new ProcessStartInfo(request.ToString())
-                {
-                    UseShellExecute = true
-                });
-            }
-            catch
-            {
-                // 预览中的链接打不开时保持安静。
+                _viewModel.Error = $"插入图片失败：{exception.Message}";
             }
         }
+    }
+
+    private void OpenLinkDialog()
+    {
+        RichEditor.OpenLinkDialog();
+    }
+
+    private void LoadRichHtml(string html)
+    {
+        _suppressRichChanged = true;
+        try
+        {
+            RichEditor.LoadHtml(html);
+        }
+        finally
+        {
+            _suppressRichChanged = false;
+        }
+
+        _lastRichHtml = RichEditor.ToHtml();
+        RefreshFormatState();
     }
 
     private async void AddAttachment_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ComposeViewModel viewModel)
+        if (DataContext is not ComposeViewModel viewModel || !viewModel.CanEdit)
         {
             return;
         }
@@ -135,22 +245,33 @@ public partial class ComposeView : UserControl
         var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
         if (storage is null)
         {
+            viewModel.Error = "无法打开文件选择器，请重试。";
             return;
         }
 
-        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        try
         {
-            Title = "选择附件",
-            AllowMultiple = true
-        });
-
-        foreach (var file in files)
-        {
-            var path = file.TryGetLocalPath();
-            if (!string.IsNullOrEmpty(path))
+            var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
             {
+                Title = "选择附件",
+                AllowMultiple = true
+            });
+
+            foreach (var file in files)
+            {
+                var path = file.TryGetLocalPath();
+                if (string.IsNullOrEmpty(path))
+                {
+                    viewModel.Error = "只能添加本机文件。";
+                    continue;
+                }
+
                 viewModel.AddAttachment(path);
             }
+        }
+        catch (Exception ex)
+        {
+            viewModel.Error = $"选择附件失败：{ex.Message}";
         }
     }
 }

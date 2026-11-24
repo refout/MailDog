@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Logging;
@@ -25,10 +24,6 @@ internal static class Program
 
         NativeBootstrap.EnsureLoaded();
 
-        var tracePath = Path.Combine(Path.GetTempPath(), "maildog-ui-trace.log");
-        Trace.Listeners.Add(new TextWriterTraceListener(tracePath));
-        Trace.AutoFlush = true;
-
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
@@ -40,5 +35,5 @@ internal static class Program
                 // 优先 ANGLE 以启用透明窗口与云母/亚克力材质，加载失败时回退软件渲染。
                 RenderingMode = new[] { Win32RenderingMode.AngleEgl, Win32RenderingMode.Software }
             })
-            .LogToTrace(LogEventLevel.Debug);
+            .LogToTrace(LogEventLevel.Warning);
 }

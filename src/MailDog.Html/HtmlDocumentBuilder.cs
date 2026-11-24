@@ -7,6 +7,8 @@ public sealed class HtmlDocumentBuilder
 {
     private const string LightCss = """
         :root { color-scheme: light; }
+        *, *::before, *::after { box-sizing: border-box !important; }
+        html, body { max-width: 100%; overflow-x: hidden; }
         body {
           margin: 0; padding: 16px;
           font-family: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
@@ -15,6 +17,7 @@ public sealed class HtmlDocumentBuilder
           word-wrap: break-word; overflow-wrap: anywhere;
         }
         .maildog-mail {
+          box-sizing: border-box; width: 100%;
           max-width: 900px; margin: 0 auto; padding: 24px;
           background: #ffffff; color: #1b1b1b;
           border-radius: 10px;
@@ -23,8 +26,9 @@ public sealed class HtmlDocumentBuilder
         .maildog-mail pre { background: #f6f6f6; color: #1b1b1b; }
         a { color: #0f6cbd; text-decoration: none; }
         a:hover { text-decoration: underline; }
-        img { max-width: 100%; height: auto; }
-        table { max-width: 100%; }
+        img { max-width: 100% !important; height: auto !important; }
+        table { width: 100% !important; max-width: 100% !important; table-layout: auto !important; }
+        td, th { width: auto !important; max-width: 100% !important; }
         blockquote { margin: 12px 0; padding: 4px 16px; border-left: 3px solid #d0d0d0; color: #5c5c5c; }
         pre, code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 13px; }
         pre { padding: 12px; background: #f6f6f6; border-radius: 6px; overflow-x: auto; }
@@ -32,28 +36,36 @@ public sealed class HtmlDocumentBuilder
         h1 { font-size: 24px; } h2 { font-size: 20px; } h3 { font-size: 17px; }
         p { margin: 0 0 12px; }
         hr { border: 0; border-top: 1px solid #e0e0e0; margin: 20px 0; }
+        @media (max-width: 560px) {
+          body { padding: 8px; }
+          .maildog-mail { padding: 14px; border-radius: 6px; }
+        }
         """;
 
     private const string DarkCss = """
         :root { color-scheme: dark; }
+        *, *::before, *::after { box-sizing: border-box !important; }
+        html, body { max-width: 100%; overflow-x: hidden; }
         body {
           margin: 0; padding: 16px;
           font-family: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
           font-size: 14px; line-height: 1.65;
-          color: #ffffff; background: #272727;
+          color: #e8e8e8; background: #272727;
           word-wrap: break-word; overflow-wrap: anywhere;
         }
         .maildog-mail {
+          box-sizing: border-box; width: 100%;
           max-width: 900px; margin: 0 auto; padding: 24px;
           background: #ffffff; color: #1b1b1b;
           border-radius: 10px;
         }
         .maildog-mail a { color: #0f6cbd; }
         .maildog-mail pre { background: #f6f6f6; color: #1b1b1b; }
-        a { color: #479ef5; text-decoration: none; }
+        a { color: #7cc0ff; text-decoration: none; }
         a:hover { text-decoration: underline; }
-        img { max-width: 100%; height: auto; }
-        table { max-width: 100%; }
+        img { max-width: 100% !important; height: auto !important; opacity: 0.92; }
+        table { width: 100% !important; max-width: 100% !important; table-layout: auto !important; }
+        td, th { width: auto !important; max-width: 100% !important; }
         blockquote { margin: 12px 0; padding: 4px 16px; border-left: 3px solid #4d4d4d; color: #c7c7c7; }
         pre, code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 13px; }
         pre { padding: 12px; background: #1f1f1f; border-radius: 6px; overflow-x: auto; }
@@ -61,6 +73,10 @@ public sealed class HtmlDocumentBuilder
         h1 { font-size: 24px; } h2 { font-size: 20px; } h3 { font-size: 17px; }
         p { margin: 0 0 12px; }
         hr { border: 0; border-top: 1px solid #3d3d3d; margin: 20px 0; }
+        @media (max-width: 560px) {
+          body { padding: 8px; }
+          .maildog-mail { padding: 14px; border-radius: 6px; }
+        }
         """;
 
     public string Build(

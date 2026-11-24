@@ -1,13 +1,17 @@
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using MailDog.UI.Services;
 using MailDog.UI.ViewModels;
 
 namespace MailDog.UI.Views;
@@ -21,6 +25,7 @@ public partial class MainWindow : Window
 
     private readonly MainWindowViewModel _viewModel;
     private readonly Dictionary<TreeViewItem, AccountViewModel> _accountNodes = [];
+    private readonly Dictionary<MailSummaryViewModel, ListBoxItem> _mailContainers = [];
     private bool _adapterReady;
     private bool _internalNavigation;
     private string? _pendingHtml;
@@ -50,10 +55,15 @@ public partial class MainWindow : Window
         viewModel.ScrollToMessageRequested += OnScrollToMessageRequested;
         FolderTree.ContainerPrepared += OnFolderTreeContainerPrepared;
         FolderTree.ContainerClearing += OnFolderTreeContainerClearing;
+        MailList.ContainerPrepared += OnMailListContainerPrepared;
+        MailList.ContainerClearing += OnMailListContainerClearing;
         MailList.AddHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
+        viewModel.Messages.CollectionChanged += OnMessagesCollectionChanged;
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
+        SizeChanged += OnWindowSizeChanged;
         Opened += OnOpened;
         KeyDown += OnWindowKeyDown;
+        AddHandler(KeyDownEvent, OnWindowPreviewKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         Closed += OnClosed;
     }
 
@@ -61,6 +71,7 @@ public partial class MainWindow : Window
     {
         Opened -= OnOpened;
         ApplyAppearance();
+        UpdateColumns(ClientSize.Width);
         await _viewModel.InitializeAsync();
     }
 
@@ -68,6 +79,19 @@ public partial class MainWindow : Window
     {
         ApplyAppearance();
         _viewModel.RefreshBackgroundPresets();
+    }
+
+    private void OnWindowSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        UpdateColumns(e.NewSize.Width);
+    }
+
+    private void UpdateColumns(double width)
+    {
+        // 窄窗口把空间让给阅读区；宽窗口恢复完整文件夹与列表宽度。
+        var progress = Math.Clamp((width - 900) / 380d, 0d, 1d);
+        MailColumns.ColumnDefinitions[0].Width = new GridLength(208 + (32 * progress));
+        MailColumns.ColumnDefinitions[1].Width = new GridLength(320 + (40 * progress));
     }
 
     private void OnShowRequested()
@@ -282,10 +306,23 @@ public partial class MainWindow : Window
     /// <summary>把账户的展开状态同步到 TreeViewItem（框架容器不直接支持双向绑定）。</summary>
     private void OnFolderTreeContainerPrepared(object? sender, ContainerPreparedEventArgs e)
     {
-        if (e.Container is not TreeViewItem { DataContext: AccountViewModel account } item)
+        if (e.Container is not TreeViewItem item)
         {
             return;
         }
+
+        if (item.DataContext is FolderViewModel folder)
+        {
+            AutomationProperties.SetName(item, folder.Name);
+            return;
+        }
+
+        if (item.DataContext is not AccountViewModel account)
+        {
+            return;
+        }
+
+        AutomationProperties.SetName(item, account.Title);
 
         if (_accountNodes.TryGetValue(item, out var previous))
         {
@@ -297,6 +334,56 @@ public partial class MainWindow : Window
         item.PropertyChanged -= OnAccountItemExpandedChanged;
         item.PropertyChanged += OnAccountItemExpandedChanged;
         item.IsExpanded = account.IsExpanded;
+    }
+
+    private void OnMailListContainerPrepared(object? sender, ContainerPreparedEventArgs e)
+    {
+        if (e.Container is ListBoxItem { DataContext: MailSummaryViewModel message } item)
+        {
+            item.PointerEntered -= OnMailRowPointerEntered;
+            item.PointerEntered += OnMailRowPointerEntered;
+            item.PointerExited -= OnMailRowPointerExited;
+            item.PointerExited += OnMailRowPointerExited;
+            message.PropertyChanged -= OnMailMessagePropertyChanged;
+            message.PropertyChanged += OnMailMessagePropertyChanged;
+            _mailContainers[message] = item;
+            AutomationProperties.SetName(item, message.AccessibilityName);
+            AutomationProperties.SetHelpText(item, message.Preview);
+        }
+    }
+
+    private void OnMailListContainerClearing(object? sender, ContainerClearingEventArgs e)
+    {
+        if (e.Container is ListBoxItem item)
+        {
+            item.PointerEntered -= OnMailRowPointerEntered;
+            item.PointerExited -= OnMailRowPointerExited;
+            if (item.DataContext is MailSummaryViewModel message)
+            {
+                message.IsHovered = false;
+                message.PropertyChanged -= OnMailMessagePropertyChanged;
+                if (_mailContainers.TryGetValue(message, out var container)
+                    && ReferenceEquals(container, item))
+                {
+                    _mailContainers.Remove(message);
+                }
+            }
+
+            AutomationProperties.SetName(item, null);
+            AutomationProperties.SetHelpText(item, null);
+        }
+    }
+
+    private void OnMailMessagePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not MailSummaryViewModel message
+            || e.PropertyName != nameof(MailSummaryViewModel.IsRead)
+            || !_mailContainers.TryGetValue(message, out var item))
+        {
+            return;
+        }
+
+        AutomationProperties.SetName(item, message.AccessibilityName);
     }
 
     private void OnFolderTreeContainerClearing(object? sender, ContainerClearingEventArgs e)
@@ -333,6 +420,71 @@ public partial class MainWindow : Window
         if (_accountNodes.TryGetValue(item, out var account))
         {
             account.IsExpanded = item.IsExpanded;
+        }
+    }
+
+    private void OnMailRowPointerEntered(object? sender, PointerEventArgs e)
+    {
+        if (sender is Control { DataContext: MailSummaryViewModel message })
+        {
+            message.IsHovered = true;
+        }
+    }
+
+    private void OnMailRowPointerExited(object? sender, PointerEventArgs e)
+    {
+        if (sender is Control { DataContext: MailSummaryViewModel message })
+        {
+            message.IsHovered = false;
+        }
+    }
+
+    private async void OnQuickArchiveClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is Button { DataContext: MailSummaryViewModel message })
+        {
+            await _viewModel.ArchiveMessageAsync(message);
+        }
+    }
+
+    private async void OnQuickDeleteClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is Button { DataContext: MailSummaryViewModel message })
+        {
+            await _viewModel.DeleteMessageAsync(message);
+        }
+    }
+
+    private async void OnQuickToggleReadClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is Button { DataContext: MailSummaryViewModel message })
+        {
+            await _viewModel.ToggleReadMessageAsync(message);
+        }
+    }
+
+    private void OnClearSearchClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel.SearchText = string.Empty;
+        _viewModel.IsGlobalSearch = false;
+        SearchBox.Focus();
+        e.Handled = true;
+    }
+
+    private void OnToggleSearchScopeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _viewModel.IsGlobalSearch = !_viewModel.IsGlobalSearch;
+        e.Handled = true;
+    }
+
+    private async void OnThreadMessageClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: MailSummaryViewModel message })
+        {
+            await _viewModel.ShowThreadMessageAsync(message);
         }
     }
 
@@ -420,7 +572,9 @@ public partial class MainWindow : Window
             _ => translucent ? [WindowTransparencyLevel.Transparent] : [WindowTransparencyLevel.None]
         };
 
-        var baseColor = ParseColor(_viewModel.BackgroundColorHex) ?? GetThemeBaseColor();
+        var baseColor = ThemeService.ResolveSurfaceColor(
+            _viewModel.BackgroundColorHex,
+            ActualThemeVariant == ThemeVariant.Dark);
         var opacity = translucent ? Math.Clamp(_viewModel.BackgroundOpacity, 40, 100) / 100d : 1d;
 
         ApplyPalette(baseColor, opacity, translucent, ActualThemeVariant == ThemeVariant.Dark);
@@ -444,8 +598,12 @@ public partial class MainWindow : Window
     {
         var dark = IsDark(baseColor);
         var baseAlpha = translucent ? ToAlpha(opacity) : (byte)255;
-        var subtleAlpha = translucent ? ToAlpha(Math.Min(1d, opacity + 0.06)) : (byte)255;
-        var layerAlpha = translucent ? ToAlpha(Math.Min(1d, opacity + 0.14)) : (byte)255;
+        var subtleAlpha = translucent ? ToAlpha(Math.Min(1d, opacity + (1d - opacity) * 0.78)) : (byte)255;
+        var layerAlpha = translucent ? ToAlpha(Math.Min(1d, opacity + (1d - opacity) * 0.90)) : (byte)255;
+        // 列表与阅读区整片都是字：桌面上的深色/高对比内容透过来会和文字笔画叠在一起，
+        // 实测 6% 的透出就足以让灰字糊掉，所以承字面的补强几乎贴到不透明（透明度 64% 时 ≈98%）。
+        // 想看到壁纸的话，留给窗口背景和左侧栏，那里没有成片的正文。
+        var contentAlpha = translucent ? ToAlpha(Math.Min(1d, opacity + (1d - opacity) * 0.94)) : (byte)255;
 
         var subtleColor = Adjust(baseColor, dark ? 0.02 : -0.02);
         var layerColor = Adjust(baseColor, 0.05);
@@ -453,16 +611,45 @@ public partial class MainWindow : Window
         SetBrush("MailDogBrushSurfaceWindow", WithAlpha(baseColor, baseAlpha));
         SetBrush("MailDogBrushSurfaceSubtle", WithAlpha(subtleColor, subtleAlpha));
         SetBrush("MailDogBrushSurfacePane", WithAlpha(layerColor, layerAlpha));
-        // 弹出菜单/浮层使用不透明版本，避免透出下方邮件内容。
+        SetBrush("MailDogBrushSurfaceContent", WithAlpha(layerColor, contentAlpha));
+        // 弹出菜单/浮层/设置页使用不透明版本，避免透出下方邮件内容。
         SetBrush("MailDogBrushSurfacePopup", Color.FromRgb(layerColor.R, layerColor.G, layerColor.B));
+        SetBrush("MailDogBrushSurfaceSolid", Color.FromRgb(layerColor.R, layerColor.G, layerColor.B));
         SetBrush("MailDogBrushFillHover", dark ? Color.Parse("#0FFFFFFF") : Color.Parse("#0A000000"));
         SetBrush("MailDogBrushStrokeDefault", dark ? Color.Parse("#3D3D3D") : Color.Parse("#E0E0E0"));
         SetBrush("MailDogBrushStrokeSubtle", dark ? Color.Parse("#333333") : Color.Parse("#EBEBEB"));
-        SetBrush("MailDogBrushTextPrimary", dark ? Colors.White : Color.Parse("#1B1B1B"));
-        SetBrush("MailDogBrushTextSecondary", dark ? Color.Parse("#C7C7C7") : Color.Parse("#616161"));
-        SetBrush("MailDogBrushTextTertiary", dark ? Color.Parse("#9A9A9A") : Color.Parse("#8A8A8A"));
-        SetBrush("MailDogBrushTextDisabled", dark ? Color.Parse("#6E6E6E") : Color.Parse("#BDBDBD"));
+
+        // 背景越透，窗口底下是什么颜色就不再由我们决定（可能是亮壁纸，也可能是深色窗口）。
+        // 灰字在这种"背景不可控"的情况下最容易糊掉，所以按透明度把次级/三级文字
+        // 逐步拉向正文色，保证任何桌面上都还能读。
+        var tension = translucent ? Math.Clamp((1d - opacity) / 0.6d, 0d, 1d) : 0d;
+
+        var primary = dark ? Colors.White : Color.Parse("#1B1B1B");
+        var secondary = dark ? Color.Parse("#C7C7C7") : Color.Parse("#616161");
+        var tertiary = dark ? Color.Parse("#9A9A9A") : Color.Parse("#8A8A8A");
+        var disabled = dark ? Color.Parse("#6E6E6E") : Color.Parse("#BDBDBD");
+
+        SetBrush("MailDogBrushTextPrimary", primary);
+        SetBrush("MailDogBrushTextSecondary",
+            Blend(secondary, primary, tension * 0.85d));
+        SetBrush("MailDogBrushTextTertiary",
+            Blend(tertiary, dark ? Color.Parse("#E6E6E6") : Color.Parse("#333333"), tension));
+        SetBrush("MailDogBrushTextDisabled",
+            Blend(disabled, dark ? Color.Parse("#9A9A9A") : Color.Parse("#8A8A8A"), tension * 0.7d));
         SetBrush("MailDogBrushTextOnAccent", themeDark ? Color.Parse("#0A0A0A") : Colors.White);
+    }
+
+    /// <summary>把颜色按 t（0~1）往目标色靠；用来在透明背景上抬高文字对比度。</summary>
+    private static Color Blend(Color from, Color to, double t)
+    {
+        static byte Mix(byte a, byte b, double weight)
+            => (byte)Math.Clamp((int)Math.Round(a + (b - a) * weight), 0, 255);
+
+        return Color.FromArgb(
+            Mix(from.A, to.A, t),
+            Mix(from.R, to.R, t),
+            Mix(from.G, to.G, t),
+            Mix(from.B, to.B, t));
     }
 
     private static byte ToAlpha(double value)
@@ -486,18 +673,6 @@ public partial class MainWindow : Window
     private static bool IsDark(Color color)
     {
         return (0.2126 * color.R) + (0.7152 * color.G) + (0.0722 * color.B) < 140;
-    }
-
-    private static Color? ParseColor(string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value) && Color.TryParse(value, out var color) ? color : null;
-    }
-
-    private Color GetThemeBaseColor()
-    {
-        return ActualThemeVariant == ThemeVariant.Dark
-            ? Color.Parse("#202020")
-            : Color.Parse("#F3F3F3");
     }
 
     private static void SetBrush(string key, Color color)
@@ -624,6 +799,27 @@ public partial class MainWindow : Window
         WebView.NavigateToString(_pendingHtml);
     }
 
+    /// <summary>搜索结果列表重建后，列表容器会丢掉选中项；在 UI 刷新后补选第一条。</summary>
+    private void OnMessagesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_viewModel.SearchText))
+        {
+            return;
+        }
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (!string.IsNullOrWhiteSpace(_viewModel.SearchText)
+                    && MailList.SelectedIndex < 0
+                    && MailList.ItemCount > 0)
+                {
+                    MailList.SelectedIndex = 0;
+                }
+            },
+            Avalonia.Threading.DispatcherPriority.Background);
+    }
+
     private void OnMailListScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         if (e.Source is not ScrollViewer viewer
@@ -648,12 +844,96 @@ public partial class MainWindow : Window
         _viewModel.LoadMoreCommand.Execute(null);
     }
 
+    /// <summary>Esc 必须走隧道阶段，否则写作页里的 TextBox 会先吃掉按键。</summary>
+    private void OnWindowPreviewKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape)
+        {
+            return;
+        }
+
+        if (_viewModel.IsComposeOpen)
+        {
+            _viewModel.CloseComposeCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (_viewModel.IsOverlayOpen)
+        {
+            _viewModel.BackFromOverlayCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Control)
+        var control = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        var editable = e.Source is TextBox;
+
+        if (control
+            && !shift
+            && e.Key == Key.N
+            && !_viewModel.IsOverlayOpen
+            && !_viewModel.IsComposeOpen)
+        {
+            _viewModel.NewMailCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (control
+            && e.Key == Key.R
+            && !_viewModel.IsOverlayOpen
+            && !_viewModel.IsComposeOpen)
+        {
+            if (shift)
+            {
+                _viewModel.ReplyAllCommand.Execute(null);
+            }
+            else
+            {
+                _viewModel.ReplyCommand.Execute(null);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        if (control
+            && shift
+            && e.Key == Key.F
+            && !_viewModel.IsOverlayOpen
+            && !_viewModel.IsComposeOpen)
+        {
+            _viewModel.ForwardCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Delete
+            && !editable
+            && !_viewModel.IsOverlayOpen
+            && !_viewModel.IsComposeOpen
+            && _viewModel.SelectedMessage is not null)
+        {
+            _viewModel.DeleteSelectedCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.F5 && !_viewModel.IsOverlayOpen && !_viewModel.IsComposeOpen)
+        {
+            _viewModel.RefreshCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (control
             && e.Key == Key.A
             && !_viewModel.IsOverlayOpen
-            && e.Source is not TextBox)
+            && !editable)
         {
             _viewModel.SelectAllMessagesCommand.Execute(null);
             e.Handled = true;
@@ -686,10 +966,15 @@ public partial class MainWindow : Window
     {
         Closed -= OnClosed;
         KeyDown -= OnWindowKeyDown;
+        RemoveHandler(KeyDownEvent, OnWindowPreviewKeyDown);
         MailList.RemoveHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
+        _viewModel.Messages.CollectionChanged -= OnMessagesCollectionChanged;
         FolderTree.ContainerPrepared -= OnFolderTreeContainerPrepared;
         FolderTree.ContainerClearing -= OnFolderTreeContainerClearing;
+        MailList.ContainerPrepared -= OnMailListContainerPrepared;
+        MailList.ContainerClearing -= OnMailListContainerClearing;
         ActualThemeVariantChanged -= OnActualThemeVariantChanged;
+        SizeChanged -= OnWindowSizeChanged;
         _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _viewModel.ShowRequested -= OnShowRequested;
         WebView.EnvironmentRequested -= OnEnvironmentRequested;

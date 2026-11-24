@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -135,7 +136,22 @@ public sealed partial class ReaderViewModel : ObservableObject
     private string _senderLine = string.Empty;
 
     [ObservableProperty]
+    private string _senderName = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSenderAddress))]
+    private string _senderAddress = string.Empty;
+
+    [ObservableProperty]
+    private string _avatarInitial = "?";
+
+    [ObservableProperty]
+    private IBrush? _avatarBrush;
+
+    [ObservableProperty]
     private string _dateText = string.Empty;
+
+    public bool HasSenderAddress => !string.IsNullOrWhiteSpace(SenderAddress);
 
     [ObservableProperty]
     private string? _htmlDocument;
@@ -190,6 +206,10 @@ public sealed partial class ReaderViewModel : ObservableObject
         ClearAttachments();
         Subject = string.Empty;
         SenderLine = string.Empty;
+        SenderName = string.Empty;
+        SenderAddress = string.Empty;
+        AvatarInitial = "?";
+        AvatarBrush = null;
         DateText = string.Empty;
         HtmlDocument = null;
         UseHtml = false;
@@ -221,7 +241,7 @@ public sealed partial class ReaderViewModel : ObservableObject
         string backgroundHex,
         bool preferPlainText)
     {
-        Subject = body.Subject;
+        Subject = string.IsNullOrWhiteSpace(body.Subject) ? "（无主题）" : body.Subject;
         SenderLine = senderLine;
         DateText = dateText;
         ClearAttachments();

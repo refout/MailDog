@@ -6,12 +6,13 @@
              x:Class="MailDog.UI.Views.SettingsView"
              x:DataType="vm:MainWindowViewModel">
     <Border IsVisible="{Binding IsSettingsOpen}"
-            Background="{DynamicResource MailDogBrushSurfaceWindow}">
+            Background="{DynamicResource MailDogBrushSurfaceSolid}">
       <Grid ColumnDefinitions="220,*">
         <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
                 BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                 BorderThickness="0,0,1,0">
-          <ListBox SelectedIndex="{Binding SettingsSectionIndex}"
+          <ListBox Classes="settings-nav"
+                   SelectedIndex="{Binding SettingsSectionIndex}"
                    Background="Transparent"
                    BorderThickness="0"
                    Padding="8">
@@ -53,6 +54,12 @@
                 </ListBoxItem>
                 <ListBoxItem Padding="10,8">
                   <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ic:FluentIcon Icon="Play" IconSize="Size16" />
+                    <TextBlock Text="启动" FontSize="13" VerticalAlignment="Center" />
+                  </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Padding="10,8">
+                  <StackPanel Orientation="Horizontal" Spacing="12">
                     <ic:FluentIcon Icon="Info" IconSize="Size16" />
                     <TextBlock Text="关于" FontSize="13" VerticalAlignment="Center" />
                   </StackPanel>
@@ -60,11 +67,13 @@
               </ListBox>
             </Border>
 
-                <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto">
+                <Grid Grid.Column="1" RowDefinitions="Auto,*">
                   <controls:PageHeader Title="{Binding OverlayTitle}"
                                        BackCommand="{Binding BackFromOverlayCommand}" />
                   <ScrollViewer Grid.Row="1">
-                    <StackPanel Margin="32,24,32,16" Spacing="24">
+                    <StackPanel Margin="64,24,32,16"
+                                MaxWidth="900"
+                                Spacing="24">
                       <StackPanel IsVisible="{Binding IsAppearanceSection}" Spacing="16">
                         <StackPanel Spacing="4">
                           <TextBlock Classes="page-title" Text="外观" />
@@ -138,12 +147,26 @@
                                           AutomationProperties.Name="{Binding Name}"
                                           Command="{Binding SelectCommand}"
                                           ToolTip.Tip="{Binding Name}">
-                                    <Border Width="30"
-                                            Height="30"
-                                            CornerRadius="7"
-                                            Background="{Binding Brush}"
-                                            BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                            BorderThickness="1" />
+                                    <Grid Width="30" Height="30">
+                                      <Border CornerRadius="7"
+                                              Background="{Binding Brush}"
+                                              BorderBrush="{DynamicResource MailDogBrushStrokeStrong}"
+                                              BorderThickness="1" />
+                                      <Border Width="14"
+                                              Height="14"
+                                              CornerRadius="7"
+                                              Background="{DynamicResource MailDogBrushAccentBase}"
+                                              HorizontalAlignment="Right"
+                                              VerticalAlignment="Bottom"
+                                              Margin="0,0,-3,-3"
+                                              IsVisible="{Binding IsSelected}">
+                                        <TextBlock Text="✓"
+                                                   FontSize="9"
+                                                   Foreground="{DynamicResource MailDogBrushTextOnAccent}"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                      </Border>
+                                    </Grid>
                                   </Button>
                                 </DataTemplate>
                               </ItemsControl.ItemTemplate>
@@ -166,26 +189,41 @@
                                              Width="320" />
                                 </Flyout>
                               </Button.Flyout>
-                              <Border Width="30"
-                                      Height="30"
-                                      CornerRadius="7"
-                                      BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                      BorderThickness="1">
-                                <Border.Background>
-                                  <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                                    <GradientStop Offset="0" Color="#F25022" />
-                                    <GradientStop Offset="0.25" Color="#FFB900" />
-                                    <GradientStop Offset="0.5" Color="#7FBA00" />
-                                    <GradientStop Offset="0.75" Color="#00A4EF" />
-                                    <GradientStop Offset="1" Color="#B4009E" />
-                                  </LinearGradientBrush>
-                                </Border.Background>
-                                <ic:FluentIcon Icon="PaintBrush"
-                                               IconSize="Size16"
-                                               Foreground="White"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center" />
-                              </Border>
+                              <Grid Width="30" Height="30">
+                                <Border CornerRadius="7"
+                                        BorderBrush="{DynamicResource MailDogBrushStrokeStrong}"
+                                        BorderThickness="1">
+                                  <Border.Background>
+                                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                                      <GradientStop Offset="0" Color="#F25022" />
+                                      <GradientStop Offset="0.25" Color="#FFB900" />
+                                      <GradientStop Offset="0.5" Color="#7FBA00" />
+                                      <GradientStop Offset="0.75" Color="#00A4EF" />
+                                      <GradientStop Offset="1" Color="#B4009E" />
+                                    </LinearGradientBrush>
+                                  </Border.Background>
+                                  <TextBlock Text="+"
+                                             FontSize="16"
+                                             FontWeight="SemiBold"
+                                             Foreground="White"
+                                             HorizontalAlignment="Center"
+                                             VerticalAlignment="Center" />
+                                </Border>
+                                <Border Width="14"
+                                        Height="14"
+                                        CornerRadius="7"
+                                        Background="{DynamicResource MailDogBrushAccentBase}"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Bottom"
+                                        Margin="0,0,-3,-3"
+                                        IsVisible="{Binding IsCustomBackgroundSelected}">
+                                  <TextBlock Text="✓"
+                                             FontSize="9"
+                                             Foreground="{DynamicResource MailDogBrushTextOnAccent}"
+                                             HorizontalAlignment="Center"
+                                             VerticalAlignment="Center" />
+                                </Border>
+                              </Grid>
                             </Button>
                           </StackPanel>
                           <TextBlock Text="直接点击颜色块即可应用，最后一个色块可自定义任意颜色。"
@@ -213,57 +251,91 @@
                           <TextBlock Classes="page-title" Text="通知" />
                           <TextBlock Text="新邮件到达时显示系统通知。" Classes="caption" />
                         </StackPanel>
-                        <Border Classes="settings-card">
-                          <StackPanel Spacing="8">
-                            <TextBlock Text="系统通知" Classes="section" />
-                            <CheckBox Content="新邮件通知" IsChecked="{Binding NotificationsEnabled}" />
-                            <CheckBox Content="通知声音" IsChecked="{Binding NotificationSoundEnabled}" />
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="系统通知" Classes="section" />
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="新邮件通知" FontSize="13" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Column="1"
+                                          IsChecked="{Binding NotificationsEnabled}"
+                                          OnContent=""
+                                          OffContent=""
+                                          AutomationProperties.Name="新邮件通知" />
+                          </Grid>
+                          <StackPanel Spacing="8" IsEnabled="{Binding NotificationsEnabled}">
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="通知声音" FontSize="13" VerticalAlignment="Center" />
+                              <ToggleSwitch Grid.Column="1"
+                                            IsChecked="{Binding NotificationSoundEnabled}"
+                                            OnContent=""
+                                            OffContent=""
+                                            AutomationProperties.Name="通知声音" />
+                            </Grid>
                             <TextBlock Text="关闭声音后仍然弹出通知，只是不播放提示音。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="显示邮件主题" FontSize="13" VerticalAlignment="Center" />
+                              <ToggleSwitch Grid.Column="1"
+                                            IsChecked="{Binding NotificationShowSubject}"
+                                            OnContent=""
+                                            OffContent=""
+                                            AutomationProperties.Name="显示邮件主题" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="显示正文摘要" FontSize="13" VerticalAlignment="Center" />
+                              <ToggleSwitch Grid.Column="1"
+                                            IsChecked="{Binding NotificationShowPreview}"
+                                            OnContent=""
+                                            OffContent=""
+                                            AutomationProperties.Name="显示正文摘要" />
+                            </Grid>
+                            <TextBlock Text="关掉主题后只显示发件人和一句“收到一封新邮件”；摘要取正文开头几十个字。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
                           </StackPanel>
-                        </Border>
-                        <Border Classes="settings-card"
-                                IsEnabled="{Binding NotificationSoundEnabled}">
-                          <StackPanel Spacing="8">
+                        </StackPanel>
+                        <StackPanel Spacing="8"
+                                    IsEnabled="{Binding NotificationsEnabled}">
+                          <StackPanel Spacing="8"
+                                      IsEnabled="{Binding NotificationSoundEnabled}">
                             <Grid ColumnDefinitions="Auto,Auto,*">
                               <TextBlock Text="通知铃声" Classes="section" VerticalAlignment="Center" />
                               <Button Grid.Column="1"
                                       Content="试听"
                                       Command="{Binding PreviewNotificationSoundCommand}"
                                       Margin="12,0,0,0" />
-                          </Grid>
-                          <WrapPanel ItemWidth="96" ItemHeight="32">
-                            <RadioButton GroupName="sound"
-                                         Content="默认"
-                                         IsChecked="{Binding IsSoundDefault}" />
-                            <RadioButton GroupName="sound"
-                                         Content="邮件"
-                                         IsChecked="{Binding IsSoundMail}" />
-                            <RadioButton GroupName="sound"
-                                         Content="提醒"
-                                         IsChecked="{Binding IsSoundReminder}" />
-                            <RadioButton GroupName="sound"
-                                         Content="提示"
-                                         IsChecked="{Binding IsSoundAsterisk}" />
-                            <RadioButton GroupName="sound"
-                                         Content="警告"
-                                         IsChecked="{Binding IsSoundWarning}" />
-                            <RadioButton GroupName="sound"
-                                         Content="蜂鸣"
-                                         IsChecked="{Binding IsSoundBeep}" />
-                            <RadioButton GroupName="sound"
-                                         Content="询问"
-                                         IsChecked="{Binding IsSoundQuestion}" />
-                            <RadioButton GroupName="sound"
-                                         Content="启动"
-                                         IsChecked="{Binding IsSoundStart}" />
-                          </WrapPanel>
-                          <TextBlock Text="选择新邮件通知使用的系统提示音。"
-                                     Classes="caption"
-                                     TextWrapping="Wrap" />
+                            </Grid>
+                            <WrapPanel ItemWidth="96" ItemHeight="32">
+                              <RadioButton GroupName="sound"
+                                           Content="默认"
+                                           IsChecked="{Binding IsSoundDefault}" />
+                              <RadioButton GroupName="sound"
+                                           Content="邮件"
+                                           IsChecked="{Binding IsSoundMail}" />
+                              <RadioButton GroupName="sound"
+                                           Content="提醒"
+                                           IsChecked="{Binding IsSoundReminder}" />
+                              <RadioButton GroupName="sound"
+                                           Content="提示"
+                                           IsChecked="{Binding IsSoundAsterisk}" />
+                              <RadioButton GroupName="sound"
+                                           Content="警告"
+                                           IsChecked="{Binding IsSoundWarning}" />
+                              <RadioButton GroupName="sound"
+                                           Content="蜂鸣"
+                                           IsChecked="{Binding IsSoundBeep}" />
+                              <RadioButton GroupName="sound"
+                                           Content="询问"
+                                           IsChecked="{Binding IsSoundQuestion}" />
+                              <RadioButton GroupName="sound"
+                                           Content="启动"
+                                           IsChecked="{Binding IsSoundStart}" />
+                            </WrapPanel>
+                            <TextBlock Text="选择新邮件通知使用的系统提示音。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
                           </StackPanel>
-                        </Border>
+                        </StackPanel>
                       </StackPanel>
 
                       <StackPanel IsVisible="{Binding IsReadingSection}" Spacing="16">
@@ -271,26 +343,42 @@
                           <TextBlock Classes="page-title" Text="阅读" />
                           <TextBlock Text="打开邮件时的默认行为。" Classes="caption" />
                         </StackPanel>
-                        <Border Classes="settings-card">
-                          <StackPanel Spacing="8">
-                            <TextBlock Text="渲染方式" Classes="section" />
-                            <CheckBox Content="全量渲染（HTML）" IsChecked="{Binding IsHtmlRenderMode}" />
-                            <CheckBox Content="纯文本" IsChecked="{Binding IsPlainRenderMode}" />
-                            <TextBlock Text="纯文本模式只显示文本内容；邮件没有纯文本段时会从 HTML 提取文本。"
-                                       Classes="caption"
-                                       TextWrapping="Wrap" />
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="渲染方式" Classes="section" />
+                          <StackPanel Orientation="Horizontal" Spacing="16">
+                            <RadioButton GroupName="renderMode"
+                                         Content="全量渲染（HTML）"
+                                         IsChecked="{Binding IsHtmlRenderMode}" />
+                            <RadioButton GroupName="renderMode"
+                                         Content="纯文本"
+                                         IsChecked="{Binding IsPlainRenderMode}" />
                           </StackPanel>
-                        </Border>
-                        <Border Classes="settings-card">
-                          <StackPanel Spacing="8">
-                            <TextBlock Text="打开行为" Classes="section" />
-                            <CheckBox Content="打开邮件时标记为已读" IsChecked="{Binding MarkReadOnOpen}" />
-                            <CheckBox Content="默认显示远程图片" IsChecked="{Binding ShowRemoteImages}" />
-                            <TextBlock Text="远程图片可能被发件人用作阅读统计；关闭后仍可在单封邮件顶部临时显示。"
-                                       Classes="caption"
-                                       TextWrapping="Wrap" />
-                          </StackPanel>
-                        </Border>
+                          <TextBlock Text="纯文本模式只显示文本内容；邮件没有纯文本段时会从 HTML 提取文本。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="打开行为" Classes="section" />
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="打开邮件时标记为已读" FontSize="13" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Column="1"
+                                          IsChecked="{Binding MarkReadOnOpen}"
+                                          OnContent=""
+                                          OffContent=""
+                                          AutomationProperties.Name="打开邮件时标记为已读" />
+                          </Grid>
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="默认显示远程图片" FontSize="13" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Column="1"
+                                          IsChecked="{Binding ShowRemoteImages}"
+                                          OnContent=""
+                                          OffContent=""
+                                          AutomationProperties.Name="默认显示远程图片" />
+                          </Grid>
+                          <TextBlock Text="远程图片可能被发件人用作阅读统计；关闭后仍可在单封邮件顶部临时显示。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
                       </StackPanel>
 
                       <StackPanel IsVisible="{Binding IsSyncSection}" Spacing="16">
@@ -298,66 +386,84 @@
                           <TextBlock Classes="page-title" Text="同步" />
                           <TextBlock Text="控制后台检查新邮件的频率。" Classes="caption" />
                         </StackPanel>
-                        <Border Classes="settings-card">
-                          <StackPanel Spacing="8">
-                            <TextBlock Text="后台检查" Classes="section" />
-                            <TextBlock Text="同步间隔" FontSize="13" />
-                            <WrapPanel>
-                              <RadioButton GroupName="sync"
-                                           Content="1 分钟"
-                                           Margin="0,0,16,4"
-                                           IsChecked="{Binding IsSync1Minute}" />
-                              <RadioButton GroupName="sync"
-                                           Content="5 分钟"
-                                           Margin="0,0,16,4"
-                                           IsChecked="{Binding IsSync5Minutes}" />
-                              <RadioButton GroupName="sync"
-                                           Content="15 分钟"
-                                           Margin="0,0,16,4"
-                                           IsChecked="{Binding IsSync15Minutes}" />
-                              <RadioButton GroupName="sync"
-                                           Content="30 分钟"
-                                           Margin="0,0,16,4"
-                                           IsChecked="{Binding IsSync30Minutes}" />
-                              <RadioButton GroupName="sync"
-                                           Content="60 分钟"
-                                           Margin="0,0,16,4"
-                                           IsChecked="{Binding IsSync60Minutes}" />
-                            </WrapPanel>
-                            <TextBlock Text="间隔越短越及时，也会更频繁地连接邮箱服务器。"
-                                       Classes="caption"
-                                       TextWrapping="Wrap" />
-                          </StackPanel>
-                        </Border>
-                        <Border Classes="settings-card">
-                          <StackPanel Spacing="8">
-                            <TextBlock Text="启动与副本" Classes="section" />
-                            <CheckBox Content="登录 Windows 时自动启动"
-                                      IsChecked="{Binding RunAtStartup}" />
-                            <CheckBox Content="发送成功后保存到“已发送”文件夹"
-                                      IsChecked="{Binding SaveSentCopy}" />
-                            <TextBlock Text="部分邮箱（如 Gmail）会在服务器端自动保存已发送副本，重复保存会出现两封相同邮件，可按需要关闭。"
-                                       Classes="caption"
-                                       TextWrapping="Wrap" />
-                          </StackPanel>
-                        </Border>
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="后台检查" Classes="section" />
+                          <TextBlock Text="同步间隔" FontSize="13" />
+                          <WrapPanel>
+                            <RadioButton GroupName="sync"
+                                         Content="1 分钟"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSync1Minute}" />
+                            <RadioButton GroupName="sync"
+                                         Content="5 分钟"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSync5Minutes}" />
+                            <RadioButton GroupName="sync"
+                                         Content="15 分钟"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSync15Minutes}" />
+                            <RadioButton GroupName="sync"
+                                         Content="30 分钟"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSync30Minutes}" />
+                            <RadioButton GroupName="sync"
+                                         Content="60 分钟"
+                                         Margin="0,0,16,4"
+                                         IsChecked="{Binding IsSync60Minutes}" />
+                          </WrapPanel>
+                          <TextBlock Text="间隔越短越及时，也会更频繁地连接邮箱服务器。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="已发送副本" Classes="section" />
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="发送成功后保存到“已发送”文件夹"
+                                       FontSize="13"
+                                       VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Column="1"
+                                          IsChecked="{Binding SaveSentCopy}"
+                                          OnContent=""
+                                          OffContent=""
+                                          AutomationProperties.Name="发送成功后保存到已发送文件夹" />
+                          </Grid>
+                          <TextBlock Text="部分邮箱（如 Gmail）会在服务器端自动保存已发送副本，重复保存会出现两封相同邮件，可按需要关闭。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
                       </StackPanel>
 
-                      <StackPanel IsVisible="{Binding IsAccountListVisible}" Spacing="16">
+                      <StackPanel IsVisible="{Binding IsAccountSection}" Spacing="16">
                         <StackPanel Spacing="4">
                           <TextBlock Classes="page-title" Text="账户管理" />
-                          <TextBlock Text="查看、编辑已添加的邮箱账户，或继续添加新账户。" Classes="caption" />
+                          <TextBlock Text="管理邮箱账户、发件身份与邮件签名。" Classes="caption" />
                         </StackPanel>
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="邮件签名" Classes="section" />
+                          <TextBlock Text="新写、回复和转发时自动插入到正文下方；留空则不插入。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                          <TextBox Text="{Binding SignatureText, Mode=TwoWay}"
+                                   AcceptsReturn="True"
+                                   TextWrapping="Wrap"
+                                   MinHeight="88"
+                                   MaxHeight="160"
+                                   VerticalContentAlignment="Top"
+                                   PlaceholderText="例如：张三｜产品经理｜138 0000 0000" />
+                          <TextBlock Text="按纯文本保存，换行会保留。"
+                                     Classes="caption" />
+                        </StackPanel>
+                      </StackPanel>
 
+                      <StackPanel IsVisible="{Binding IsAccountListVisible}" Spacing="12">
+                        <TextBlock Text="邮箱账户" Classes="section" />
                         <ItemsControl ItemsSource="{Binding Accounts}">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:AccountViewModel">
-                              <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
-                                      BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                      BorderThickness="1"
-                                      CornerRadius="8"
-                                      Padding="14,12"
-                                      Margin="0,0,0,8">
+                              <Border BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                      BorderThickness="0,0,0,1"
+                                      Padding="0,12"
+                                      Margin="0,0,0,2">
                                 <StackPanel Spacing="10">
                                 <Grid ColumnDefinitions="Auto,*,Auto">
                                   <Border Width="40"
@@ -379,7 +485,14 @@
                                                FontSize="14"
                                                FontWeight="SemiBold"
                                                TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding ProviderText}" Classes="caption" />
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                      <TextBlock Text="{Binding ProviderText}" Classes="caption" />
+                                      <TextBlock Text="·" Classes="caption" />
+                                      <TextBlock Text="{Binding StatusText}"
+                                                 FontSize="11"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="{Binding StatusBrush}" />
+                                    </StackPanel>
                                     <Border IsVisible="{Binding IsDefault}"
                                             Background="{DynamicResource MailDogBrushAccentTint}"
                                             CornerRadius="4"
@@ -396,40 +509,48 @@
                                   </StackPanel>
                                   <StackPanel Grid.Column="2"
                                               Orientation="Horizontal"
-                                              Spacing="8"
+                                              Spacing="2"
+                                              Margin="8,0,0,0"
                                               VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding StatusText}"
-                                               FontSize="12"
-                                               VerticalAlignment="Center"
-                                               Foreground="{Binding StatusBrush}" />
-                                    <Button Content="↑"
+                                    <Button Classes="icon sm subtle"
                                             Click="OnMoveAccountUpClick"
                                             IsEnabled="{Binding !IsDeleting}"
                                             ToolTip.Tip="上移"
-                                            AutomationProperties.Name="上移账户" />
-                                    <Button Content="↓"
+                                            AutomationProperties.Name="上移账户">
+                                      <ic:FluentIcon Icon="ArrowUp" IconSize="Size16" />
+                                    </Button>
+                                    <Button Classes="icon sm subtle"
                                             Click="OnMoveAccountDownClick"
                                             IsEnabled="{Binding !IsDeleting}"
                                             ToolTip.Tip="下移"
-                                            AutomationProperties.Name="下移账户" />
-                                    <Button Content="重新授权"
+                                            AutomationProperties.Name="下移账户">
+                                      <ic:FluentIcon Icon="ArrowDown" IconSize="Size16" />
+                                    </Button>
+                                    <Button Classes="subtle"
+                                            Padding="8,0"
+                                            Content="重新授权"
                                             Click="OnReauthorizeAccountClick"
                                             IsVisible="{Binding CanReauthorize}"
                                             IsEnabled="{Binding !IsDeleting}"
                                             AutomationProperties.Name="重新授权账户" />
-                                    <Button Content="设为默认"
+                                    <Button Classes="subtle"
+                                            Padding="8,0"
+                                            Content="设为默认"
                                             Click="OnSetDefaultAccountClick"
                                             IsVisible="{Binding !IsDefault}"
                                             IsEnabled="{Binding !IsDeleting}"
                                             AutomationProperties.Name="设为默认发信账户" />
-                                    <Button Content="编辑"
+                                    <Button Classes="subtle"
+                                            Padding="8,0"
+                                            Content="编辑"
                                             Click="OnEditAccountClick"
                                             IsEnabled="{Binding !IsDeleting}"
                                             AutomationProperties.Name="编辑账户" />
-                                    <Button Content="删除"
+                                    <Button Classes="danger"
+                                            Padding="8,0"
+                                            Content="删除"
                                             Click="OnDeleteAccountClick"
                                             IsEnabled="{Binding !IsDeleting}"
-                                            Foreground="{DynamicResource MailDogBrushStatusDanger}"
                                             AutomationProperties.Name="删除账户" />
                                   </StackPanel>
                                 </Grid>
@@ -457,9 +578,9 @@
                                               Click="OnCancelDeleteAccountClick"
                                               IsEnabled="{Binding !IsDeleting}" />
                                       <Button Content="确认删除"
+                                              Classes="danger"
                                               Click="OnConfirmDeleteAccountClick"
-                                              IsEnabled="{Binding !IsDeleting}"
-                                              Foreground="{DynamicResource MailDogBrushStatusDanger}" />
+                                              IsEnabled="{Binding !IsDeleting}" />
                                     </StackPanel>
                                   </StackPanel>
                                 </Border>
@@ -575,12 +696,7 @@
                                   VerticalAlignment="Top" />
                         </Grid>
 
-                        <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
-                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
-                          <StackPanel Spacing="10">
+                        <StackPanel Spacing="10">
                             <TextBlock Text="占用" Classes="section" />
 
                             <Grid ColumnDefinitions="*,Auto">
@@ -657,14 +773,8 @@
                                        Classes="caption"
                                        TextWrapping="Wrap" />
                           </StackPanel>
-                        </Border>
 
-                        <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
-                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
-                          <StackPanel Spacing="10">
+                        <StackPanel Spacing="10">
                             <TextBlock Text="目录" Classes="section" />
                             <TextBlock Text="打开目录会使用系统文件管理器；删除文件前请确认 MailDog 已退出相关预览程序。"
                                        Classes="caption"
@@ -723,14 +833,8 @@
                                       CommandParameter="{Binding StorageOutboxDirectory}" />
                             </Grid>
                           </StackPanel>
-                        </Border>
 
-                        <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
-                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
-                          <StackPanel Spacing="10">
+                        <StackPanel Spacing="10">
                             <Grid ColumnDefinitions="*,Auto">
                               <TextBlock Text="发件箱" Classes="section" />
                               <Button Grid.Column="1"
@@ -792,6 +896,7 @@
                                                 Click="OnRetryOutboxClick"
                                                 IsEnabled="{Binding CanRetry}" />
                                         <Button Content="删除"
+                                                Classes="danger"
                                                 Click="OnDeleteOutboxClick"
                                                 IsEnabled="{Binding CanDelete}" />
                                       </StackPanel>
@@ -801,14 +906,8 @@
                               </ItemsControl.ItemTemplate>
                             </ItemsControl>
                           </StackPanel>
-                        </Border>
 
-                        <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
-                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
-                          <StackPanel Spacing="10">
+                        <StackPanel Spacing="10">
                             <TextBlock Text="备份与恢复" Classes="section" />
                             <TextBlock Text="备份会生成包含本地数据库的 ZIP。恢复只在下次启动 Engine 时替换数据库，启动前会先复制当前数据库。"
                                        Classes="caption"
@@ -830,14 +929,8 @@
                                        Classes="caption"
                                        TextWrapping="Wrap" />
                           </StackPanel>
-                        </Border>
 
-                        <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
-                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
-                          <StackPanel Spacing="10">
+                        <StackPanel Spacing="10">
                             <TextBlock Text="清理" Classes="section" />
                             <TextBlock Text="只清理可再生缓存，不会删除数据库、草稿、旗标邮件或待发送邮件；当前日志文件会保留。"
                                        Classes="caption"
@@ -863,89 +956,168 @@
                                        Classes="caption"
                                        TextWrapping="Wrap" />
                           </StackPanel>
-                        </Border>
                       </StackPanel>
 
-                      <StackPanel IsVisible="{Binding IsAboutSection}" Spacing="16">
+                        <StackPanel IsVisible="{Binding IsStartupSection}" Spacing="16">
+                          <StackPanel Spacing="4">
+                            <TextBlock Classes="page-title" Text="启动" />
+                            <TextBlock Text="登录 Windows 后是否自动运行 MailDog。" Classes="caption" />
+                          </StackPanel>
+
+                          <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="登录 Windows 时自动启动 MailDog"
+                                         FontSize="13"
+                                         VerticalAlignment="Center" />
+                              <ToggleSwitch Grid.Column="1"
+                                            IsChecked="{Binding RunAtStartup}"
+                                            OnContent=""
+                                            OffContent=""
+                                            AutomationProperties.Name="登录 Windows 时自动启动 MailDog" />
+                            </Grid>
+                            <TextBlock Text="开启后，登录 Windows 会自动启动 MailDog 并继续收取新邮件；关闭后会移除当前用户的启动项，不影响账户与邮件数据。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+                        </StackPanel>
+
+                      <StackPanel IsVisible="{Binding IsAboutSection}" Spacing="18">
                         <StackPanel Spacing="4">
                           <TextBlock Classes="page-title" Text="关于" />
-                          <TextBlock Text="版本与运行环境。" Classes="caption" />
+                          <TextBlock Text="这个版本的说明，以及它用到的开源项目。" Classes="caption" />
                         </StackPanel>
 
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                          <Border Width="48"
-                                  Height="48"
-                                  CornerRadius="10"
-                                  ClipToBounds="True">
+                        <Grid ColumnDefinitions="Auto,*">
+                          <Border Width="96"
+                                  Height="96"
+                                  CornerRadius="20"
+                                  ClipToBounds="True"
+                                  VerticalAlignment="Top">
                             <Image Source="avares://MailDog.UI/Assets/logo.png"
-                                   Width="48"
-                                   Height="48"
+                                   Width="96"
+                                   Height="96"
                                    Stretch="UniformToFill" />
                           </Border>
-                          <StackPanel VerticalAlignment="Center" Spacing="2">
-                            <TextBlock Classes="page-title" Text="MailDog" />
+                          <StackPanel Grid.Column="1" Margin="20,8,0,0" Spacing="6">
+                            <TextBlock Text="MailDog" FontSize="26" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding VersionText}" Classes="caption" />
+                            <TextBlock Text="一个轻量的 Windows 邮件客户端"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
                           </StackPanel>
+                        </Grid>
+
+                        <TextBlock TextWrapping="Wrap"
+                                   LineHeight="20"
+                                   Text="MailDog 把收信、读信和存信都放在你自己的电脑上完成，不经过第三方服务器。关掉窗口以后它仍在后台收信，有新邮件就给你一条系统通知。" />
+
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="能做什么" Classes="section" />
+                          <TextBlock Text="· 多个邮箱放在一起看，收件箱、已发送、草稿一处管理" FontSize="13" TextWrapping="Wrap" />
+                          <TextBlock Text="· 新邮件随时提醒，任务栏图标上显示未读数量" FontSize="13" TextWrapping="Wrap" />
+                          <TextBlock Text="· 读信时按邮件原本的样子排版，也可以切成纯文字" FontSize="13" TextWrapping="Wrap" />
+                          <TextBlock Text="· 写信能加粗、分条、插链接和附件，可以带自己的签名" FontSize="13" TextWrapping="Wrap" />
+                          <TextBlock Text="· 搜索、标为已读、移到别的文件夹，这些常用操作都有" FontSize="13" TextWrapping="Wrap" />
                         </StackPanel>
 
-                        <TextBlock Text="双进程、全 Native AOT 的桌面邮件客户端。"
-                                   TextWrapping="Wrap" />
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="运行信息" Classes="section" />
+                          <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Text="适用系统" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="1" Text="Windows 10 / 11" FontSize="13" HorizontalAlignment="Right" />
+                          </Grid>
+                          <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Text="邮件存放" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="1" Text="都在你自己的电脑上" FontSize="13" HorizontalAlignment="Right" />
+                          </Grid>
+                          <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Text="后台运行" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="1" Text="关掉窗口也继续收信" FontSize="13" HorizontalAlignment="Right" />
+                          </Grid>
+                        </StackPanel>
 
-                        <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
-                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16">
-                          <StackPanel Spacing="8">
-                            <TextBlock Text="运行时" Classes="section" />
-                            <Grid ColumnDefinitions="Auto,*">
-                              <TextBlock Text=".NET" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-                              <TextBlock Grid.Column="1" Text="{Binding RuntimeText}" FontSize="13" HorizontalAlignment="Right" />
-                            </Grid>
-                            <Grid ColumnDefinitions="Auto,*">
-                              <TextBlock Text="界面" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-                              <TextBlock Grid.Column="1" Text="Avalonia 12.1.6 · Fluent" FontSize="13" HorizontalAlignment="Right" />
-                            </Grid>
-                            <Grid ColumnDefinitions="Auto,*">
-                              <TextBlock Text="邮件" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-                              <TextBlock Grid.Column="1" Text="MailKit 5.0.0" FontSize="13" HorizontalAlignment="Right" />
-                            </Grid>
-                            <Grid ColumnDefinitions="Auto,*">
-                              <TextBlock Text="存储" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-                              <TextBlock Grid.Column="1" Text="SQLite" FontSize="13" HorizontalAlignment="Right" />
-                            </Grid>
-                          </StackPanel>
-                        </Border>
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="开源致谢" Classes="section" />
+                          <TextBlock Text="MailDog 用到了下面这些开源项目，感谢它们的作者。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                          <Grid ColumnDefinitions="150,*,Auto" Margin="0,4,0,0">
+                            <TextBlock Text="项目" FontSize="12" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="1" Text="帮我们做了什么" FontSize="12" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="2" Text="许可" FontSize="12" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                          </Grid>
+                          <Grid ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="Avalonia" FontSize="13" />
+                            <TextBlock Grid.Column="1" Text="画出整个界面" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="2" Text="MIT" FontSize="13" />
+                          </Grid>
+                          <Grid ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="CommunityToolkit.Mvvm" FontSize="13" />
+                            <TextBlock Grid.Column="1" Text="界面和数据之间的连接" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="2" Text="MIT" FontSize="13" />
+                          </Grid>
+                          <Grid ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="MailKit" FontSize="13" />
+                            <TextBlock Grid.Column="1" Text="收邮件、发邮件" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="2" Text="MIT" FontSize="13" />
+                          </Grid>
+                          <Grid ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="Microsoft.Data.Sqlite" FontSize="13" />
+                            <TextBlock Grid.Column="1" Text="读写本机的邮件数据" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="2" Text="MIT" FontSize="13" />
+                          </Grid>
+                          <Grid ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="SQLite" FontSize="13" />
+                            <TextBlock Grid.Column="1" Text="本地数据库" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="2" Text="Public Domain" FontSize="13" />
+                          </Grid>
+                          <Grid ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="HtmlAgilityPack" FontSize="13" />
+                            <TextBlock Grid.Column="1" Text="看懂邮件里的网页内容" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="2" Text="MIT" FontSize="13" />
+                          </Grid>
+                          <Grid ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="SkiaSharp / HarfBuzz" FontSize="13" />
+                            <TextBlock Grid.Column="1" Text="绘制文字和图形" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="2" Text="MIT" FontSize="13" />
+                          </Grid>
+                          <Grid ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="FluentIcons.Avalonia" FontSize="13" />
+                            <TextBlock Grid.Column="1" Text="界面上的小图标" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="2" Text="MIT" FontSize="13" />
+                          </Grid>
+                          <Grid ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="AvaloniaRichEditor" FontSize="13" />
+                            <TextBlock Grid.Column="1" Text="写信用的编辑器" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="2" Text="见项目许可" FontSize="13" />
+                          </Grid>
+                          <Grid ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="xunit" FontSize="13" />
+                            <TextBlock Grid.Column="1" Text="自动检查功能有没有坏" FontSize="13" Foreground="{DynamicResource MailDogBrushTextSecondary}" />
+                            <TextBlock Grid.Column="2" Text="Apache-2.0" FontSize="13" />
+                          </Grid>
+                          <TextBlock Text="另外还用了一些间接依赖（例如 SQLitePCLRaw、ANGLE），完整清单和许可说明放在仓库的 docs/THIRD-PARTY-NOTICES.md。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap"
+                                     Margin="0,4,0,0" />
+                        </StackPanel>
 
-                        <Button Content="打开项目主页"
-                                Command="{Binding OpenProjectPageCommand}"
-                                HorizontalAlignment="Stretch" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <Button Content="打开项目主页"
+                                  Command="{Binding OpenProjectPageCommand}"
+                                  Padding="16,0" />
+                          <Button Content="开源许可清单"
+                                  Command="{Binding OpenThirdPartyNoticesCommand}"
+                                  Padding="16,0" />
+                        </StackPanel>
 
-                        <TextBlock Text="界面图标来自 Fluent UI System Icons（MIT）。"
+                        <TextBlock Text="© 2026 MailDog。Windows 是 Microsoft 的商标。"
                                    Classes="caption"
                                    TextWrapping="Wrap" />
                       </StackPanel>
                     </StackPanel>
                   </ScrollViewer>
 
-                  <Border Grid.Row="2"
-                          BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                          BorderThickness="0,1,0,0"
-                          Padding="32,10">
-                    <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Text="{Binding SettingsSaveHint}"
-                                 Classes="caption"
-                                 VerticalAlignment="Center" />
-                      <Button Grid.Column="1"
-                              Command="{Binding BackFromOverlayCommand}"
-                              AutomationProperties.Name="返回收件箱">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                          <ic:FluentIcon Icon="ArrowLeft" IconSize="Size16" />
-                          <TextBlock Text="返回收件箱" VerticalAlignment="Center" />
-                        </StackPanel>
-                      </Button>
-                    </Grid>
-                  </Border>
                 </Grid>
       </Grid>
     </Border>

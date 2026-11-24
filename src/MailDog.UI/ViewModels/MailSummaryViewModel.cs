@@ -1,5 +1,6 @@
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using FluentIcons.Common;
 using MailDog.Contracts.Dto;
 
 namespace MailDog.UI.ViewModels;
@@ -32,6 +33,8 @@ public sealed partial class MailSummaryViewModel : ObservableObject
         _isFlagged = (mail.Flags & MailFlags.Flagged) != 0;
         AvatarBrush = CreateAvatarBrush(mail.FromAddress);
         AvatarInitial = CreateInitial(mail.FromName, mail.FromAddress);
+        ThreadKey = mail.ThreadKey ?? string.Empty;
+        _threadMessages = [this];
     }
 
     public long Id { get; }
@@ -42,11 +45,17 @@ public sealed partial class MailSummaryViewModel : ObservableObject
 
     public string Subject { get; }
 
+    /// <summary>列表中无主题邮件显示占位标题，避免整行出现空白。</summary>
+    public string DisplaySubject => string.IsNullOrWhiteSpace(Subject) ? "（无主题）" : Subject;
+
     public string SenderName { get; }
 
     public string SenderAddress { get; }
 
     public string Preview { get; }
+
+    /// <summary>服务端线程根键；为空时由 UI 用回复主题前缀回退。</summary>
+    public string ThreadKey { get; }
 
     public DateTimeOffset Date { get; }
 
@@ -60,6 +69,11 @@ public sealed partial class MailSummaryViewModel : ObservableObject
 
     public string Sender => string.IsNullOrWhiteSpace(SenderName) ? SenderAddress : SenderName;
 
+    public string SecondarySenderAddress => string.IsNullOrWhiteSpace(SenderName)
+        || string.Equals(SenderName.Trim(), SenderAddress.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? string.Empty
+            : SenderAddress;
+
     public string TimeText => FormatTime(Date);
 
     public bool IsUnread => !IsRead;
@@ -68,10 +82,49 @@ public sealed partial class MailSummaryViewModel : ObservableObject
 
     public FontWeight SubjectWeight => IsRead ? FontWeight.Normal : FontWeight.SemiBold;
 
+    public string AccessibilityName => $"{(IsUnread ? "未读，" : string.Empty)}{Sender}，{DisplaySubject}";
+
+    /// <summary>悬停操作条上的已读切换文案、图标与无障碍名称随当前状态变化。</summary>
+    public string ReadToggleLabel => IsRead ? "标记为未读" : "标记为已读";
+
+    public string ReadToggleAutomationName => IsRead
+        ? "将这封邮件标记为未读"
+        : "将这封邮件标记为已读";
+
+    public Icon ReadToggleIcon => IsRead ? Icon.MailUnread : Icon.MailRead;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsThreaded))]
+    [NotifyPropertyChangedFor(nameof(ThreadLabel))]
+    private int _threadCount = 1;
+
+    [ObservableProperty]
+    private IReadOnlyList<MailSummaryViewModel> _threadMessages = [];
+
+    [ObservableProperty]
+    private string _searchQuery = string.Empty;
+
+    /// <summary>紧凑密度下隐藏摘要第三行，避免 64px 行高裁掉预览。</summary>
+    [ObservableProperty]
+    private bool _showPreview = true;
+
+    [ObservableProperty]
+    private bool _isHovered;
+
+    public bool IsThreaded => ThreadCount > 1;
+
+    public string ThreadLabel => $"会话 {ThreadCount} 封";
+
+    public string ThreadMenuLabel => $"{Sender} · {Date.ToLocalTime():M月d日 HH:mm} · {DisplaySubject}";
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsUnread))]
     [NotifyPropertyChangedFor(nameof(SenderWeight))]
     [NotifyPropertyChangedFor(nameof(SubjectWeight))]
+    [NotifyPropertyChangedFor(nameof(AccessibilityName))]
+    [NotifyPropertyChangedFor(nameof(ReadToggleLabel))]
+    [NotifyPropertyChangedFor(nameof(ReadToggleAutomationName))]
+    [NotifyPropertyChangedFor(nameof(ReadToggleIcon))]
     private bool _isRead;
 
     [ObservableProperty]

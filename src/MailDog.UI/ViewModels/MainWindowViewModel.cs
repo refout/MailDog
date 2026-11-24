@@ -21,10 +21,15 @@ namespace MailDog.UI.ViewModels;
 
 public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 {
+    private static readonly string[] ThreadSubjectPrefixes =
+        ["re:", "re：", "fwd:", "fw:", "回复：", "答复：", "转发："];
+
     private readonly EngineClient _engine;
     private readonly HtmlSanitizer _sanitizer = new();
     private readonly HtmlDocumentBuilder _builder = new();
     private readonly List<MailSummaryViewModel> _allMessages = [];
+    private readonly List<MailSummaryViewModel> _searchExtraMessages = [];
+    private IReadOnlyList<ContactSuggestionDto> _contacts = [];
     private readonly Dictionary<long, FolderViewModel> _foldersById = [];
     private readonly Dictionary<long, FolderRole> _folderRoles = [];
     private readonly Dictionary<string, string> _syncErrors = [];
@@ -55,16 +60,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         Reader.DownloadAttachment = DownloadAttachmentAsync;
         Reader.PreviewAttachment = OpenAttachmentAsync;
         Reader.LoadAttachmentBytes = LoadAttachmentBytesAsync;
-        Accounts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAccounts));
+        Accounts.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasAccounts));
+        };
         RefreshBackgroundPresets();
         BuildCalendar();
 
-        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Inbox, "收件箱", Icon.MailInbox));
-        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Sent, "已发送", Icon.Send));
-        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Drafts, "草稿", Icon.Drafts));
-        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Junk, "垃圾邮件", Icon.Warning));
-        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Trash, "已删除", Icon.Delete));
-        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Archive, "归档", Icon.Archive));
+        UnifiedFolders.Add(new UnifiedFolderViewModel(FolderRole.Inbox, "所有收件箱", Icon.MailInbox));
     }
 
     public ObservableCollection<AccountViewModel> Accounts { get; } = [];
@@ -116,14 +119,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
-    [NotifyPropertyChangedFor(nameof(OverlayTitle))]
     [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
     [NotifyPropertyChangedFor(nameof(IsWelcomeVisible))]
+    [NotifyPropertyChangedFor(nameof(IsStatusBarVisible))]
     private bool _isSettingsOpen;
 
     public bool IsOverlayOpen => IsSettingsOpen;
 
-    public bool IsWelcomeVisible => ShowWelcome && !IsSettingsOpen;
+    public bool IsWelcomeVisible => ShowWelcome && !IsOverlayOpen;
 
     public string OverlayTitle => "设置";
 
@@ -178,7 +181,41 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public string FolderDeletePrompt => $"删除文件夹“{FolderDeleteName}”？服务器上的该文件夹和邮件也会被删除。";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SearchEmptyTitle))]
+    [NotifyPropertyChangedFor(nameof(SearchEmptyHint))]
+    [NotifyPropertyChangedFor(nameof(ReaderEmptyTitle))]
+    [NotifyPropertyChangedFor(nameof(ReaderEmptyHint))]
+    [NotifyPropertyChangedFor(nameof(HasSearchText))]
     private string _searchText = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SearchScopeLabel))]
+    [NotifyPropertyChangedFor(nameof(SearchScopeAutomationName))]
+    private bool _isGlobalSearch;
+
+    public bool HasSearchText => !string.IsNullOrWhiteSpace(SearchText);
+
+    public string SearchScopeLabel => IsGlobalSearch ? "全部邮箱" : "当前文件夹";
+
+    public string SearchScopeAutomationName => IsGlobalSearch
+        ? "搜索全部邮箱，点击切回当前文件夹"
+        : "搜索当前文件夹，点击切换到全部邮箱";
+
+    public string SearchEmptyTitle => string.IsNullOrWhiteSpace(SearchText)
+        ? "这个文件夹没有邮件"
+        : "没有找到匹配的邮件";
+
+    public string SearchEmptyHint => string.IsNullOrWhiteSpace(SearchText)
+        ? "同步完成后会自动刷新"
+        : "换个关键词，或清空搜索条件再试";
+
+    public string ReaderEmptyTitle => string.IsNullOrWhiteSpace(SearchText)
+        ? "选择一封邮件开始阅读"
+        : "没有匹配的邮件";
+
+    public string ReaderEmptyHint => string.IsNullOrWhiteSpace(SearchText)
+        ? "使用 ↑ ↓ 浏览，Enter 打开"
+        : "换个关键词，或清空搜索条件";
 
     [ObservableProperty]
     private int _filterIndex;
@@ -256,12 +293,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasStatusMessage))]
+    [NotifyPropertyChangedFor(nameof(IsStatusBarVisible))]
     private string? _statusMessage;
 
     public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
 
+    public bool IsStatusBarVisible => HasStatusMessage && !IsOverlayOpen && !IsComposeOpen;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
+    [NotifyPropertyChangedFor(nameof(IsStatusBarVisible))]
     private bool _isComposeOpen;
 
     [ObservableProperty]
@@ -424,7 +465,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCompactDensity))]
     [NotifyPropertyChangedFor(nameof(IsNormalDensity))]
+    [NotifyPropertyChangedFor(nameof(ShowMessagePreview))]
     private string _density = "compact";
+
+    public bool ShowMessagePreview => ThemeService.IsNormalDensity(Density);
 
     public bool IsCompactDensity
     {
@@ -459,6 +503,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BackgroundColorValue))]
+    [NotifyPropertyChangedFor(nameof(IsCustomBackgroundSelected))]
     private string _backgroundColorHex = string.Empty;
 
     [ObservableProperty]
@@ -528,11 +573,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsStorageSection => SettingsSectionIndex == 5;
 
+    public bool IsStartupSection => SettingsSectionIndex == 6;
+
     public bool IsAccountListVisible => IsAccountSection && !ShowAddAccountForm;
 
     public bool IsAddAccountFormVisible => IsAccountSection && ShowAddAccountForm;
 
-    public bool IsAboutSection => SettingsSectionIndex == 6;
+    public bool IsAboutSection => SettingsSectionIndex == 7;
 
     public string StorageDataDirectory => StorageSummary?.DataDirectory ?? "尚未读取";
 
@@ -615,6 +662,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsSyncSection));
         OnPropertyChanged(nameof(IsAccountSection));
         OnPropertyChanged(nameof(IsStorageSection));
+        OnPropertyChanged(nameof(IsStartupSection));
         OnPropertyChanged(nameof(IsAccountListVisible));
         OnPropertyChanged(nameof(IsAddAccountFormVisible));
         OnPropertyChanged(nameof(IsAboutSection));
@@ -635,6 +683,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         set => BackgroundColorHex = $"#{value.R:X2}{value.G:X2}{value.B:X2}";
     }
 
+    public bool IsCustomBackgroundSelected
+    {
+        get
+        {
+            var active = BackgroundColorHex.Trim();
+            return active.Length > 0
+                && !BackgroundPresets.Any(p => !string.IsNullOrEmpty(p.Value)
+                    && string.Equals(p.Value, active, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
     [ObservableProperty]
     private bool _notificationsEnabled = true;
 
@@ -643,6 +702,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _notificationSound = "default";
+
+    /// <summary>通知里是否显示邮件主题。</summary>
+    [ObservableProperty]
+    private bool _notificationShowSubject = true;
+
+    /// <summary>通知里是否附带正文摘要。</summary>
+    [ObservableProperty]
+    private bool _notificationShowPreview;
 
     [ObservableProperty]
     private int _syncIntervalIndex;
@@ -658,6 +725,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _saveSentCopy = true;
+
+    [ObservableProperty]
+    private string _signatureText = string.Empty;
 
     [ObservableProperty]
     private int _renderModeIndex;
@@ -696,6 +766,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnBackgroundColorHexChanged(string value)
     {
         _readerAppearanceDirty = true;
+        RefreshBackgroundPresets();
         QueueSettingsSave();
     }
 
@@ -722,6 +793,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         QueueSettingsSave();
     }
 
+    partial void OnNotificationShowSubjectChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnNotificationShowPreviewChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
     partial void OnSyncIntervalIndexChanged(int value)
     {
         OnPropertyChanged(nameof(IsSync1Minute));
@@ -743,6 +824,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     partial void OnSaveSentCopyChanged(bool value)
+    {
+        QueueSettingsSave();
+    }
+
+    partial void OnSignatureTextChanged(string value)
     {
         QueueSettingsSave();
     }
@@ -1501,13 +1587,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task ToggleReadAsync()
     {
-        if (SelectedMessage is null)
+        if (SelectedMessage is not null)
         {
-            return;
+            await ToggleReadMessageAsync(SelectedMessage);
         }
-
-        await MarkReadAsync(SelectedMessage, !SelectedMessage.IsRead);
     }
+
+    /// <summary>切换指定邮件的已读状态；列表行快捷操作与工具栏共用。</summary>
+    public async Task ToggleReadMessageAsync(MailSummaryViewModel message)
+        => await MarkReadAsync(message, !message.IsRead);
 
     [RelayCommand]
     private async Task ToggleFlagAsync()
@@ -1537,13 +1625,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
-        if (SelectedMessage is null)
+        if (SelectedMessage is not null)
         {
-            return;
+            await DeleteMessageAsync(SelectedMessage);
         }
+    }
 
-        var message = SelectedMessage;
-        var permanent = SelectedMessageInTrash;
+    /// <summary>删除指定邮件；列表行悬停快捷操作也走这里。</summary>
+    public async Task DeleteMessageAsync(MailSummaryViewModel message)
+    {
+        var permanent = _foldersById.GetValueOrDefault(message.FolderId)?.Role == FolderRole.Trash;
         StatusMessage = permanent ? "正在永久删除邮件…" : "正在删除邮件…";
 
         try
@@ -1565,12 +1656,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task ArchiveSelectedAsync()
     {
-        if (SelectedMessage is null)
+        if (SelectedMessage is not null)
         {
-            return;
+            await ArchiveMessageAsync(SelectedMessage);
         }
+    }
 
-        var source = SelectedMessageFolder;
+    /// <summary>把指定邮件移到同账户归档；列表行快捷操作与工具栏共用。</summary>
+    public async Task ArchiveMessageAsync(MailSummaryViewModel message)
+    {
+        var source = _foldersById.GetValueOrDefault(message.FolderId);
         if (source is null)
         {
             StatusMessage = "找不到邮件所在的文件夹。";
@@ -1588,18 +1683,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        await MoveSelectedToFolderAsync(archive.Id);
+        await MoveMessageToFolderAsync(message, archive.Id);
     }
 
     [RelayCommand]
     private async Task MoveSelectedToFolderAsync(long targetFolderId)
     {
-        if (SelectedMessage is null)
+        if (SelectedMessage is not null)
         {
-            return;
+            await MoveMessageToFolderAsync(SelectedMessage, targetFolderId);
         }
+    }
 
-        var message = SelectedMessage;
+    /// <summary>把指定邮件移动到同账户文件夹；列表行与阅读区共用。</summary>
+    public async Task MoveMessageToFolderAsync(MailSummaryViewModel message, long targetFolderId)
+    {
         var target = Folders.FirstOrDefault(folder => folder.Id == targetFolderId
             && string.Equals(folder.AccountId, message.AccountId, StringComparison.Ordinal));
         if (target is null)
@@ -1854,7 +1952,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 ComposeMode.Draft,
                 null,
                 response.Draft,
-                draft.AccountId);
+                draft.AccountId,
+                contacts: _contacts);
             MountCompose(compose);
         }
         catch (Exception exception)
@@ -1873,6 +1972,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         compose.CloseRequested += CloseComposeInternal;
         Compose = compose;
+        IsSettingsOpen = false;
         IsComposeOpen = true;
     }
 
@@ -1908,7 +2008,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _engine,
             accounts,
             mode,
-            mode == ComposeMode.New ? null : _currentBody);
+            mode == ComposeMode.New ? null : _currentBody,
+            signature: SignatureText,
+            contacts: _contacts);
 
         MountCompose(compose);
     }
@@ -2347,12 +2449,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             NotificationsEnabled = NotificationsEnabled,
             NotificationSoundEnabled = NotificationSoundEnabled,
             NotificationSound = NotificationSound,
+            NotificationShowSubject = NotificationShowSubject,
+            NotificationShowPreview = NotificationShowPreview,
             SyncIntervalMinutes = SyncIntervalValues[Math.Clamp(SyncIntervalIndex, 0, SyncIntervalValues.Length - 1)],
             CacheDays = _settings.CacheDays,
             MarkReadOnOpen = MarkReadOnOpen,
             RunAtStartup = RunAtStartup,
             ShowRemoteImages = ShowRemoteImages,
             SaveSentCopy = SaveSentCopy,
+            Signature = SignatureText,
             RenderMode = RenderModeIndex == 1 ? "plain" : "html"
         };
 
@@ -2744,7 +2849,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenAbout()
     {
-        SettingsSectionIndex = 6;
+        SettingsSectionIndex = 7;
         IsSettingsOpen = true;
     }
 
@@ -2778,6 +2883,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             Process.Start(new ProcessStartInfo("https://github.com/refout/MailDog")
+            {
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // 打开浏览器失败时不影响关于页。
+        }
+    }
+
+    [RelayCommand]
+    private void OpenThirdPartyNotices()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("https://github.com/refout/MailDog/blob/main/docs/THIRD-PARTY-NOTICES.md")
             {
                 UseShellExecute = true
             });
@@ -3226,9 +3347,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnSearchTextChanged(string value)
     {
         _searchResultIds = null;
-        ApplyFilter();
+        if (IsGlobalSearch)
+        {
+            RemoveSearchExtras();
+        }
 
         var term = value.Trim();
+        foreach (var message in _allMessages)
+        {
+            message.SearchQuery = term;
+        }
+
+        ApplyFilter();
+        QueueSearchSelectionSync();
+
         if (term.Length == 0)
         {
             _searchCts?.Cancel();
@@ -3238,6 +3370,60 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _ = SearchBodyAsync(term);
     }
 
+    partial void OnIsGlobalSearchChanged(bool value)
+    {
+        _searchCts?.Cancel();
+        _searchResultIds = null;
+        if (!value)
+        {
+            RemoveSearchExtras();
+        }
+
+        ApplyFilter();
+        QueueSearchSelectionSync();
+
+        var term = SearchText.Trim();
+        if (term.Length > 0)
+        {
+            _ = SearchBodyAsync(term);
+        }
+    }
+
+    /// <summary>搜索条件变化后让列表选中项与阅读区保持一致，避免筛选结果和阅读区显示不同邮件。</summary>
+    private void SynchronizeSearchSelection()
+    {
+        if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            if (SelectedMessage is { } current && Messages.Contains(current))
+            {
+                return;
+            }
+
+            if (Messages.Count > 0)
+            {
+                SelectedMessage = Messages[0];
+                return;
+            }
+
+            SelectedMessage = null;
+            _currentBody = null;
+            Reader.Reset();
+            return;
+        }
+
+        if (SelectedMessage is null && Messages.Count > 0)
+        {
+            SelectedMessage = Messages[0];
+        }
+    }
+
+    /// <summary>列表容器会在集合重建后重置选中项，下一轮 UI 刷新再对齐一次。</summary>
+    private void QueueSearchSelectionSync()
+    {
+        SynchronizeSearchSelection();
+        Dispatcher.UIThread.Post(SynchronizeSearchSelection, DispatcherPriority.Background);
+    }
+
     private async Task SearchBodyAsync(string term)
     {
         _searchCts?.Cancel();
@@ -3245,6 +3431,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _searchCts = cts;
         var folderId = _activeFolderId;
         var role = _activeRole;
+        var global = IsGlobalSearch;
 
         try
         {
@@ -3252,23 +3439,30 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 IpcMessageTypes.SearchMessages,
                 new SearchMessagesRequest
                 {
-                    FolderId = folderId ?? 0,
-                    Role = role,
-                    Query = term
+                    FolderId = global ? 0 : folderId ?? 0,
+                    Role = global ? null : role,
+                    Query = term,
+                    AllFolders = global
                 },
                 TimeSpan.FromSeconds(30),
                 cts.Token);
 
             if (cts.IsCancellationRequested
                 || !string.Equals(SearchText.Trim(), term, StringComparison.Ordinal)
-                || folderId != _activeFolderId
-                || role != _activeRole)
+                || global != IsGlobalSearch
+                || (!global && (folderId != _activeFolderId || role != _activeRole)))
             {
                 return;
             }
 
+            if (global)
+            {
+                AddSearchSummaries(response.Items);
+            }
+
             _searchResultIds = new HashSet<long>(response.MessageIds);
             ApplyFilter();
+            QueueSearchSelectionSync();
         }
         catch (OperationCanceledException)
         {
@@ -3298,6 +3492,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnDensityChanged(string value)
     {
         ThemeService.ApplyDensity(value);
+        foreach (var message in _allMessages)
+        {
+            message.ShowPreview = ShowMessagePreview;
+        }
+
         _readerAppearanceDirty = true;
         QueueSettingsSave();
     }
@@ -3341,6 +3540,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             UpdateOfflineState();
             await LoadSettingsAsync();
             await LoadAccountsAsync();
+            await LoadContactsAsync();
             StatusMessage = null;
         }
         catch (Exception exception)
@@ -3387,12 +3587,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 or "warning" or "beep" or "question" or "start"
                 ? _settings.NotificationSound
                 : "default";
+            NotificationShowSubject = _settings.NotificationShowSubject;
+            NotificationShowPreview = _settings.NotificationShowPreview;
             var intervalIndex = Array.IndexOf(SyncIntervalValues, _settings.SyncIntervalMinutes);
             SyncIntervalIndex = intervalIndex >= 0 ? intervalIndex : 0;
             MarkReadOnOpen = _settings.MarkReadOnOpen;
             RunAtStartup = _settings.RunAtStartup;
             ShowRemoteImages = _settings.ShowRemoteImages;
             SaveSentCopy = _settings.SaveSentCopy;
+            SignatureText = _settings.Signature ?? string.Empty;
             RenderModeIndex = _settings.RenderMode == "plain" ? 1 : 0;
             _allowRemoteImages = _settings.ShowRemoteImages;
             ApplyTheme();
@@ -3401,6 +3604,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         finally
         {
             _suppressAutoSave = false;
+        }
+    }
+
+    private async Task LoadContactsAsync()
+    {
+        try
+        {
+            var response = await _engine.RequestAsync<ContactsResponse>(
+                IpcMessageTypes.ListContacts,
+                new ListContactsRequest { Limit = 500 });
+            _contacts = response.Items;
+        }
+        catch
+        {
+            // 联系人补全属于辅助功能，不影响写信与发送。
+            _contacts = [];
         }
     }
 
@@ -3511,6 +3730,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             if (Accounts.Count == 0)
             {
                 StatusMessage = "正在同步文件夹…";
+            }
+            else
+            {
+                StatusMessage = null;
             }
         }
         catch (Exception exception)
@@ -3749,13 +3972,26 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>从会话菜单查看较早的一封邮件，不改变列表中的会话选中项。</summary>
+    public async Task ShowThreadMessageAsync(MailSummaryViewModel message)
+    {
+        if (_allMessages.Contains(message))
+        {
+            await LoadBodyAsync(message);
+        }
+    }
+
     private async Task LoadBodyAsync(MailSummaryViewModel message)
     {
         Reader.Reset();
-        Reader.Subject = message.Subject;
-        Reader.SenderLine = string.IsNullOrWhiteSpace(message.SenderAddress)
+        Reader.Subject = string.IsNullOrWhiteSpace(message.Subject) ? "（无主题）" : message.Subject;
+        Reader.SenderLine = string.IsNullOrWhiteSpace(message.SecondarySenderAddress)
             ? message.Sender
             : $"{message.Sender} <{message.SenderAddress}>";
+        Reader.SenderName = message.Sender;
+        Reader.SenderAddress = message.SecondarySenderAddress;
+        Reader.AvatarInitial = message.AvatarInitial;
+        Reader.AvatarBrush = message.AvatarBrush;
         Reader.DateText = message.Date.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
         Reader.IsLoading = true;
         _currentBody = null;
@@ -3811,9 +4047,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private (string Background, bool Dark) GetReaderAppearance()
     {
         var themeDark = IsDarkTheme();
-        var baseColor = Color.TryParse(BackgroundColorHex, out var custom)
-            ? custom
-            : themeDark ? Color.Parse("#202020") : Color.Parse("#F3F3F3");
+        var baseColor = ThemeService.ResolveSurfaceColor(BackgroundColorHex, themeDark);
 
         // 与窗口的 MailDogBrushSurfacePane 保持一致：基色上提 5%。
         var layer = AdjustColor(baseColor, 0.05);
@@ -3871,6 +4105,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             {
                 var viewModel = new MailSummaryViewModel(message);
                 viewModel.ShowSelection = IsSelectionMode;
+                viewModel.ShowPreview = ShowMessagePreview;
+                viewModel.SearchQuery = SearchText.Trim();
                 viewModel.PropertyChanged += OnMessagePropertyChanged;
                 _allMessages.Add(viewModel);
             }
@@ -3879,8 +4115,58 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         NotifySelectionState();
     }
 
+    /// <summary>全局搜索结果只保留在搜索期间；清空搜索或切回当前文件夹时移除。</summary>
+    private void AddSearchSummaries(IEnumerable<MailSummaryDto> messages)
+    {
+        var existingIds = _allMessages.Select(message => message.Id).ToHashSet();
+        AddMessages(messages);
+        foreach (var message in _allMessages.Where(message =>
+                     !existingIds.Contains(message.Id) && !IsMessageInActiveScope(message)))
+        {
+            if (_searchExtraMessages.All(extra => extra.Id != message.Id))
+            {
+                _searchExtraMessages.Add(message);
+            }
+        }
+    }
+
+    private bool IsMessageInActiveScope(MailSummaryViewModel message)
+    {
+        if (_activeRole is { } role)
+        {
+            return _foldersById.GetValueOrDefault(message.FolderId)?.Role == role;
+        }
+
+        return _activeFolderId is { } folderId && message.FolderId == folderId;
+    }
+
+    private void RemoveSearchExtras()
+    {
+        if (_searchExtraMessages.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var message in _searchExtraMessages)
+        {
+            _allMessages.Remove(message);
+            message.PropertyChanged -= OnMessagePropertyChanged;
+        }
+
+        _searchExtraMessages.Clear();
+        if (SelectedMessage is { } selected && !_allMessages.Contains(selected))
+        {
+            SelectedMessage = null;
+        }
+    }
+
     private void ApplyFilter(long? preserveId = null)
     {
+        if (string.IsNullOrWhiteSpace(SearchText) && _searchExtraMessages.Count > 0)
+        {
+            RemoveSearchExtras();
+        }
+
         var query = _allMessages.AsEnumerable();
 
         if (!string.IsNullOrWhiteSpace(SearchText))
@@ -3905,11 +4191,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         var filtered = query.ToList();
         filtered.Sort(CompareMessages);
+        var visible = CollapseThreads(filtered);
 
         // 集合没有变化时保持原样，避免列表与选中项被重建导致阅读区闪烁。
-        if (filtered.Count == Messages.Count && filtered.SequenceEqual(Messages))
+        if (visible.Count == Messages.Count && visible.SequenceEqual(Messages))
         {
             IsEmpty = Messages.Count == 0 && !IsBusy && _activeScope is not null;
+            EnsureInitialSelection();
+            ClearReaderIfNoVisibleMessages();
             NotifySelectionState();
             return;
         }
@@ -3920,7 +4209,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         try
         {
             // 原地增删，避免清空列表导致滚动位置与选中项跳变（滚到底部自动加载时需要）。
-            var target = filtered.ToHashSet();
+            var target = visible.ToHashSet();
 
             for (var index = Messages.Count - 1; index >= 0; index--)
             {
@@ -3930,22 +4219,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 }
             }
 
-            for (var index = 0; index < filtered.Count; index++)
+            for (var index = 0; index < visible.Count; index++)
             {
                 if (index >= Messages.Count)
                 {
-                    Messages.Add(filtered[index]);
+                    Messages.Add(visible[index]);
                 }
-                else if (!ReferenceEquals(Messages[index], filtered[index]))
+                else if (!ReferenceEquals(Messages[index], visible[index]))
                 {
-                    var existing = Messages.IndexOf(filtered[index]);
+                    var existing = Messages.IndexOf(visible[index]);
                     if (existing >= 0)
                     {
                         Messages.Move(existing, index);
                     }
                     else
                     {
-                        Messages.Insert(index, filtered[index]);
+                        Messages.Insert(index, visible[index]);
                     }
                 }
             }
@@ -3963,7 +4252,122 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         IsEmpty = Messages.Count == 0 && !IsBusy && _activeScope is not null;
+        EnsureInitialSelection();
+        ClearReaderIfNoVisibleMessages();
         NotifySelectionState();
+    }
+
+    /// <summary>把邮件按服务端线程键折叠，列表只保留每个会话最新的一封。</summary>
+    private static List<MailSummaryViewModel> CollapseThreads(List<MailSummaryViewModel> filtered)
+    {
+        foreach (var message in filtered)
+        {
+            message.ThreadCount = 1;
+            message.ThreadMessages = [message];
+        }
+
+        var groups = new Dictionary<string, List<MailSummaryViewModel>>(StringComparer.Ordinal);
+        var representatives = new List<MailSummaryViewModel>();
+        foreach (var message in filtered)
+        {
+            var key = ResolveThreadKey(message);
+            if (!groups.TryGetValue(key, out var group))
+            {
+                group = [];
+                groups[key] = group;
+                representatives.Add(message);
+            }
+
+            group.Add(message);
+        }
+
+        foreach (var (_, group) in groups)
+        {
+            if (group.Count <= 1)
+            {
+                continue;
+            }
+
+            var representative = group[0];
+            representative.ThreadMessages = group;
+            representative.ThreadCount = group.Count;
+        }
+
+        return representatives;
+    }
+
+    private static string ResolveThreadKey(MailSummaryViewModel message)
+    {
+        if (!string.IsNullOrWhiteSpace(message.ThreadKey))
+        {
+            return $"h:{message.AccountId}:{message.ThreadKey}";
+        }
+
+        // 旧数据没有 References 头时，仅对带回复/转发前缀的主题做保守回退。
+        var normalized = NormalizeThreadSubject(message.Subject);
+        if (normalized.Length > 0
+            && !string.Equals(normalized, message.Subject.Trim(), StringComparison.Ordinal))
+        {
+            return $"s:{message.AccountId}:{normalized.ToLowerInvariant()}";
+        }
+
+        return $"i:{message.Id}";
+    }
+
+    private static string NormalizeThreadSubject(string subject)
+    {
+        var value = subject.Trim();
+        while (true)
+        {
+            var next = value;
+            foreach (var prefix in ThreadSubjectPrefixes)
+            {
+                if (next.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    next = next[prefix.Length..].TrimStart();
+                    break;
+                }
+            }
+
+            if (string.Equals(next, value, StringComparison.Ordinal))
+            {
+                return value;
+            }
+
+            value = next;
+        }
+    }
+
+    /// <summary>列表有邮件但没有选中项时，自动选中第一封；未读筛选避免连续自动标读。</summary>
+    private void EnsureInitialSelection()
+    {
+        if (IsSelectionMode || FilterIndex == 1 || IsBusy || _suppressSelectionHandlers)
+        {
+            return;
+        }
+
+        if (SelectedMessage is null && Messages.Count > 0)
+        {
+            SelectedMessage = Messages[0];
+        }
+    }
+
+    /// <summary>列表已经为空时同步清空阅读区，避免删除最后一封邮件后仍显示旧正文。</summary>
+    private void ClearReaderIfNoVisibleMessages()
+    {
+        if (Messages.Count > 0 || IsBusy)
+        {
+            return;
+        }
+
+        SelectedMessage = null;
+        if (_currentBody is null && !Reader.HasSelection)
+        {
+            return;
+        }
+
+        _currentBody = null;
+        Reader.Reset();
     }
 
     /// <summary>返回当前“跳转”设定的本地时间区间；未选择时返回 null。</summary>
@@ -4375,6 +4779,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         var dark = Theme == "dark"
             || (Theme != "light" && Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
+        var active = BackgroundColorHex.Trim();
 
         (string Name, string Value)[] presets = dark
             ? [
@@ -4405,13 +4810,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             var preview = !string.IsNullOrEmpty(preset.Value)
                 ? preset.Value
                 : dark ? "#202020" : "#F3F3F3";
+            var selected = active.Length == 0
+                ? string.IsNullOrEmpty(preset.Value)
+                : string.Equals(preset.Value, active, StringComparison.OrdinalIgnoreCase);
 
             BackgroundPresets.Add(new BackgroundPresetViewModel(
                 preset.Name,
                 preset.Value,
                 preview,
+                selected,
                 value => BackgroundColorHex = value ?? string.Empty));
         }
+
+        OnPropertyChanged(nameof(IsCustomBackgroundSelected));
     }
 
     private static bool IsDarkTheme()
