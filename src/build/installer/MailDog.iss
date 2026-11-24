@@ -38,7 +38,7 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 CloseApplications=yes
-RestartApplications=no
+RestartApplications=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 

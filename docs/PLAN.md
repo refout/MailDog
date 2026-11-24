@@ -1225,6 +1225,14 @@ GitHub Actions `windows-latest`：
 - 快捷键：`Ctrl+N` / `Ctrl+R` / `Ctrl+Shift+R` / `Ctrl+Shift+F` / `Delete` / `F5` / `Ctrl+A` / `Esc` / `Ctrl+F` / `Ctrl+,`。
 - 验证：`dotnet build` 0 警告 0 错误；`dotnet test` 67 通过；1296×839 实机逐项验收，测试线程键已还原。
 
+### v0.2.2（2026-11-24 发布）
+
+修复 v0.2.1 自动升级后不自动重新打开的问题。
+
+- 根因：安装脚本 `CloseApplications=yes` 会让 Restart Manager 关掉正在运行的 UI 与 Engine，但 `RestartApplications=no` 又禁止安装程序把它们拉回来；`[Run]` 还带 `skipifsilent`，静默安装不会启动应用。UI 被关闭后就没人执行 `UpdateService` 里安装完成后的 `Process.Start`。
+- 修复：`src/build/installer/MailDog.iss` 改为 `RestartApplications=yes`，由安装程序在静默升级结束后重新启动被关闭的应用。
+- ⏳ 验证：从本机 0.2.1 检查更新到 0.2.2，确认下载、SHA-256 校验、静默安装、自动重启与新版本自启。
+
 ### v0.2.1（2026-11-24 发布）
 
 关于页重做，不涉及协议、数据库与引擎行为，版本号从 0.2.0 升到 0.2.1（提交 `fdd3092`）。
@@ -1234,7 +1242,8 @@ GitHub Actions `windows-latest`：
 - ✅ 第三方许可折叠：默认收起，标题右侧显示「展开 / 收起」；展开后列出 13 项主要运行时组件（含 Avalonia.Controls.WebView、ANGLE、ProtectedData），完整版本与间接依赖仍指向 `docs/THIRD-PARTY-NOTICES.md`。
 - ✅ 更新入口：`检查更新` 移到品牌区「版本 0.2.1」后面；「更新」区保留状态文本、可用更新时的「下载并安装」按钮、更新来源与 SHA-256/便携版说明。初始状态为「尚未检查更新。」
 - ✅ 验证：`dotnet build src\MailDog.slnx -c Debug` 0 警告 0 错误；`dotnet test` 82 通过（Html 30、Contracts 6、Mail 46）；UI Automation 实测折叠/展开与「检查更新」返回「已是最新版本（0.2.0）」。
-- ⏳ 发布后验证：用本机 0.2.0 安装版点击「下载并安装」，确认下载 v0.2.1、SHA-256 校验、静默安装、Restart Manager 收进程与新版本自启。
+- ✅ 发布：tag `v0.2.1`，Release <https://github.com/refout/MailDog/releases/tag/v0.2.1>；x64 便携包 32.6 MiB、arm64 便携包 31.2 MiB、x64 安装包 23.4 MiB，安装包 SHA-256 `c3d838d9a0697cc4782c9ef57e3e98ca88ee97ab9aba1c719a87c42e3b63b6c3`。
+- ✅ 真机升级（2026-11-24）：本机安装版 0.2.0 发起更新，下载约 5 分钟、SHA-256 校验通过并静默安装成功，安装后 `FileVersion` 为 0.2.1.0；**但安装程序关闭旧窗口后没有重新启动 MailDog**，复现并定位到 `MailDog.iss` 的 `RestartApplications=no` 与 `[Run] skipifsilent`，转 v0.2.2 修复。
 
 ### v0.2.0（2026-11-24 完成并打 tag，代码见 `46b5407` 之后的提交链）
 
