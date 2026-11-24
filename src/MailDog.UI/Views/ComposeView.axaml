@@ -542,6 +542,29 @@
                        FontSize="12"
                        TextWrapping="Wrap" />
           </Border>
+
+          <Border IsVisible="{Binding HasSendWarning}"
+                  Background="{DynamicResource MailDogBrushStatusWarningTint}"
+                  BorderBrush="{DynamicResource MailDogBrushStatusWarning}"
+                  BorderThickness="1"
+                  CornerRadius="6"
+                  Padding="10,8">
+            <StackPanel Spacing="8">
+              <TextBlock Text="{Binding SendWarning}"
+                         Foreground="{DynamicResource MailDogBrushStatusWarning}"
+                         FontSize="12"
+                         TextWrapping="Wrap" />
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8"
+                          HorizontalAlignment="Right">
+                <Button Content="去加附件"
+                        Command="{Binding DismissSendWarningCommand}" />
+                <Button Content="仍然发送"
+                        Classes="primary"
+                        Command="{Binding SendAnywayCommand}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
         </StackPanel>
 
         <StackPanel Grid.Row="2"

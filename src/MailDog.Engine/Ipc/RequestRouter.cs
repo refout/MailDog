@@ -188,7 +188,23 @@ public sealed class RequestRouter
                 return new OkResponse { Affected = 1 };
 
             case SendMailRequest request:
+            {
+                if (!request.SkipSendChecks)
+                {
+                    var guard = SendGuard.Inspect(request.Subject, request.BodyText, request.BodyHtml, request.AttachmentPaths);
+
+                    if (guard.NeedsConfirmation)
+                    {
+                        return new SendMailResponse
+                        {
+                            Status = SendStatuses.ConfirmRequired,
+                            Error = guard.Summary
+                        };
+                    }
+                }
+
                 return await _sender.EnqueueAndSendAsync(request, cancellationToken).ConfigureAwait(false);
+            }
 
             case SaveDraftRequest request:
             {

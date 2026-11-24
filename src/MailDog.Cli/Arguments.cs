@@ -20,6 +20,7 @@ internal sealed class Arguments
         "--headers",
         "--no-start",
         "--confirm",
+        "--force-send",
         "--help",
         "-h"
     };

@@ -283,6 +283,9 @@ public sealed class SendMailRequest : Ipc.IIpcMessage
     public string? InReplyTo { get; init; }
 
     public string[] AttachmentPaths { get; init; } = [];
+
+    /// <summary>用户已经看过附件缺失 / 体积提醒并确认继续，跳过发送前检查。</summary>
+    public bool SkipSendChecks { get; init; }
 }
 
 public sealed class SendMailResponse : Ipc.IIpcMessage
@@ -298,6 +301,13 @@ public sealed class SendMailResponse : Ipc.IIpcMessage
     public string Status { get; init; } = "queued";
 
     public string? Error { get; init; }
+}
+
+/// <summary>发送结果的附加状态；与 OutboxStatuses 区分，只表达“还没进发件箱”的中间态。</summary>
+public static class SendStatuses
+{
+    /// <summary>发送前检查命中，需要用户确认后再带 SkipSendChecks 重发。</summary>
+    public const string ConfirmRequired = "confirm_required";
 }
 
 public sealed class SaveDraftRequest : Ipc.IIpcMessage

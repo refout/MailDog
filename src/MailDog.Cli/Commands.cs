@@ -377,10 +377,27 @@ internal static class Commands
                 BodyText = compose.Text,
                 BodyHtml = compose.Html,
                 IsMarkdown = compose.Html is null,
-                AttachmentPaths = compose.Attachments
+                AttachmentPaths = compose.Attachments,
+                SkipSendChecks = args.Has("--force-send")
             },
             LongTimeout,
             cancellationToken).ConfigureAwait(false);
+
+        if (response.Status == SendStatuses.ConfirmRequired)
+        {
+            if (args.Json)
+            {
+                Console.WriteLine("{\"status\":\"confirm_required\",\"message\":" + Output.Str(response.Error ?? "") + "}");
+            }
+            else
+            {
+                Console.WriteLine("发送前检查没通过：");
+                Console.WriteLine(response.Error ?? "（没有更多说明）");
+                Console.WriteLine("确认无误后加 --force-send 重新执行。");
+            }
+
+            return 6;
+        }
 
         if (args.Json)
         {

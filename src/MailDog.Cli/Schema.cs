@@ -116,7 +116,7 @@ internal static class Schema
                 Flag("--html-file", "HTML 正文文件，给出时按 HTML 发送", true),
                 Flag("--attach", "附件路径，可重复", true)
             ],
-            [Flag("--confirm", "真正发送", false)],
+            [Flag("--confirm", "真正发送", false), Flag("--force-send", "发送前检查命中时仍然强发", false)],
             "{\"outboxId\",\"sent\",\"queued\",\"status\",\"error\"}；发送失败退出码 3"));
 
         builder.Append(',');
@@ -151,7 +151,8 @@ internal static class Schema
             .Append("\"2\":\"没找到（账号 / 文件夹 / 邮件 / 附件）\",")
             .Append("\"3\":\"账号未登录、后台不可用或超时\",")
             .Append("\"4\":\"被权限或配置拒绝（含协议版本不匹配）\",")
-            .Append("\"5\":\"参数写错\"")
+            .Append("\"5\":\"参数写错\",")
+            .Append("\"6\":\"发送前检查需要确认（附件缺失/过大）\"")
             .Append("},\"notes\":[")
             .Append(Output.Str("id 只能来自 list / search，不要猜。"))
             .Append(',')

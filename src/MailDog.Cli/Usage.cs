@@ -25,13 +25,14 @@ internal static class Usage
           draft --account <邮箱> --to <地址> [--cc] [--bcc] [--subject <主题>]
                 [--text <正文> | --body-file <文件>] [--html-file <文件>] [--attach <文件>]...
                                        存进草稿箱
-          send  参数同 draft，--to 必填           交给 SMTP；失败会留痕并回退出码 3
+          send  参数同 draft，--to 必填           交给 SMTP；发送前会查附件；失败会留痕并回退出码 3
           mark <邮件 id>... [--unread]            批量标已读；--unread 反向标未读
           move <邮件 id>... --account <邮箱> --folder <目标>   移到指定文件夹
 
         通用开关：
           --json        每行一条 JSON，便于管道与脚本
           --confirm     写命令真正执行；不带时只打印预览
+          --force-send  发送前检查没过（如正文提到附件却没带）时，确认后强发
           --no-start    连不上时不去拉起 Engine
           --engine <路径>  指定 MailDog.Engine.exe
 

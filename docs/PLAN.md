@@ -1279,7 +1279,7 @@ GitHub Actions `windows-latest`：
 
 - **本地规则过滤器**：按发件人 / 域名 / 主题关键字匹配，命中后自动移到指定文件夹、标已读、加旗标、不弹通知。规则在"新邮件入库"那一刻应用（同步写入路径），存 SQLite（`rules` 表：匹配字段、模式、动作、启用、顺序），设置页给一个列表 + 命中计数；不做服务端规则，避免与 IMAP 侧行为冲突。
 - **延迟发送 + 撤销窗口**：`send` 先进 Outbox 并在本地等 10 秒（可配置 0/5/10/30），窗口内可撤回；超时才真正投递 SMTP，复用现有 Outbox 重试队列。
-- **附件防漏提醒**：发送前检查正文是否出现"附件 / 见附件 / attached / enclosed"等词但附件为空，命中则拦一次让用户确认；单附件超 25 MiB 或总附件超 40 MiB 时提示改用网盘链接，不直接让 SMTP 失败。
+- ✅ **附件防漏提醒**（2026-11-24 完成）：检查放在 Engine 的发送路径（`MailDog.Mail/Smtp/SendGuard.cs`），UI 与 CLI 共用同一套判断。正文（含 HTML 去标签后）出现"附件 / 见附件 / 附上 / attach / enclosed"等词但附件为空、单附件超 25 MiB、合计超 40 MiB 时，Engine 不发送、回 `status=confirm_required`；UI 弹出提醒条（「去加附件」/「仍然发送」），CLI 打印提醒并退出 `6`，确认后加 `--force-send` 重发。只提醒不硬拦，重发时带 `SkipSendChecks`。测试见 `SendGuardTests`（9 条）。
 
 #### P2 功能候选（排在 v0.2.0 之后）
 

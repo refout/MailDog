@@ -712,6 +712,15 @@ public sealed partial class ComposeViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasStatus))]
     private string? _status;
 
+    /// <summary>发送前检查命中时的提示（附件缺失 / 体积过大），用户确认后才继续。</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSendWarning))]
+    private string? _sendWarning;
+
+    private bool _sendChecksConfirmed;
+
+    public bool HasSendWarning => !string.IsNullOrEmpty(SendWarning);
+
     public bool HasError => !string.IsNullOrEmpty(Error);
 
     public bool HasStatus => !string.IsNullOrEmpty(Status);
@@ -772,6 +781,8 @@ public sealed partial class ComposeViewModel : ObservableObject
         }
 
         Attachments.Add(new ComposeAttachmentViewModel(path, RemoveAttachment));
+        SendWarning = null;
+        _sendChecksConfirmed = false;
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(HasAttachments));
         OnPropertyChanged(nameof(AttachmentSummaryText));
@@ -853,8 +864,15 @@ public sealed partial class ComposeViewModel : ObservableObject
         {
             var response = await _engine.RequestAsync<SendMailResponse>(
                 IpcMessageTypes.SendMail,
-                BuildSendRequest(),
+                BuildSendRequest(_sendChecksConfirmed),
                 TimeSpan.FromSeconds(75));
+
+            if (response.Status == SendStatuses.ConfirmRequired)
+            {
+                SendWarning = response.Error ?? "发送前检查未通过。";
+                Status = null;
+                return;
+            }
 
             if (response.Sent)
             {
@@ -895,6 +913,22 @@ public sealed partial class ComposeViewModel : ObservableObject
         }
     }
 
+    /// <summary>用户看过提醒后仍然要发：跳过发送前检查，整封重新提交。</summary>
+    [RelayCommand]
+    private async Task SendAnywayAsync()
+    {
+        _sendChecksConfirmed = true;
+        SendWarning = null;
+        await SendAsync();
+    }
+
+    [RelayCommand]
+    private void DismissSendWarning()
+    {
+        SendWarning = null;
+        _sendChecksConfirmed = false;
+    }
+
     [RelayCommand]
     private async Task SaveDraft()
     {
@@ -916,7 +950,7 @@ public sealed partial class ComposeViewModel : ObservableObject
         CloseRequested?.Invoke();
     }
 
-    private SendMailRequest BuildSendRequest()
+    private SendMailRequest BuildSendRequest(bool skipChecks = false)
         => new()
         {
             AccountId = SelectedAccount!.Id,
@@ -927,7 +961,8 @@ public sealed partial class ComposeViewModel : ObservableObject
             BodyText = BodyText,
             BodyHtml = BodyHtml,
             InReplyTo = Mode is ComposeMode.Reply or ComposeMode.ReplyAll ? _original?.RfcMessageId : null,
-            AttachmentPaths = Attachments.Select(item => item.Path).ToArray()
+            AttachmentPaths = Attachments.Select(item => item.Path).ToArray(),
+            SkipSendChecks = skipChecks
         };
 
     private SaveDraftRequest BuildDraftRequest()
@@ -962,6 +997,8 @@ public sealed partial class ComposeViewModel : ObservableObject
     private void RemoveAttachment(ComposeAttachmentViewModel attachment)
     {
         Attachments.Remove(attachment);
+        SendWarning = null;
+        _sendChecksConfirmed = false;
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(HasAttachments));
         OnPropertyChanged(nameof(AttachmentSummaryText));
