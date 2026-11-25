@@ -38,12 +38,14 @@ try {
 
     $human = & $cli show 2 --no-start
     if ($LASTEXITCODE -ne 0) { throw "show 退出 $LASTEXITCODE" }
-    if ($human -notmatch '从 HTML 正文转换') { throw "人类可读输出没有说明 HTML 回退：$human" }
-    if ($human -notmatch 'HTML only') { throw "人类可读输出没有正文：$human" }
+    $humanText = $human -join "`n"
+    if ($humanText -notmatch '从 HTML 正文转换') { throw "人类可读输出没有说明 HTML 回退：$humanText" }
+    if ($humanText -notmatch 'HTML only') { throw "人类可读输出没有正文：$humanText" }
 
     $raw = & $cli show 2 --html --no-start
     if ($LASTEXITCODE -ne 0) { throw "show --html 退出 $LASTEXITCODE" }
-    if ($raw -notmatch '<b>HTML</b>') { throw "原始 HTML 没有输出：$raw" }
+    $rawText = $raw -join "`n"
+    if ($rawText -notmatch '<b>HTML</b>') { throw "原始 HTML 没有输出：$rawText" }
 
     Write-Host 'CLI HTML-only integration passed'
 }
