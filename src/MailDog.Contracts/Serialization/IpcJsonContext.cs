@@ -63,6 +63,7 @@ namespace MailDog.Contracts.Serialization;
 [JsonSerializable(typeof(DraftContentDto))]
 [JsonSerializable(typeof(MarkReadRequest))]
 [JsonSerializable(typeof(MarkReadBatchRequest))]
+[JsonSerializable(typeof(SnoozeMessageRequest))]
 [JsonSerializable(typeof(SetFlagRequest))]
 [JsonSerializable(typeof(SetFlagBatchRequest))]
 [JsonSerializable(typeof(GetTagsRequest))]

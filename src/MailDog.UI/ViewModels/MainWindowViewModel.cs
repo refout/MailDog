@@ -2214,6 +2214,68 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>稍后提醒：把选中邮件收起来，到点后回到未读。</summary>
+    [RelayCommand]
+    private async Task SnoozeSelectedAsync(string? preset)
+    {
+        if (SelectedMessage is null)
+        {
+            return;
+        }
+
+        var until = ResolveSnoozeTime(preset);
+        if (until is null)
+        {
+            StatusMessage = "稍后提醒时间无效。";
+            return;
+        }
+
+        await SnoozeMessageAsync(SelectedMessage, until.Value);
+    }
+
+    public async Task SnoozeMessageAsync(MailSummaryViewModel message, DateTimeOffset until)
+    {
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.SnoozeMessage,
+                new SnoozeMessageRequest { MessageId = message.Id, UntilUtc = until });
+
+            RemoveMessageFromView(message);
+            await ReloadCurrentFolderAsync();
+            StatusMessage = $"已稍后提醒，{until.LocalDateTime:M月d日 HH:mm} 回到未读。";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    private static DateTimeOffset? ResolveSnoozeTime(string? preset)
+    {
+        var now = DateTimeOffset.Now;
+
+        return preset switch
+        {
+            "1h" => now.AddHours(1),
+            "4h" => now.AddHours(4),
+            "tonight" => new DateTimeOffset(now.Year, now.Month, now.Day, 20, 0, 0, now.Offset)
+                .AddDays(now.Hour >= 20 ? 1 : 0),
+            "tomorrow" => new DateTimeOffset(now.Year, now.Month, now.Day, 8, 0, 0, now.Offset)
+                .AddDays(1),
+            "weekend" => NextSaturdayMorning(now),
+            _ => null
+        };
+    }
+
+    private static DateTimeOffset NextSaturdayMorning(DateTimeOffset now)
+    {
+        var days = ((int)DayOfWeek.Saturday - (int)now.DayOfWeek + 7) % 7;
+        var date = new DateTimeOffset(now.Year, now.Month, now.Day, 9, 0, 0, now.Offset)
+            .AddDays(days == 0 ? 7 : days);
+        return date;
+    }
+
     /// <summary>切换指定邮件的已读状态；列表行快捷操作与工具栏共用。</summary>
     public async Task ToggleReadMessageAsync(MailSummaryViewModel message)
         => await MarkReadAsync(message, !message.IsRead);

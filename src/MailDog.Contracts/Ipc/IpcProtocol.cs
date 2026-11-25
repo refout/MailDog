@@ -50,6 +50,7 @@ public static class IpcMessageTypes
     public const string DeleteMessages = "deleteMessages";
     public const string MarkRead = "markRead";
     public const string MarkReadBatch = "markReadBatch";
+    public const string SnoozeMessage = "snoozeMessage";
     public const string SetFlag = "setFlag";
     public const string SetFlagBatch = "setFlagBatch";
     public const string GetTags = "getTags";

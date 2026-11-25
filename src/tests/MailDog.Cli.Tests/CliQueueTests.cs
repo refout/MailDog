@@ -67,6 +67,40 @@ public sealed class CliQueueTests
         }
     }
 
+    [Fact]
+    public async Task SendAtAndSnoozeAreForwardedToEngine()
+    {
+        var pipeName = $"MailDog.Test.{Guid.NewGuid():N}";
+        await using var engine = new FakeEngine(pipeName);
+        await using var client = await IpcClient.TryConnectAsync(TimeSpan.FromSeconds(5), CancellationToken.None, pipeName);
+
+        Assert.NotNull(client);
+        await client.HelloAsync("test", CancellationToken.None);
+
+        var sendAt = DateTimeOffset.Now.AddHours(2);
+        var sendArgs = Arguments.Parse(
+        [
+            "send", "--account", "test@example.com", "--to", "to@example.com",
+            "--subject", "计划发送", "--text", "正文", "--confirm", "--json",
+            "--send-at", sendAt.ToString("yyyy-MM-dd HH:mm")
+        ]);
+
+        Assert.Equal(0, await Commands.SendAsync(client, sendArgs, CancellationToken.None));
+        Assert.NotNull(engine.LastSend);
+        Assert.NotNull(engine.LastSend.ScheduledAtUtc);
+        Assert.Equal(sendAt.Minute, engine.LastSend.ScheduledAtUtc.Value.ToLocalTime().Minute);
+
+        var until = DateTimeOffset.Now.AddHours(3);
+        var snoozeArgs = Arguments.Parse(
+        [
+            "snooze", "42", "--until", until.ToString("yyyy-MM-dd HH:mm"), "--confirm", "--json"
+        ]);
+
+        Assert.Equal(0, await Commands.SnoozeAsync(client, snoozeArgs, CancellationToken.None));
+        Assert.NotNull(engine.LastSnooze);
+        Assert.Equal(42, engine.LastSnooze.MessageId);
+    }
+
     private sealed class FakeEngine : IAsyncDisposable
     {
         private readonly CancellationTokenSource _cts = new();
@@ -85,6 +119,10 @@ public sealed class CliQueueTests
         }
 
         public ConcurrentQueue<string> RequestTypes { get; } = new();
+
+        public SendMailRequest? LastSend { get; private set; }
+
+        public SnoozeMessageRequest? LastSnooze { get; private set; }
 
         private async Task RunAsync()
         {
@@ -130,11 +168,20 @@ public sealed class CliQueueTests
                             IpcJsonContext.Default.DraftSavedResponse);
                         break;
                     case IpcMessageTypes.SendMail:
+                        LastSend = request.Body.Deserialize(IpcJsonContext.Default.SendMailRequest);
                         await ReplyAsync(
                             request,
                             IpcMessageTypes.SendMailResult,
                             new SendMailResponse { OutboxId = 7, Queued = true, Status = "queued" },
                             IpcJsonContext.Default.SendMailResponse);
+                        break;
+                    case IpcMessageTypes.SnoozeMessage:
+                        LastSnooze = request.Body.Deserialize(IpcJsonContext.Default.SnoozeMessageRequest);
+                        await ReplyAsync(
+                            request,
+                            IpcMessageTypes.Ok,
+                            new OkResponse { Affected = 1 },
+                            IpcJsonContext.Default.OkResponse);
                         break;
                     default:
                         throw new InvalidOperationException($"Unexpected request: {request.Type}");

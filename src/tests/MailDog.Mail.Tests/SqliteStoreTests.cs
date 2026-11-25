@@ -867,6 +867,54 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.Single(_store.GetRules());
     }
 
+    [Fact]
+    public void SnoozeHidesMessageThenWakesUnread()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+        _store.UpsertFolders(account.Id,
+        [
+            new FolderRecord(0, account.Id, "INBOX", "收件箱", FolderRole.Inbox, 7, 0, 0, 0)
+        ]);
+        var folder = Assert.Single(_store.GetFolders(account.Id));
+        var now = DateTimeOffset.UtcNow;
+
+        _store.UpsertMessages(account.Id, folder.Id,
+        [
+            new MessageRecord(0, account.Id, folder.Id, 81, "m1", "稍后提醒", "Alice", "alice@example.com",
+                "me@example.com", string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        var message = Assert.Single(_store.QueryMessages(folder.Id, null, null, 10).Items);
+        Assert.Equal(1, _store.GetFolders(account.Id)[0].UnreadCount);
+
+        _store.SnoozeMessage(message.Id, now.AddMinutes(10));
+
+        Assert.Empty(_store.QueryMessages(folder.Id, null, null, 10).Items);
+        Assert.Empty(_store.SearchMessageSummaries("稍后", null, null, 10));
+        Assert.Equal(0, _store.GetFolders(account.Id)[0].UnreadCount);
+        Assert.True(_store.GetMessage(message.Id)!.Flags.HasFlag(MailFlags.Seen));
+
+        // 服务端同步把 Seen 覆盖回未读时，稍后提醒仍然不回到列表、也不计入未读数。
+        _store.UpsertMessages(account.Id, folder.Id,
+        [
+            new MessageRecord(0, account.Id, folder.Id, 81, "m1", "稍后提醒", "Alice", "alice@example.com",
+                "me@example.com", string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+        Assert.Empty(_store.QueryMessages(folder.Id, null, null, 10).Items);
+        Assert.Equal(0, _store.GetFolders(account.Id)[0].UnreadCount);
+
+        Assert.Empty(_store.WakeDueSnoozes(now.AddMinutes(9)));
+
+        var due = Assert.Single(_store.WakeDueSnoozes(now.AddMinutes(11)));
+        Assert.Equal(message.Id, due.MessageId);
+        Assert.Equal(account.Id, due.AccountId);
+        Assert.Equal(folder.Id, due.FolderId);
+        Assert.False(_store.GetMessage(message.Id)!.Flags.HasFlag(MailFlags.Seen));
+        Assert.Single(_store.QueryMessages(folder.Id, null, null, 10).Items);
+        Assert.Equal(1, _store.GetFolders(account.Id)[0].UnreadCount);
+    }
+
     public void Dispose()
     {
         _store.Dispose();

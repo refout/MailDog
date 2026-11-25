@@ -25,10 +25,11 @@ internal static class Usage
           draft --account <邮箱> --to <地址> [--cc] [--bcc] [--subject <主题>]
                 [--text <正文> | --body-file <文件>] [--html-file <文件>] [--attach <文件>]...
                                        存进草稿箱
-          send  参数同 draft，--to 必填           交给 SMTP；发送前会查附件；失败会留痕并回退出码 3
+          send  参数同 draft，--to 必填           交给 SMTP；--send-at "2026-11-26 08:30" 计划发送；失败会留痕并回退出码 3
           mark <邮件 id>... [--unread]            批量标已读；--unread 反向标未读
           move <邮件 id>... --account <邮箱> --folder <目标>   移到指定文件夹
-          cancel <发件箱 id>...                    撤回延迟发送窗口里还没发出的邮件
+          snooze <邮件 id>... --until "2026-11-26 08:30"  稍后提醒，到点恢复未读
+          cancel <发件箱 id>...                    撤回延迟发送或计划发送里还没发出的邮件
           pending                                 列出本地待确认队列（不连接 Engine）
           approve <待确认 id>                     执行队列里的草稿或发送请求
           deny <待确认 id>                        拒绝并删除队列项

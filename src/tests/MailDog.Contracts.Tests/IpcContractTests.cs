@@ -253,6 +253,30 @@ public sealed class IpcContractTests
     }
 
     [Fact]
+    public void ScheduledSendAndSnoozeRoundTrip()
+    {
+        var until = new DateTimeOffset(2026, 11, 26, 8, 30, 0, TimeSpan.FromHours(8));
+        var send = new SendMailRequest
+        {
+            AccountId = "acc-1",
+            To = "to@example.com",
+            Subject = "计划发送",
+            ScheduledAtUtc = until
+        };
+        var sendEnvelope = IpcCodecRegistry.Create(IpcMessageTypes.SendMail, send);
+        var parsedSend = Assert.IsType<SendMailRequest>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(sendEnvelope))));
+        Assert.Equal(until.ToUniversalTime(), parsedSend.ScheduledAtUtc);
+
+        var snooze = new SnoozeMessageRequest { MessageId = 42, UntilUtc = until };
+        var snoozeEnvelope = IpcCodecRegistry.Create(IpcMessageTypes.SnoozeMessage, snooze);
+        var parsedSnooze = Assert.IsType<SnoozeMessageRequest>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(snoozeEnvelope))));
+        Assert.Equal(42, parsedSnooze.MessageId);
+        Assert.Equal(until, parsedSnooze.UntilUtc);
+    }
+
+    [Fact]
     public void ErrorResponseUsesConcreteCode()
     {
         var error = IpcCodecRegistry.Error(IpcErrorCodes.NotFound, "missing");

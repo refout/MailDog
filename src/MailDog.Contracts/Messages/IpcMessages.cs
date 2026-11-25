@@ -292,6 +292,9 @@ public sealed class SendMailRequest : Ipc.IIpcMessage
 
     /// <summary>用户已经看过附件缺失 / 体积提醒并确认继续，跳过发送前检查。</summary>
     public bool SkipSendChecks { get; init; }
+
+    /// <summary>计划发送时间；为空表示立即（或按账户撤销窗口）进入发件箱。</summary>
+    public DateTimeOffset? ScheduledAtUtc { get; init; }
 }
 
 public sealed class SendMailResponse : Ipc.IIpcMessage
@@ -308,6 +311,9 @@ public sealed class SendMailResponse : Ipc.IIpcMessage
 
     /// <summary>延迟发送的撤销窗口秒数；大于 0 表示邮件还停在发件箱，可以撤回。</summary>
     public int DelaySeconds { get; init; }
+
+    /// <summary>用户指定的计划发送时间；为空表示按撤销窗口立即排队。</summary>
+    public DateTimeOffset? ScheduledAtUtc { get; init; }
 
     public string? Error { get; init; }
 }
@@ -378,6 +384,14 @@ public sealed class MarkReadBatchRequest : Ipc.IIpcMessage
     public long[] MessageIds { get; init; } = [];
 
     public bool IsRead { get; init; }
+}
+
+/// <summary>把一封邮件临时藏起来，到时间后重新标为未读并回到列表。</summary>
+public sealed class SnoozeMessageRequest : Ipc.IIpcMessage
+{
+    public long MessageId { get; init; }
+
+    public DateTimeOffset UntilUtc { get; init; }
 }
 
 public sealed class SetFlagRequest : Ipc.IIpcMessage

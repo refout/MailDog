@@ -60,6 +60,7 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.DraftContent, IpcJsonContext.Default.DraftContentResponse);
         Register(IpcMessageTypes.MarkRead, IpcJsonContext.Default.MarkReadRequest);
         Register(IpcMessageTypes.MarkReadBatch, IpcJsonContext.Default.MarkReadBatchRequest);
+        Register(IpcMessageTypes.SnoozeMessage, IpcJsonContext.Default.SnoozeMessageRequest);
         Register(IpcMessageTypes.SetFlag, IpcJsonContext.Default.SetFlagRequest);
         Register(IpcMessageTypes.SetFlagBatch, IpcJsonContext.Default.SetFlagBatchRequest);
         Register(IpcMessageTypes.GetTags, IpcJsonContext.Default.GetTagsRequest);

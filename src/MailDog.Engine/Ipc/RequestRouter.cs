@@ -257,6 +257,18 @@ public sealed class RequestRouter
                         .ConfigureAwait(false)
                 };
 
+            case SnoozeMessageRequest request:
+            {
+                var until = request.UntilUtc.ToUniversalTime();
+                if (until <= DateTimeOffset.UtcNow.AddMinutes(1))
+                {
+                    throw new ArgumentException("稍后提醒时间必须至少在 1 分钟之后。");
+                }
+
+                _store.SnoozeMessage(request.MessageId, until);
+                return new OkResponse { Affected = 1 };
+            }
+
             case SetFlagRequest request:
                 await _sync.SetFlaggedAsync(request.MessageId, request.Value, cancellationToken).ConfigureAwait(false);
                 return new OkResponse { Affected = 1 };

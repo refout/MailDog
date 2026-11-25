@@ -1206,6 +1206,30 @@
                   </MenuFlyout>
                 </Button.Flyout>
               </Button>
+              <Button Classes="icon toolbar"
+                      ToolTip.Tip="稍后提醒"
+                      AutomationProperties.Name="稍后提醒">
+                <ic:FluentIcon Icon="Clock" IconSize="Size16" />
+                <Button.Flyout>
+                  <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                    <MenuItem Header="1 小时后"
+                              Command="{Binding SnoozeSelectedCommand}"
+                              CommandParameter="1h" />
+                    <MenuItem Header="4 小时后"
+                              Command="{Binding SnoozeSelectedCommand}"
+                              CommandParameter="4h" />
+                    <MenuItem Header="今晚 20:00"
+                              Command="{Binding SnoozeSelectedCommand}"
+                              CommandParameter="tonight" />
+                    <MenuItem Header="明天 08:00"
+                              Command="{Binding SnoozeSelectedCommand}"
+                              CommandParameter="tomorrow" />
+                    <MenuItem Header="周末 09:00"
+                              Command="{Binding SnoozeSelectedCommand}"
+                              CommandParameter="weekend" />
+                  </MenuFlyout>
+                </Button.Flyout>
+              </Button>
               <Button Command="{Binding DeleteSelectedCommand}"
                       Classes="icon toolbar"
                       ToolTip.Tip="{Binding DeleteActionText}"

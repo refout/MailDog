@@ -77,6 +77,10 @@ public sealed class SmtpSendService
         var messageId = MimeUtils.GenerateMessageId();
         var now = DateTimeOffset.UtcNow;
         var delaySeconds = Math.Clamp(settings.SendDelaySeconds, 0, 30);
+        var earliest = now.AddSeconds(delaySeconds);
+        var scheduled = request.ScheduledAtUtc?.ToUniversalTime();
+        var nextAttempt = scheduled is { } value && value > earliest ? value : earliest;
+        var waitSeconds = (int)Math.Clamp((nextAttempt - now).TotalSeconds, 0, int.MaxValue);
 
         long outboxId;
         try
@@ -93,7 +97,7 @@ public sealed class SmtpSendService
                 MessageId: messageId,
                 Status: OutboxStatuses.Pending,
                 Attempts: 0,
-                NextAttemptUtc: now.AddSeconds(delaySeconds),
+                NextAttemptUtc: nextAttempt,
                 LastError: null,
                 CreatedUtc: now,
                 SentUtc: null,
@@ -111,15 +115,16 @@ public sealed class SmtpSendService
             throw;
         }
 
-        // 留出撤销窗口：这段时间里邮件停在发件箱，点撤回就直接删掉，不会摸到 SMTP。
-        if (delaySeconds > 0)
+        // 留出撤销窗口或等待用户指定的时间：这段时间里邮件停在发件箱，点撤回就直接删掉，不会摸到 SMTP。
+        if (waitSeconds > 0)
         {
             return new SendMailResponse
             {
                 OutboxId = outboxId,
                 Queued = true,
                 Status = OutboxStatuses.Pending,
-                DelaySeconds = delaySeconds
+                DelaySeconds = waitSeconds,
+                ScheduledAtUtc = scheduled is { } scheduledValue && scheduledValue > now ? nextAttempt : null
             };
         }
 

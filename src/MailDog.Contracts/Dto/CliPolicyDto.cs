@@ -3,7 +3,7 @@ public sealed class CliPolicyDto
 {
     public static readonly string[] WriteCommands =
     [
-        "draft", "send", "mark", "move", "cancel", "approve"
+        "draft", "send", "mark", "move", "cancel", "snooze", "approve"
     ];
 
     public bool ReadOnly { get; set; }

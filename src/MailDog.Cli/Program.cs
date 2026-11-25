@@ -77,7 +77,7 @@ internal static class Program
                 return ExitOk;
             }
 
-            if (arguments.Command is not ("accounts" or "folders" or "list" or "search" or "show" or "attachment" or "draft" or "send" or "mark" or "move" or "cancel" or "pending" or "approve" or "deny" or "quit"))
+            if (arguments.Command is not ("accounts" or "folders" or "list" or "search" or "show" or "attachment" or "draft" or "send" or "mark" or "move" or "cancel" or "snooze" or "pending" or "approve" or "deny" or "quit"))
             {
                 throw new UsageException($"不认识的命令：{arguments.Command}（用 maildog schema 看全部命令）");
             }
@@ -125,6 +125,7 @@ internal static class Program
                     "mark" => await Commands.MarkAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     "move" => await Commands.MoveAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     "cancel" => await Commands.CancelAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
+                    "snooze" => await Commands.SnoozeAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     "approve" => await Commands.ApproveAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     "quit" => await Commands.QuitAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     _ => ExitUsage

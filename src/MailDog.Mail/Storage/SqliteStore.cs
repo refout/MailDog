@@ -637,6 +637,10 @@ public sealed class SqliteStore : IDisposable
                        thread_key
                 FROM messages
                 WHERE folder_id = $folderId
+                  AND NOT EXISTS (
+                      SELECT 1 FROM snoozed_messages s
+                      WHERE s.message_id = messages.id AND s.until_utc > $now
+                  )
                   AND (
                       $beforeDate IS NULL
                       OR date_utc < $beforeDate
@@ -646,6 +650,7 @@ public sealed class SqliteStore : IDisposable
                 LIMIT $limit;
                 """;
             command.Parameters.AddWithValue("$folderId", folderId);
+            command.Parameters.AddWithValue("$now", ToDb(DateTimeOffset.UtcNow));
             command.Parameters.AddWithValue("$beforeDate", (object?)ToDbNullable(beforeDate) ?? DBNull.Value);
             command.Parameters.AddWithValue("$beforeId", beforeId ?? 0);
             command.Parameters.AddWithValue("$limit", pageSize + 1);
@@ -703,6 +708,10 @@ public sealed class SqliteStore : IDisposable
                 FROM messages m
                 JOIN folders f ON f.id = m.folder_id
                 WHERE f.role = $role
+                  AND NOT EXISTS (
+                      SELECT 1 FROM snoozed_messages s
+                      WHERE s.message_id = m.id AND s.until_utc > $now
+                  )
                   AND (
                       $beforeDate IS NULL
                       OR m.date_utc < $beforeDate
@@ -712,6 +721,7 @@ public sealed class SqliteStore : IDisposable
                 LIMIT $limit;
                 """;
             command.Parameters.AddWithValue("$role", role.ToString());
+            command.Parameters.AddWithValue("$now", ToDb(DateTimeOffset.UtcNow));
             command.Parameters.AddWithValue("$beforeDate", (object?)ToDbNullable(beforeDate) ?? DBNull.Value);
             command.Parameters.AddWithValue("$beforeId", beforeId ?? 0);
             command.Parameters.AddWithValue("$limit", pageSize + 1);
@@ -1013,6 +1023,107 @@ public sealed class SqliteStore : IDisposable
             }
 
             RecountFolder(folderId);
+        }
+    }
+
+    /// <summary>把一封邮件暂时收进稍后提醒；本地先标已读，到期再恢复未读。</summary>
+    public void SnoozeMessage(long messageId, DateTimeOffset untilUtc)
+    {
+        lock (_gate)
+        {
+            long folderId;
+            using (var lookup = _connection.CreateCommand())
+            {
+                lookup.CommandText = "SELECT folder_id FROM messages WHERE id = $id;";
+                lookup.Parameters.AddWithValue("$id", messageId);
+                var result = lookup.ExecuteScalar();
+                if (result is null)
+                {
+                    throw new KeyNotFoundException("邮件不存在。");
+                }
+
+                folderId = Convert.ToInt64(result, CultureInfo.InvariantCulture);
+            }
+
+            using (var command = _connection.CreateCommand())
+            {
+                command.CommandText = """
+                    INSERT INTO snoozed_messages (message_id, until_utc, created_utc)
+                    VALUES ($id, $until, $created)
+                    ON CONFLICT(message_id) DO UPDATE SET until_utc = excluded.until_utc;
+                    """;
+                command.Parameters.AddWithValue("$id", messageId);
+                command.Parameters.AddWithValue("$until", ToDb(untilUtc));
+                command.Parameters.AddWithValue("$created", ToDb(DateTimeOffset.UtcNow));
+                command.ExecuteNonQuery();
+            }
+
+            using (var command = _connection.CreateCommand())
+            {
+                command.CommandText = "UPDATE messages SET flags = flags | $seen WHERE id = $id;";
+                command.Parameters.AddWithValue("$seen", (int)MailFlags.Seen);
+                command.Parameters.AddWithValue("$id", messageId);
+                command.ExecuteNonQuery();
+            }
+
+            RecountFolder(folderId);
+        }
+    }
+
+    /// <summary>取出已到期的稍后提醒，删除记录并把邮件重新标为未读。</summary>
+    public IReadOnlyList<SnoozedMessageRecord> WakeDueSnoozes(DateTimeOffset now)
+    {
+        lock (_gate)
+        {
+            var due = new List<SnoozedMessageRecord>();
+            var folderIds = new HashSet<long>();
+
+            using (var command = _connection.CreateCommand())
+            {
+                command.CommandText = """
+                    SELECT s.message_id, m.account_id, m.folder_id
+                    FROM snoozed_messages s
+                    JOIN messages m ON m.id = s.message_id
+                    WHERE s.until_utc <= $now;
+                    """;
+                command.Parameters.AddWithValue("$now", ToDb(now));
+
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    due.Add(new SnoozedMessageRecord(
+                        reader.GetInt64(0),
+                        reader.GetString(1),
+                        reader.GetInt64(2)));
+                }
+            }
+
+            foreach (var item in due)
+            {
+                using (var delete = _connection.CreateCommand())
+                {
+                    delete.CommandText = "DELETE FROM snoozed_messages WHERE message_id = $id;";
+                    delete.Parameters.AddWithValue("$id", item.MessageId);
+                    delete.ExecuteNonQuery();
+                }
+
+                using (var command = _connection.CreateCommand())
+                {
+                    command.CommandText = "UPDATE messages SET flags = flags & ~$seen WHERE id = $id;";
+                    command.Parameters.AddWithValue("$seen", (int)MailFlags.Seen);
+                    command.Parameters.AddWithValue("$id", item.MessageId);
+                    command.ExecuteNonQuery();
+                }
+
+                folderIds.Add(item.FolderId);
+            }
+
+            foreach (var folderId in folderIds)
+            {
+                RecountFolder(folderId);
+            }
+
+            return due;
         }
     }
 
@@ -2155,6 +2266,14 @@ public sealed class SqliteStore : IDisposable
                 command.Parameters.AddWithValue("$role", folderRole.ToString());
             }
 
+            filters.Add("""
+                NOT EXISTS (
+                    SELECT 1 FROM snoozed_messages s
+                    WHERE s.message_id = m.id AND s.until_utc > $now
+                )
+                """);
+            command.Parameters.AddWithValue("$now", ToDb(DateTimeOffset.UtcNow));
+
             var scope = filters.Count == 0 ? string.Empty : " AND " + string.Join(" AND ", filters);
             command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 500));
             var fields = """
@@ -2298,14 +2417,24 @@ public sealed class SqliteStore : IDisposable
                 SET unread_count = (
                         SELECT COUNT(*) FROM messages
                         WHERE folder_id = $id AND (flags & $seen) = 0
+                          AND NOT EXISTS (
+                              SELECT 1 FROM snoozed_messages s
+                              WHERE s.message_id = messages.id AND s.until_utc > $now
+                          )
                     ),
                     total_count = (
-                        SELECT COUNT(*) FROM messages WHERE folder_id = $id
+                        SELECT COUNT(*) FROM messages
+                        WHERE folder_id = $id
+                          AND NOT EXISTS (
+                              SELECT 1 FROM snoozed_messages s
+                              WHERE s.message_id = messages.id AND s.until_utc > $now
+                          )
                     )
                 WHERE id = $id;
                 """;
             command.Parameters.AddWithValue("$id", folderId);
             command.Parameters.AddWithValue("$seen", (int)MailFlags.Seen);
+            command.Parameters.AddWithValue("$now", ToDb(DateTimeOffset.UtcNow));
             command.ExecuteNonQuery();
         }
     }
@@ -2516,6 +2645,20 @@ public sealed class SqliteStore : IDisposable
                 ALTER TABLE outbox ADD COLUMN from_address TEXT NOT NULL DEFAULT '';
                 ALTER TABLE outbox ADD COLUMN from_name TEXT NOT NULL DEFAULT '';
                 PRAGMA user_version = 12;
+                """);
+        }
+
+        if (version < 13)
+        {
+            Execute("""
+                CREATE TABLE IF NOT EXISTS snoozed_messages (
+                    message_id  INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+                    until_utc   TEXT NOT NULL,
+                    created_utc TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS ix_snoozed_until ON snoozed_messages(until_utc);
+                PRAGMA user_version = 13;
                 """);
         }
     }

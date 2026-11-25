@@ -923,6 +923,7 @@ public sealed class EngineHost : IAsyncDisposable
     private async Task SchedulerLoopAsync(CancellationToken cancellationToken)
     {
         PruneCacheIfDue();
+        WakeDueSnoozes();
         await SyncAllAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -932,11 +933,42 @@ public sealed class EngineHost : IAsyncDisposable
                 // 每 30 秒检查一次：到期的账户才同步，失败账户按退避时间重试。
                 await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
                 PruneCacheIfDue();
+                WakeDueSnoozes();
                 await SyncAllAsync(cancellationToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
         {
+        }
+    }
+
+    private void WakeDueSnoozes()
+    {
+        try
+        {
+            var due = _store.WakeDueSnoozes(DateTimeOffset.UtcNow);
+            if (due.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var item in due)
+            {
+                _ipc.Broadcast(IpcMessageTypes.MailChanged, new MailChangedEvent
+                {
+                    AccountId = item.AccountId,
+                    MessageId = item.MessageId,
+                    FolderId = item.FolderId,
+                    Change = "flags"
+                });
+            }
+
+            _tray?.UpdateUnreadCount(TotalUnread());
+            _log.Info($"已唤醒 {due.Count} 封稍后提醒邮件。");
+        }
+        catch (Exception exception)
+        {
+            _log.Warn($"唤醒稍后提醒失败：{exception.Message}");
         }
     }
 

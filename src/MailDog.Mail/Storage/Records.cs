@@ -64,6 +64,12 @@ public sealed record BodyRecord(
     bool Truncated,
     IReadOnlyList<AttachmentRecord> Attachments);
 
+/// <summary>到期的稍后提醒；用于把邮件重新标为未读并通知界面刷新。</summary>
+public sealed record SnoozedMessageRecord(
+    long MessageId,
+    string AccountId,
+    long FolderId);
+
 public sealed record AttachmentRecord(
     string FileName,
     string MimeType,

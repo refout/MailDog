@@ -399,6 +399,12 @@ internal static class Commands
         var compose = await ReadComposeAsync(client, args, requireRecipients: true, cancellationToken).ConfigureAwait(false);
         PrintCompose("发送邮件", compose, args);
 
+        var schedule = ParseDateTime(args.Value("--send-at"), "--send-at");
+        if (schedule is not null && schedule <= DateTimeOffset.UtcNow.AddMinutes(1))
+        {
+            throw new UsageException("--send-at 必须至少在 1 分钟之后。");
+        }
+
         var request = new SendMailRequest
         {
             AccountId = compose.Account.Id,
@@ -410,7 +416,8 @@ internal static class Commands
             BodyHtml = compose.Html,
             IsMarkdown = compose.Html is null,
             AttachmentPaths = compose.Attachments,
-            SkipSendChecks = args.Has("--force-send")
+            SkipSendChecks = args.Has("--force-send"),
+            ScheduledAtUtc = schedule
         };
 
         if (args.Queue)
@@ -654,6 +661,54 @@ internal static class Commands
         else
         {
             Console.WriteLine($"已处理 {response.Affected} 封。");
+        }
+
+        return 0;
+    }
+
+    public static async Task<int> SnoozeAsync(IpcClient client, Arguments args, CancellationToken cancellationToken)
+    {
+        var ids = ReadIds(args, "snooze <邮件 id> [更多 id] --until \"2026-11-26 08:30\" --confirm");
+        var until = ParseDateTime(args.Value("--until"), "--until")
+            ?? throw new UsageException("snooze 需要 --until 指定恢复时间。");
+        if (until <= DateTimeOffset.UtcNow.AddMinutes(1))
+        {
+            throw new UsageException("--until 必须至少在 1 分钟之后。");
+        }
+
+        if (args.Json && !args.Has("--confirm"))
+        {
+            Console.WriteLine("{\"dryRun\":true,\"ids\":[" + string.Join(',', ids.Select(Output.Num))
+                + "],\"until\":" + Output.Str(until.ToString("O")) + "}");
+            return 0;
+        }
+
+        Console.WriteLine($"将把 {ids.Length} 封邮件稍后提醒到 {until.LocalDateTime:yyyy-MM-dd HH:mm}：{string.Join(", ", ids)}");
+
+        if (!args.Has("--confirm"))
+        {
+            Console.WriteLine("这是预览，没有改动。确认后加 --confirm 再执行。");
+            return 0;
+        }
+
+        var affected = 0;
+        foreach (var id in ids)
+        {
+            await client.RequestAsync<OkResponse>(
+                IpcMessageTypes.SnoozeMessage,
+                new SnoozeMessageRequest { MessageId = id, UntilUtc = until },
+                LongTimeout,
+                cancellationToken).ConfigureAwait(false);
+            affected++;
+        }
+
+        if (args.Json)
+        {
+            Console.WriteLine("{\"affected\":" + Output.Num(affected) + "}");
+        }
+        else
+        {
+            Console.WriteLine($"已稍后提醒 {affected} 封。");
         }
 
         return 0;
@@ -1122,6 +1177,21 @@ internal static class Commands
         }
 
         return ids;
+    }
+
+    private static DateTimeOffset? ParseDateTime(string? text, string option)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        if (!DateTimeOffset.TryParse(text, out var value))
+        {
+            throw new UsageException($"{option} 时间格式不对，请用 \"2026-11-26 08:30\" 这样的格式。");
+        }
+
+        return value.ToUniversalTime();
     }
 
     private static async Task<FolderDto> ResolveTargetFolderAsync(

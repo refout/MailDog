@@ -120,10 +120,11 @@ internal static class Schema
                 Flag("--text", "正文纯文本，与 --body-file 二选一", true),
                 Flag("--body-file", "从 UTF-8 文件读纯文本正文", true),
                 Flag("--html-file", "HTML 正文文件，给出时按 HTML 发送", true),
-                Flag("--attach", "附件路径，可重复", true)
+                Flag("--attach", "附件路径，可重复", true),
+                Flag("--send-at", "计划发送时间，如 \"2026-11-26 08:30\"；至少 1 分钟后", true)
             ],
             [Flag("--confirm", "真正发送", false), Flag("--force-send", "发送前检查命中时仍然强发", false), Flag("--queue", "放进待确认队列，之后用 approve 执行", false)],
-            "{\"outboxId\",\"sent\",\"queued\",\"status\",\"error\",\"delaySeconds\"}；delaySeconds>0 表示还在撤销窗口内，可用 cancel 撤回；发送失败退出码 3；--queue 时输出 {\"pendingId\",\"kind\":\"send\",\"status\":\"queued\"}"));
+            "{\"outboxId\",\"sent\",\"queued\",\"status\",\"error\",\"delaySeconds\",\"scheduledAtUtc\"}；scheduledAtUtc 非空表示已排入计划发送；delaySeconds>0 表示还在撤销窗口内，可用 cancel 撤回；发送失败退出码 3；--queue 时输出 {\"pendingId\",\"kind\":\"send\",\"status\":\"queued\"}"));
 
         builder.Append(',');
         builder.Append(Command(
@@ -154,6 +155,14 @@ internal static class Schema
             [],
             [],
             "{\"affected\"}；位置参数是一个或多个发件箱 id"));
+
+        builder.Append(',');
+        builder.Append(Command(
+            "snooze",
+            "把邮件稍后提醒：现在收起并标已读，到点后恢复未读；默认只预览，--confirm 才写入",
+            [Flag("--until", "恢复时间，如 \"2026-11-26 08:30\"；至少 1 分钟后", true)],
+            [Flag("--confirm", "真正写入", false)],
+            "{\"affected\"}；位置参数是一个或多个邮件 id"));
 
         builder.Append(',');
         builder.Append(Command(
@@ -204,7 +213,7 @@ internal static class Schema
             .Append(',')
             .Append(Output.Str("找不到 maildog 时先构建 src\\MailDog.Cli，不要退回直读 sqlite。"))
             .Append(',')
-            .Append(Output.Str("写操作（draft / send / mark / move / cancel / approve）默认只预览，加 --confirm 才真正执行；draft/send 可改用 --queue 放进待确认队列。"))
+            .Append(Output.Str("写操作（draft / send / mark / move / cancel / snooze / approve）默认只预览，加 --confirm 才真正执行；draft/send 可改用 --queue 放进待确认队列。"))
             .Append(',')
             .Append(Output.Str("写命令还要通过 Agent 权限：默认全部允许；可在 MailDog UI 的「CLI 调用记录 → Agent 权限」里改成只读、白名单或关闭正文脱敏。"))
             .Append("]}");

@@ -20,7 +20,7 @@ internal sealed class Arguments
     private static readonly string[] CommandNames =
     [
         "accounts", "folders", "list", "search", "show", "attachment",
-        "draft", "send", "mark", "move", "cancel", "pending", "approve", "deny",
+        "draft", "send", "mark", "move", "cancel", "snooze", "pending", "approve", "deny",
         "quit", "schema", "help"
     ];
 
@@ -33,7 +33,7 @@ internal sealed class Arguments
     private static readonly string[] SingleValueNames =
     [
         "--account", "--folder", "--limit", "--max-chars", "--out", "--engine",
-        "--subject", "--text", "--body-file", "--html-file"
+        "--subject", "--text", "--body-file", "--html-file", "--send-at", "--until"
     ];
 
     private static readonly string[] RepeatValueNames =

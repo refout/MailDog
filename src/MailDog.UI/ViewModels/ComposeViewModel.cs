@@ -1025,6 +1025,24 @@ public sealed partial class ComposeViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasStatus))]
     private string? _status;
 
+    public string[] ScheduleOptions { get; } =
+    [
+        "立即发送",
+        "1 小时后",
+        "今晚 20:00",
+        "明天 08:00",
+        "自定义时间"
+    ];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCustomSchedule))]
+    private string _selectedScheduleOption = "立即发送";
+
+    [ObservableProperty]
+    private string _customScheduleText = string.Empty;
+
+    public bool IsCustomSchedule => SelectedScheduleOption == "自定义时间";
+
     /// <summary>发送前检查命中时的提示（附件缺失 / 体积过大），用户确认后才继续。</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSendWarning))]
@@ -1178,6 +1196,13 @@ public sealed partial class ComposeViewModel : ObservableObject
             return;
         }
 
+        var scheduledAt = ResolveSchedule(out var scheduleError);
+        if (scheduleError is not null)
+        {
+            Error = scheduleError;
+            return;
+        }
+
         IsBusy = true;
         Error = null;
         Status = "正在发送…";
@@ -1186,7 +1211,7 @@ public sealed partial class ComposeViewModel : ObservableObject
         {
             var response = await _engine.RequestAsync<SendMailResponse>(
                 IpcMessageTypes.SendMail,
-                BuildSendRequest(_sendChecksConfirmed),
+                BuildSendRequest(_sendChecksConfirmed, scheduledAt),
                 TimeSpan.FromSeconds(75));
 
             if (response.Status == SendStatuses.ConfirmRequired)
@@ -1217,7 +1242,12 @@ public sealed partial class ComposeViewModel : ObservableObject
                 IsQueued = true;
                 Error = response.Error;
 
-                if (response.DelaySeconds > 0)
+                if (response.ScheduledAtUtc is { } scheduled)
+                {
+                    Status = $"已安排在 {scheduled.LocalDateTime:M月d日 HH:mm} 发出。";
+                    StartScheduledWindow(response.OutboxId);
+                }
+                else if (response.DelaySeconds > 0)
                 {
                     Status = $"已放进发件箱，{response.DelaySeconds} 秒后发出。";
                     StartUndoWindow(response.DelaySeconds, response.OutboxId);
@@ -1275,6 +1305,13 @@ public sealed partial class ComposeViewModel : ObservableObject
         {
             EndUndoWindow();
         }
+    }
+
+    private void StartScheduledWindow(long outboxId)
+    {
+        EndUndoWindow();
+        _undoOutboxId = outboxId;
+        UndoHint = "计划发送前可以撤回";
     }
 
     private void StartUndoWindow(int seconds, long outboxId)
@@ -1347,7 +1384,40 @@ public sealed partial class ComposeViewModel : ObservableObject
         CloseRequested?.Invoke();
     }
 
-    private SendMailRequest BuildSendRequest(bool skipChecks = false)
+    private DateTimeOffset? ResolveSchedule(out string? error)
+    {
+        error = null;
+        var now = DateTimeOffset.Now;
+
+        switch (SelectedScheduleOption)
+        {
+            case "1 小时后":
+                return now.AddHours(1);
+            case "今晚 20:00":
+                return new DateTimeOffset(now.Year, now.Month, now.Day, 20, 0, 0, now.Offset)
+                    .AddDays(now.Hour >= 20 ? 1 : 0);
+            case "明天 08:00":
+                return new DateTimeOffset(now.Year, now.Month, now.Day, 8, 0, 0, now.Offset).AddDays(1);
+            case "自定义时间":
+                if (!DateTimeOffset.TryParse(CustomScheduleText, out var custom))
+                {
+                    error = "自定义时间格式不对，请用 2026-11-26 08:30 这样的格式。";
+                    return null;
+                }
+
+                if (custom <= now.AddMinutes(1))
+                {
+                    error = "计划发送时间必须至少在 1 分钟之后。";
+                    return null;
+                }
+
+                return custom;
+            default:
+                return null;
+        }
+    }
+
+    private SendMailRequest BuildSendRequest(bool skipChecks = false, DateTimeOffset? scheduledAt = null)
         => new()
         {
             AccountId = SelectedAccount!.Id,
@@ -1361,7 +1431,8 @@ public sealed partial class ComposeViewModel : ObservableObject
             BodyHtml = BodyHtml,
             InReplyTo = Mode is ComposeMode.Reply or ComposeMode.ReplyAll ? _original?.RfcMessageId : null,
             AttachmentPaths = Attachments.Select(item => item.Path).ToArray(),
-            SkipSendChecks = skipChecks
+            SkipSendChecks = skipChecks,
+            ScheduledAtUtc = scheduledAt?.ToUniversalTime()
         };
 
     private SaveDraftRequest BuildDraftRequest()
