@@ -71,13 +71,15 @@
         <span class="date">2026-11-25</span>
         <span class="latest">最新</span>
       </div>
-      <p class="summary">CLI 能读 HTML-only 邮件了；带 --json 的调用结果会留成 JSON 记录，设置里可以直接看。</p>
+      <p class="summary">CLI 原样返回 HTML 与纯文本正文；带 --json 的调用结果会留成 JSON 记录，设置里可以直接看。</p>
       <ul>
-        <li><b>HTML-only 正文</b>：<code>show</code> 在纯文本为空时自动把 HTML 转成可读文本；要看原始 HTML 加 <code>--html</code>，<code>--html --json</code> 会多出 <code>html</code> 字段。</li>
-        <li><b>textSource</b>：<code>show --json</code> 新增 <code>textSource</code>（plain/html/none），脚本能判断正文是从纯文本还是 HTML 来的。</li>
+        <li><b>原文正文</b>：<code>show</code> 不再做 HTML 转文本，<code>text</code> 与 <code>html</code> 都按数据库里的原文返回；默认全文，显式 <code>--max-chars</code> 才截断。</li>
+        <li><b>JSON 字段</b>：<code>show --json</code> 始终同时返回 <code>text</code> 与 <code>html</code>（缺失为 <code>null</code>），脚本可以自行决定用哪一种。</li>
+        <li><b>人读输出</b>：默认优先打印纯文本原文，纯文本为空时直接打印原始 HTML；<code>--html</code> 强制看 HTML。</li>
+        <li><b>给智能体的说明</b>：工具页不再只放一个复制按钮，而是直接显示只读文本框；可以选中复制，或点「复制全部」一次拿走。</li>
         <li><b>调用记录</b>：新增 <code>logs/cli-calls.jsonl</code>，记录时间、版本、命令、退出码、耗时和 <code>--json</code> 输出；原 <code>cli-usage.log</code> 摘要保留。</li>
         <li><b>界面查看</b>：设置「工具」页新增「查看调用记录」，按时间倒序列出最近 100 条，右侧显示当时的 JSON；单条最多保留约 20 万字符。</li>
-        <li><b>测试</b>：增加 HTML-only 种子库与 CI 集成测试，覆盖默认转换、<code>--html</code> 和 <code>--json</code> 字段；单元测试覆盖文本回退、JSON 记录和界面解析。</li>
+        <li><b>测试</b>：增加 HTML-only 种子库与 CI 集成测试，覆盖原文输出、<code>--html</code> 和 JSON 字段；单元测试覆盖 JSON 记录和界面解析。</li>
       </ul>
       <div class="assets">
         <a href="https://github.com/refout/MailDog/releases/tag/v0.3.4" target="_blank" rel="noopener">下载 v0.3.4</a>

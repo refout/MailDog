@@ -1244,11 +1244,26 @@
                                          Classes="caption"
                                          TextWrapping="Wrap" />
                             </Grid>
-                            <Button Content="复制给智能体"
-                                    Click="OnCopyCliInfoClick"
-                                    IsEnabled="{Binding HasCliDownload}"
-                                    HorizontalAlignment="Left"
-                                    AutomationProperties.Name="复制 CLI 信息给智能体" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                              <TextBlock Text="给智能体的说明"
+                                         Classes="caption"
+                                         VerticalAlignment="Center" />
+                              <Button Grid.Column="1"
+                                      Content="复制全部"
+                                      Click="OnCopyCliInfoClick"
+                                      IsEnabled="{Binding HasCliDownload}"
+                                      AutomationProperties.Name="复制 CLI 信息给智能体" />
+                            </Grid>
+                            <TextBox Text="{Binding CliAgentInfo}"
+                                     IsReadOnly="True"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     MinHeight="160"
+                                     MaxHeight="260"
+                                     FontSize="12"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     ToolTip.Tip="只读文本，可选中后复制，或点右上角“复制全部”。"
+                                     AutomationProperties.Name="给智能体的 CLI 说明" />
                             <TextBlock Text="{Binding CliCopyStatus}"
                                        Classes="caption"
                                        TextWrapping="Wrap"

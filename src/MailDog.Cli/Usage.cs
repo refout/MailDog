@@ -16,8 +16,8 @@ internal static class Usage
                                        邮件摘要，默认从收件箱开始
           search <关键词> [--folder inbox] [--account <邮箱>] [--limit 30]
                                        跨文件夹搜索，可按账号 / 文件夹收窄
-          show <邮件 id> [--headers] [--body] [--html] [--max-chars 2000]
-                                       头信息与正文；纯文本缺失时自动从 HTML 转文本
+          show <邮件 id> [--headers] [--body] [--html] [--max-chars 0]
+                                       头信息与原始正文；HTML/纯文本原样返回
           attachment <邮件 id> <序号> [--out 目录]
                                        把附件存到本地并打印路径
 

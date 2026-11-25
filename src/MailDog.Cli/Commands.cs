@@ -1,7 +1,6 @@
 using MailDog.Contracts.Dto;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
-using MailDog.Html;
 
 namespace MailDog.Cli;
 
@@ -197,21 +196,17 @@ internal static class Commands
     public static async Task<int> ShowAsync(IpcClient client, Arguments args, CancellationToken cancellationToken)
     {
         var messageId = ParseLong(args.Positionals, 0, "show <邮件 id>");
-        var maxChars = Math.Max(0, args.IntValue("--max-chars", args.Has("--html") ? 0 : 2000));
+        var maxChars = Math.Max(0, args.IntValue("--max-chars", 0));
         var body = await GetBodyAsync(client, messageId, cancellationToken).ConfigureAwait(false);
 
-        var html = body.Html ?? string.Empty;
-        var (text, textSource) = ResolveBodyText(body);
+        var rawText = body.PlainText ?? string.Empty;
+        var rawHtml = body.Html ?? string.Empty;
 
         if (args.Json)
         {
-            var jsonText = args.Has("--headers") ? string.Empty : Truncate(text, maxChars);
-            var jsonHtml = args.Has("--headers") || !args.Has("--html") ? null : Truncate(html, maxChars);
-            Console.WriteLine(BuildBodyJson(
-                body,
-                jsonText,
-                jsonHtml,
-                args.Has("--headers") ? "none" : textSource));
+            var jsonText = args.Has("--headers") ? null : TruncateIfAny(body.PlainText, maxChars);
+            var jsonHtml = args.Has("--headers") ? null : TruncateIfAny(body.Html, maxChars);
+            Console.WriteLine(BuildBodyJson(body, jsonText, jsonHtml));
             return 0;
         }
 
@@ -248,23 +243,13 @@ internal static class Commands
 
         if (args.Has("--html"))
         {
-            if (string.IsNullOrWhiteSpace(html))
+            if (string.IsNullOrWhiteSpace(rawHtml))
             {
                 Console.WriteLine("（这封邮件没有 HTML 正文）");
                 return 0;
             }
 
-            var shown = Truncate(html, maxChars);
-
-            if (maxChars > 0 && html.Length > maxChars)
-            {
-                Console.WriteLine(shown);
-                Console.WriteLine($"…（已截断，共 {html.Length} 字；用 --max-chars 0 看全文）");
-            }
-            else
-            {
-                Console.WriteLine(html);
-            }
+            WriteRawBody(rawHtml, maxChars);
 
             if (body.Truncated)
             {
@@ -274,26 +259,20 @@ internal static class Commands
             return 0;
         }
 
-        if (textSource == "none")
+        if (!string.IsNullOrWhiteSpace(rawText))
         {
-            Console.WriteLine("（这封邮件没有正文）");
-            return 0;
+            WriteRawBody(rawText, maxChars);
         }
-
-        if (textSource == "html")
+        else if (!string.IsNullOrWhiteSpace(rawHtml))
         {
-            Console.WriteLine("（这封邮件没有纯文本正文，以下是从 HTML 正文转换的文本；要看原始 HTML 用 --html）");
+            Console.WriteLine("（这封邮件没有纯文本正文，以下是原始 HTML 正文）");
             Console.WriteLine();
-        }
-
-        if (maxChars > 0 && text.Length > maxChars)
-        {
-            Console.WriteLine(text[..maxChars].TrimEnd());
-            Console.WriteLine($"…（已截断，共 {text.Length} 字；用 --max-chars 0 看全文）");
+            WriteRawBody(rawHtml, maxChars);
         }
         else
         {
-            Console.WriteLine(text);
+            Console.WriteLine("（这封邮件没有正文）");
+            return 0;
         }
 
         if (body.Truncated)
@@ -302,6 +281,19 @@ internal static class Commands
         }
 
         return 0;
+    }
+
+    private static void WriteRawBody(string value, int maxChars)
+    {
+        if (maxChars > 0 && value.Length > maxChars)
+        {
+            Console.WriteLine(value[..maxChars].TrimEnd());
+            Console.WriteLine($"…（已截断，共 {value.Length} 字；用 --max-chars 0 看全文）");
+        }
+        else
+        {
+            Console.WriteLine(value);
+        }
     }
 
     public static async Task<int> AttachmentAsync(IpcClient client, Arguments args, CancellationToken cancellationToken)
@@ -807,22 +799,10 @@ internal static class Commands
         return path;
     }
 
-    internal static (string Text, string Source) ResolveBodyText(MailBodyDto body)
-    {
-        if (!string.IsNullOrWhiteSpace(body.PlainText))
-        {
-            return (body.PlainText, "plain");
-        }
+    private static string? TruncateIfAny(string? value, int maxChars)
+        => value is null ? null : Truncate(value, maxChars);
 
-        if (!string.IsNullOrWhiteSpace(body.Html))
-        {
-            return (HtmlTextConverter.ToPlainText(body.Html), "html");
-        }
-
-        return (string.Empty, "none");
-    }
-
-    internal static string BuildBodyJson(MailBodyDto body, string text, string? html, string textSource)
+    internal static string BuildBodyJson(MailBodyDto body, string? text, string? html)
     {
         var builder = new System.Text.StringBuilder(512);
         builder.Append("{\"id\":").Append(Output.Num(body.MessageId))
@@ -835,14 +815,8 @@ internal static class Commands
             .Append(",\"truncated\":").Append(Output.Bool(body.Truncated))
             .Append(",\"fromCache\":").Append(Output.Bool(body.FromCache))
             .Append(",\"text\":").Append(Output.Str(text))
-            .Append(",\"textSource\":").Append(Output.Str(textSource));
-
-        if (html is not null)
-        {
-            builder.Append(",\"html\":").Append(Output.Str(html));
-        }
-
-        builder.Append(",\"attachments\":[");
+            .Append(",\"html\":").Append(Output.Str(html))
+            .Append(",\"attachments\":[");
 
         for (var index = 0; index < body.Attachments.Length; index++)
         {
