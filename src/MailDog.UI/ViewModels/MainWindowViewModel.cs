@@ -849,6 +849,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public string CliDownloadDirectory => AppContext.BaseDirectory;
 
+    public string CliDownloadBundlePath => CliBundle.DownloadPath(AppContext.BaseDirectory, AppVersion);
+
+    public bool HasCliDownload => File.Exists(CliDownloadBundlePath);
+
+    public string CliUsageLogDisplayPath
+        => Path.Combine(ProductPaths.DisplayDataDirectory, "logs", "cli-usage.log");
+
+    [ObservableProperty]
+    private string _cliCopyStatus = string.Empty;
+
     [ObservableProperty]
     private bool _isDownloadingCli;
 
@@ -1922,6 +1932,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         _initialized = true;
+        UpdateService.CleanupDownloadedInstallers();
         await ConnectAsync();
         await TakePendingNavigationAsync();
     }
@@ -3459,6 +3470,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             await Task.Run(() => File.Copy(bundle, destination, true)).ConfigureAwait(true);
             CliDownloadStatus = $"已保存到安装目录：{Path.GetFileName(destination)}";
+            CliCopyStatus = string.Empty;
+            OnPropertyChanged(nameof(HasCliDownload));
         }
         catch (Exception exception)
         {
@@ -3468,6 +3481,42 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             IsDownloadingCli = false;
         }
+    }
+
+    /// <summary>给外部智能体复制一段可直接使用 CLI 的说明；不包含账号、口令或邮件内容。</summary>
+    public string BuildCliAgentInfo()
+    {
+        var directory = AppContext.BaseDirectory;
+        var bundle = CliDownloadBundlePath;
+        var cli = Path.Combine(directory, ProductPaths.CliExecutableName);
+        var shim = Path.Combine(directory, OperatingSystem.IsWindows() ? "maildog.cmd" : "maildog");
+        var skill = Path.Combine(directory, "maildog-cli", "SKILL.md");
+        var installed = File.Exists(cli) && File.Exists(skill);
+        var quote = "\"";
+
+        return string.Join(
+            Environment.NewLine,
+            $"MailDog CLI（版本 {AppVersion}）",
+            $"安装目录：{directory}",
+            $"下载包：{bundle}",
+            installed
+                ? "当前文件已解压，可以直接使用。"
+                : "请先把下载包解压到安装目录，保持包内目录结构。",
+            "解压命令：",
+            OperatingSystem.IsWindows()
+                ? $"Expand-Archive -LiteralPath {quote}{bundle}{quote} -DestinationPath {quote}{directory}{quote} -Force"
+                : $"tar -xzf {quote}{bundle}{quote} -C {quote}{directory}{quote}",
+            string.Empty,
+            $"CLI：{cli}",
+            $"启动脚本：{shim}",
+            $"Skill：{skill}",
+            string.Empty,
+            "给智能体的使用约束：",
+            $"1. 先运行 {quote}{shim}{quote} schema --json 确认可用命令。",
+            "2. 读命令可以直接执行；draft / send / mark / move 先 dry-run，用户确认后才加 --confirm。",
+            "3. 不要直接读写 MailDog 的 SQLite 数据库、凭据文件或日志。",
+            "4. CLI 调用记录写在 MailDog 数据目录的 logs/cli-usage.log，只记录命令名、退出码和耗时。",
+            "5. 安装升级可能清掉安装目录顶层的 CLI；升级后重新下载并解压即可。");
     }
 
     [RelayCommand]

@@ -1,6 +1,7 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using MailDog.UI.ViewModels;
@@ -162,6 +163,33 @@ public partial class SettingsView : UserControl
         if (!string.IsNullOrEmpty(path) && Vm is { } vm)
         {
             await vm.RestoreBackupAsync(path);
+        }
+    }
+
+    private async void OnCopyCliInfoClick(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is not { } vm)
+        {
+            return;
+        }
+
+        var text = vm.BuildCliAgentInfo();
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+
+        if (clipboard is null)
+        {
+            vm.CliCopyStatus = "当前环境不支持剪贴板。";
+            return;
+        }
+
+        try
+        {
+            await clipboard.SetTextAsync(text);
+            vm.CliCopyStatus = "已复制，可以粘贴给智能体。";
+        }
+        catch (Exception exception)
+        {
+            vm.CliCopyStatus = $"复制失败：{exception.Message}";
         }
     }
 }
