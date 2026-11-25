@@ -19,11 +19,11 @@
 | 邮件协议 | MailKit 5.0.0（IMAP/SMTP），不引用 `MimeKit.Cryptography` |
 | 本地存储 | SQLite（`Microsoft.Data.Sqlite` 11.0.0，ADO.NET，不用 EF Core） |
 | 认证 | QQ 邮箱授权码 + SASL PLAIN；Outlook OAuth2 Authorization Code + PKCE（自研回环） |
-| IPC | Windows 命名管道 + 4 字节长度前缀 + 源生成 JSON |
-| 进程模型 | Engine 持有 Win32 托盘；UI 关闭即 `Shutdown()`，Engine 继续驻留 |
+| IPC | 命名管道（Windows Named Pipe / Linux Unix Domain Socket）+ 4 字节长度前缀 + 源生成 JSON |
+| 进程模型 | Engine 持有 Win32 托盘（Linux 为无托盘常驻）；UI 关闭即 `Shutdown()`，Engine 继续驻留 |
 | 发布 | Native AOT 单文件 × 2，零 .NET 运行时依赖 |
 | 仓库 | 本地 `C:\Users\hale\IdeaProjects\MailDog`；远端 `https://github.com/refout/MailDog`（Public） |
-| 平台范围 | v1 只交付 Windows x64/arm64；macOS/Linux 预留抽象，后续里程碑实现 |
+| 平台范围 | v1 交付 Windows x64/arm64；v0.3.0 增加 Linux x64（纯文本阅读、无托盘）；macOS 仍预留抽象 |
 
 ### 0.1 对原始架构稿的技术修正
 
@@ -35,7 +35,7 @@
    > 原方案强调 `response_mode=query` 以免 `#fragment` 无法读取，这一点仍然成立，必须显式设置。
 
 3. **Linux 的 WebView 回退顺序需按官方文档修正。**
-   `NativeWebView` 在 Linux 上**优先 WPE WebKit，未安装时自动回退 WebKitGTK**；`NativeWebDialog` 始终使用 WebKitGTK。因此在 Linux 上不存在“WPE 缺失就必须换 `NativeWebDialog`”的硬分叉。v1 不实现 Linux，相关判断放到 UI 渲染协调器的平台策略中预留。
+   `NativeWebView` 在 Linux 上**优先 WPE WebKit，未安装时自动回退 WebKitGTK**；`NativeWebDialog` 始终使用 WebKitGTK。因此在 Linux 上不存在“WPE 缺失就必须换 `NativeWebDialog`”的硬分叉。v0.3.0 的 Linux 版先不加载 WebView，正文统一走纯文本；后续要接 HTML 时再把平台判断放进 UI 渲染协调器。
 
 4. **.NET 11 SDK 已就位。**
    本机已安装 11.0.100；`global.json` 锁定 `11.0.100`（`rollForward=latestFeature`）。Stage 0 的所有探针均在该 SDK 上完成。
@@ -1347,7 +1347,9 @@ GitHub Actions `windows-latest`：
 - 官网截图重拍：首页仍是 v0.1.1 的旧图标真机图，与 v0.1.2 新标不一致。
 - 代码签名与依赖审计：OV/EV 证书接入，`NuGetAudit` 进 CI。
 
-### v0.3 规划（2026-11-24 拟定，未开工）
+### v0.3 规划（2026-11-24 拟定）
+
+- **Linux x64（已完成 0.3.0）**：Engine、UI、CLI 可在 Linux 构建运行；Engine 按宿主 OS 单目标编译，Windows 专用托盘/Toast 与 Linux 空实现分离；数据目录走 XDG，登录启动写 `~/.config/autostart/maildog.desktop`；凭据用数据目录内 0600 密钥的 AES-GCM；SQLite 嵌入 `libe_sqlite3.so`；通知走 `notify-send`；正文纯文本；发布 `MailDog-<版本>-linux-x64.tar.gz`，CI 增加 ubuntu-latest 任务。未做：托盘图标、通知点击跳转、系统钥匙串、HTML/WebView、Linux arm64。
 
 - **Windows 集成**：注册 `mailto:` 协议、支持"设为默认邮件程序"、资源管理器右键"发送到"、拖入 `.eml` 直接打开、任务栏 JumpList 列出最近邮件。注册表写法复用 `maildog:` 协议与 AUMID 那套经验，卸载时一并清理。
 - **诊断包导出**：`logs/engine-*.log` + 版本 + 配置概览打成 zip，邮箱地址、口令、令牌、正文全部脱敏；入口放关于页，配合"UI 崩溃留痕"使用。
@@ -1385,7 +1387,7 @@ GitHub Actions `windows-latest`：
 3. **代码签名**：是否已有证书？没有的话 v1 先以未签名 ZIP 分发？
 4. **发信范围**：v1 是否必须包含撰写/回复？当前方案将其放入 v1.1。
 5. **附件**：是否需要 v1 支持下载？当前只返回元数据。
-6. **macOS/Linux**：目标时间点与优先级；是否接受 Linux 需要用户安装 WebKitGTK/WPE。
+6. **macOS/Linux**：Linux x64 已在 v0.3.0 落地；macOS 与 Linux arm64 的目标时间点仍未定。
 7. **自动更新**：是否允许联网检查版本（涉及隐私与代理环境）。
 8. **代理**：是否需要支持系统代理/自定义代理（MailKit 与 HttpClient 均需配置）。
 

@@ -17,11 +17,17 @@ permissions:
 jobs:
   package:
     name: Package ${{ matrix.runtime }}
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        runtime: [win-x64, win-arm64]
+        include:
+          - runtime: win-x64
+            os: windows-latest
+          - runtime: win-arm64
+            os: windows-latest
+          - runtime: linux-x64
+            os: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -31,6 +37,10 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '11.0.x'
+
+      - name: Install Linux AOT prerequisites
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
       - name: Resolve version
         id: version
@@ -51,9 +61,15 @@ jobs:
           if (-not $version) { throw '无法确定版本号。' }
           "version=$version" >> $env:GITHUB_OUTPUT
 
-      - name: Publish and zip
+      - name: Publish and package (Windows)
+        if: matrix.os == 'windows-latest'
         shell: pwsh
         run: ./src/build/package.ps1 -Version '${{ steps.version.outputs.version }}' -Runtime ${{ matrix.runtime }}
+
+      - name: Publish and package (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: ./src/build/package-linux.sh ${{ matrix.runtime }} '${{ steps.version.outputs.version }}'
 
       - name: Install Inno Setup
         if: matrix.runtime == 'win-x64'

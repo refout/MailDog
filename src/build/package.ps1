@@ -2,7 +2,7 @@
 param(
     [string]$Version,
 
-    [ValidateSet('win-x64', 'win-arm64')]
+    [ValidateSet('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64')]
     [string]$Runtime = 'win-x64',
 
     [ValidateSet('Debug', 'Release')]
@@ -24,6 +24,7 @@ $srcRoot = Split-Path -Parent $PSScriptRoot
 $repoRoot = Split-Path -Parent $srcRoot
 $distRoot = Join-Path $repoRoot 'dist'
 $appDir = Join-Path $distRoot "$Runtime/MailDog"
+$isWindowsTarget = $Runtime -like 'win-*'
 
 if (-not $Version) {
     $propsPath = Join-Path $srcRoot 'Directory.Build.props'
@@ -45,21 +46,42 @@ if (-not $SkipPublish) {
     }
 }
 
-$engineExe = Join-Path $appDir 'MailDog.Engine.exe'
-$uiExe = Join-Path $appDir 'MailDog.UI.exe'
-$cliExe = Join-Path $appDir 'MailDog.Cli.exe'
-$cliShim = Join-Path $appDir 'maildog.cmd'
+$engineExe = Join-Path $appDir "MailDog.Engine$($isWindowsTarget ? '.exe' : '')"
+$uiExe = Join-Path $appDir "MailDog.UI$($isWindowsTarget ? '.exe' : '')"
+$cliExe = Join-Path $appDir "MailDog.Cli$($isWindowsTarget ? '.exe' : '')"
+$cliShim = Join-Path $appDir ($isWindowsTarget ? 'maildog.cmd' : 'maildog')
 foreach ($file in @($engineExe, $uiExe, $cliExe, $cliShim)) {
     if (-not (Test-Path $file)) {
         throw "缺少发布文件：$file（先运行 publish.ps1 或去掉 -SkipPublish）。"
     }
 }
 
-# 压缩包
-$zipPath = Join-Path $distRoot "MailDog-$Version-$Runtime.zip"
-Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-Compress-Archive -Path (Join-Path $appDir '*') -DestinationPath $zipPath -Force
-Write-Host "压缩包：$zipPath" -ForegroundColor Green
+if (-not $isWindowsTarget) {
+    foreach ($library in @('libSkiaSharp.so', 'libHarfBuzzSharp.so')) {
+        $path = Join-Path $appDir $library
+
+        if (-not (Test-Path $path)) {
+            throw "缺少 Linux 原生库：$path（先运行 publish.ps1 或去掉 -SkipPublish）。"
+        }
+    }
+}
+
+# 压缩包：Windows 用 zip，Linux 用 tar.gz（保留可执行权限）。
+$archiveExtension = $isWindowsTarget ? 'zip' : 'tar.gz'
+$packagePath = Join-Path $distRoot "MailDog-$Version-$Runtime.$archiveExtension"
+Remove-Item $packagePath -Force -ErrorAction SilentlyContinue
+
+if ($isWindowsTarget) {
+    Compress-Archive -Path (Join-Path $appDir '*') -DestinationPath $packagePath -Force
+}
+else {
+    & tar -czf $packagePath -C $appDir .
+    if ($LASTEXITCODE -ne 0) {
+        throw "tar 打包失败，退出码 $LASTEXITCODE。"
+    }
+}
+
+Write-Host "压缩包：$packagePath" -ForegroundColor Green
 
 # 安装包
 if ($Installer) {

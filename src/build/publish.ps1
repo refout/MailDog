@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('win-x64', 'win-arm64')]
+    [ValidateSet('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64')]
     [string]$Runtime = 'win-x64',
 
     [ValidateSet('Debug', 'Release')]
@@ -16,6 +16,10 @@ $srcRoot = Split-Path -Parent $PSScriptRoot
 $repoRoot = Split-Path -Parent $srcRoot
 $artifacts = Join-Path $repoRoot "artifacts/$Runtime"
 $dist = Join-Path $repoRoot "dist/$Runtime/MailDog"
+
+$isWindowsTarget = $Runtime -like 'win-*'
+$exeSuffix = if ($isWindowsTarget) { '.exe' } else { '' }
+$engineFramework = if ($isWindowsTarget) { 'net11.0-windows10.0.19041.0' } else { 'net11.0' }
 
 $publishArgs = @(
     '-c', $Configuration
@@ -34,7 +38,7 @@ if ($Version) {
 Push-Location $srcRoot
 try {
     Write-Host "Publishing MailDog.Engine ($Runtime, $Configuration)..."
-    dotnet publish (Join-Path $srcRoot 'MailDog.Engine/MailDog.Engine.csproj') @publishArgs -o (Join-Path $artifacts 'engine')
+    dotnet publish (Join-Path $srcRoot 'MailDog.Engine/MailDog.Engine.csproj') @publishArgs -f $engineFramework -o (Join-Path $artifacts 'engine')
     if ($LASTEXITCODE -ne 0) { throw "Engine publish failed with exit code $LASTEXITCODE." }
 
     Write-Host "Publishing MailDog.UI ($Runtime, $Configuration)..."
@@ -50,20 +54,46 @@ finally {
 }
 
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
-Copy-Item (Join-Path $artifacts 'engine/MailDog.Engine.exe') $dist -Force
-Copy-Item (Join-Path $artifacts 'ui/MailDog.UI.exe') $dist -Force
-Copy-Item (Join-Path $artifacts 'cli/MailDog.Cli.exe') $dist -Force
+Copy-Item (Join-Path $artifacts "engine/MailDog.Engine$exeSuffix") $dist -Force
+Copy-Item (Join-Path $artifacts "ui/MailDog.UI$exeSuffix") $dist -Force
+Copy-Item (Join-Path $artifacts "cli/MailDog.Cli$exeSuffix") $dist -Force
 
-# maildog.cmd 只是个转发壳：命令行里敲 maildog 实际跑同目录的 MailDog.Cli.exe。
-$shim = Join-Path $dist 'maildog.cmd'
-Set-Content -Path $shim -Encoding ascii -NoNewline -Value @"
+if (-not $isWindowsTarget) {
+    # Linux NativeAOT 的单文件不会把 Skia/HarfBuzz 原生库塞进去，必须和 UI 放同一目录。
+    foreach ($library in @('libSkiaSharp.so', 'libHarfBuzzSharp.so')) {
+        Copy-Item (Join-Path $artifacts "ui/$library") $dist -Force
+    }
+}
+
+if ($isWindowsTarget) {
+    # maildog.cmd 只是个转发壳：命令行里敲 maildog 实际跑同目录的 MailDog.Cli.exe。
+    $shim = Join-Path $dist 'maildog.cmd'
+    Set-Content -Path $shim -Encoding ascii -NoNewline -Value @"
 @echo off
 "%~dp0MailDog.Cli.exe" %*
 "@
+}
+else {
+    # Linux 下给一个同名启动脚本，命令行里敲 maildog 即可。
+    $shim = Join-Path $dist 'maildog'
+    Set-Content -Path $shim -Encoding ascii -NoNewline -Value @"
+#!/usr/bin/env sh
+exec "`$(dirname "`$0")/MailDog.Cli" "`$@"
+"@
+    & chmod +x $shim
+}
 
-$package = Join-Path (Split-Path -Parent $dist) "MailDog-$Runtime.zip"
+$archiveExtension = if ($isWindowsTarget) { 'zip' } else { 'tar.gz' }
+$package = Join-Path (Split-Path -Parent $dist) "MailDog-$Runtime.$archiveExtension"
 Remove-Item $package -Force -ErrorAction SilentlyContinue
-Compress-Archive -Path (Join-Path $dist '*') -DestinationPath $package -Force
+
+if ($isWindowsTarget) {
+    Compress-Archive -Path (Join-Path $dist '*') -DestinationPath $package -Force
+}
+else {
+    & tar -czf $package -C $dist .
+    if ($LASTEXITCODE -ne 0) { throw "tar failed with exit code $LASTEXITCODE." }
+}
 
 Write-Host "`nPublished files:"
 Get-ChildItem $dist | Select-Object Name, @{ n = 'SizeMB'; e = { [math]::Round($_.Length / 1MB, 2) } } | Format-Table -AutoSize
