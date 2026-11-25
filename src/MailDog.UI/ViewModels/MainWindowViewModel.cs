@@ -851,7 +851,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public string CliDownloadBundlePath => CliBundle.DownloadPath(AppContext.BaseDirectory, AppVersion);
 
-    public bool HasCliDownload => File.Exists(CliDownloadBundlePath);
+    public bool HasCliDownload
+        => File.Exists(Path.Combine(AppContext.BaseDirectory, ProductPaths.CliExecutableName))
+            || File.Exists(CliDownloadBundlePath);
 
     public string CliUsageLogDisplayPath
         => Path.Combine(ProductPaths.DisplayDataDirectory, "logs", "cli-usage.log");
@@ -3462,14 +3464,35 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         IsDownloadingCli = true;
-        CliDownloadStatus = "正在保存到安装目录…";
+        CliDownloadStatus = "正在下载并解压到安装目录…";
 
         var destination = CliBundle.DownloadPath(AppContext.BaseDirectory, AppVersion);
 
         try
         {
             await Task.Run(() => File.Copy(bundle, destination, true)).ConfigureAwait(true);
-            CliDownloadStatus = $"已保存到安装目录：{Path.GetFileName(destination)}";
+
+            try
+            {
+                await Task.Run(() => CliBundle.Extract(destination, AppContext.BaseDirectory)).ConfigureAwait(true);
+            }
+            catch (Exception exception)
+            {
+                CliDownloadStatus = $"已下载，但解压失败：{GetErrorMessage(exception)}；压缩包保留在 {destination}";
+                OnPropertyChanged(nameof(HasCliDownload));
+                return;
+            }
+
+            try
+            {
+                File.Delete(destination);
+            }
+            catch
+            {
+                // 解压成功后压缩包删不掉就留着；下次下载会覆盖。
+            }
+
+            CliDownloadStatus = $"已解压到安装目录：{ProductPaths.CliExecutableName}、{(OperatingSystem.IsWindows() ? "maildog.cmd" : "maildog")}、maildog-cli/";
             CliCopyStatus = string.Empty;
             OnPropertyChanged(nameof(HasCliDownload));
         }
@@ -3492,31 +3515,50 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         var shim = Path.Combine(directory, OperatingSystem.IsWindows() ? "maildog.cmd" : "maildog");
         var skill = Path.Combine(directory, "maildog-cli", "SKILL.md");
         var installed = File.Exists(cli) && File.Exists(skill);
+        var hasBundle = File.Exists(bundle);
         var quote = "\"";
-
-        return string.Join(
-            Environment.NewLine,
+        var lines = new List<string>
+        {
             $"MailDog CLI（版本 {AppVersion}）",
-            $"安装目录：{directory}",
-            $"下载包：{bundle}",
-            installed
-                ? "当前文件已解压，可以直接使用。"
-                : "请先把下载包解压到安装目录，保持包内目录结构。",
-            "解压命令：",
-            OperatingSystem.IsWindows()
-                ? $"Expand-Archive -LiteralPath {quote}{bundle}{quote} -DestinationPath {quote}{directory}{quote} -Force"
-                : $"tar -xzf {quote}{bundle}{quote} -C {quote}{directory}{quote}",
-            string.Empty,
-            $"CLI：{cli}",
-            $"启动脚本：{shim}",
-            $"Skill：{skill}",
-            string.Empty,
-            "给智能体的使用约束：",
-            $"1. 先运行 {quote}{shim}{quote} schema --json 确认可用命令。",
-            "2. 读命令可以直接执行；draft / send / mark / move 先 dry-run，用户确认后才加 --confirm。",
-            "3. 不要直接读写 MailDog 的 SQLite 数据库、凭据文件或日志。",
-            "4. CLI 调用记录写在 MailDog 数据目录的 logs/cli-usage.log，只记录命令名、退出码和耗时。",
-            "5. 安装升级可能清掉安装目录顶层的 CLI；升级后重新下载并解压即可。");
+            $"安装目录：{directory}"
+        };
+
+        if (hasBundle)
+        {
+            lines.Add($"下载包：{bundle}");
+        }
+
+        if (installed)
+        {
+            lines.Add("当前文件已解压，可以直接使用。");
+        }
+        else if (hasBundle)
+        {
+            lines.Add("当前文件尚未解压，请先把下载包解压到安装目录，保持包内目录结构。");
+            lines.Add("解压命令：");
+            lines.Add(
+                OperatingSystem.IsWindows()
+                    ? $"Expand-Archive -LiteralPath {quote}{bundle}{quote} -DestinationPath {quote}{directory}{quote} -Force"
+                    : $"tar -xzf {quote}{bundle}{quote} -C {quote}{directory}{quote}");
+        }
+        else
+        {
+            lines.Add("当前文件尚未解压，下载包也不在安装目录；请先在工具页重新下载。");
+        }
+
+        lines.Add(string.Empty);
+        lines.Add($"CLI：{cli}");
+        lines.Add($"启动脚本：{shim}");
+        lines.Add($"Skill：{skill}");
+        lines.Add(string.Empty);
+        lines.Add("给智能体的使用约束：");
+        lines.Add($"1. 先运行 {quote}{shim}{quote} schema --json 确认可用命令。");
+        lines.Add("2. 读命令可以直接执行；draft / send / mark / move 先 dry-run，用户确认后才加 --confirm。");
+        lines.Add("3. 不要直接读写 MailDog 的 SQLite 数据库、凭据文件或日志。");
+        lines.Add("4. CLI 调用记录写在 MailDog 数据目录的 logs/cli-usage.log，只记录命令名、退出码和耗时。");
+        lines.Add("5. 安装升级可能清掉安装目录顶层的 CLI；升级后重新下载即可。");
+
+        return string.Join(Environment.NewLine, lines);
     }
 
     [RelayCommand]

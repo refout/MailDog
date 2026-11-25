@@ -1223,7 +1223,7 @@
 
                           <StackPanel Spacing="10">
                             <TextBlock Text="命令行工具" Classes="section" />
-                            <TextBlock Text="CLI 不随安装包预装。点击后直接把压缩包保存到软件安装目录；解压可得到 maildog 命令和 maildog-cli Skill，不会自动修改 PATH。"
+                            <TextBlock Text="CLI 不随安装包预装。点击后下载并解压到软件安装目录，得到 maildog 命令和 maildog-cli Skill；不会自动修改 PATH。解压成功后压缩包会删除，失败时保留以便重试。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
                             <Button Content="下载 CLI + Skill"
