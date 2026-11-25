@@ -1232,8 +1232,8 @@ GitHub Actions `windows-latest`：
 - ✅ 状态：版本号下方新增就地状态行，未检查时隐藏；点击后依次显示「正在检查更新…」「已是最新版本。」或「发现新版本 X。」，失败时显示原因。发现新版本时同一行出现「下载并安装」链接，便携版显示「去下载页」。
 - ✅ 链接样式：`Button.link` 统一为无底色、无边框、强调色文字；「检查更新」「下载更新」「打开项目主页」都改用该样式并带下划线，替代原来的普通按钮。
 - ✅ 验证：`dotnet build` 0 警告 0 错误；`dotnet test` 82 通过；UI Automation 实测关于页初始不显示状态，点击检查更新后显示「已是最新版本。」；窗口截图确认三个入口为文字链接。
-- ✅ 发布：tag `v0.2.5`，Release <https://github.com/refout/MailDog/releases/tag/v0.2.5>。
-- ✅ 真机升级（2026-11-25）：本机从 0.2.4 以 `/SILENT /CLOSEAPPLICATIONS /LAUNCHAPP=1` 升级，安装器退出码 0，`FileVersion` 为 0.2.5.0；旧 UI 关闭后安装器拉起新 PID。
+- ✅ 发布：tag `v0.2.5`，Release <https://github.com/refout/MailDog/releases/tag/v0.2.5>；x64 便携包 32.6 MiB、arm64 便携包 31.2 MiB、x64 安装包 23.5 MiB，安装包 SHA-256 `b1849b52e755ede0445c72902e027034c931986904c917a03f52c0856fdd8a74`。
+- ✅ 真机升级（2026-11-25）：本机从 0.2.4 以 `/SILENT /CLOSEAPPLICATIONS /LAUNCHAPP=1` 升级，安装器退出码 0，`FileVersion` 为 0.2.5.0；旧 UI 关闭后安装器拉起新 PID，窗口正常出现。
 
 ### v0.2.4（2026-11-24 发布）
 
