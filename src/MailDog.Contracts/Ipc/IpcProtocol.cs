@@ -103,6 +103,7 @@ public static class IpcMessageTypes
     public const string DeleteRule = "deleteRule";
 
     public const string NewMail = "newMail";
+    public const string MailChanged = "mailChanged";
     public const string SyncState = "syncState";
     public const string AuthState = "authState";
     public const string ShowMainWindow = "showMainWindow";

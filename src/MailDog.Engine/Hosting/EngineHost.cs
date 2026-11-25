@@ -446,15 +446,20 @@ public sealed class EngineHost : IAsyncDisposable
             }
         }
 
+        var sound = ResolveNotificationSound(settings, accountId);
+        var playSound = settings.NotificationSoundEnabled
+            && !string.Equals(sound, "none", StringComparison.OrdinalIgnoreCase);
+
         _tray?.ShowNotification(
             title,
             body,
-            settings.NotificationSoundEnabled,
-            settings.NotificationSound,
+            playSound,
+            sound,
             privacy ? null : latest.FromName,
             privacy ? null : latest.FromAddress,
             privacy ? null : extraLine,
-            BuildActivationUri(latest.Id, accountId, latest.FolderId));
+            BuildActivationUri(latest.Id, accountId, latest.FolderId),
+            actions: privacy ? null : BuildNotificationActions(latest, accountId));
     }
 
     /// <summary>同一批到达的多封邮件合并成一条，只显示数量与最新一封。</summary>
@@ -471,11 +476,15 @@ public sealed class EngineHost : IAsyncDisposable
             ? $"{Collapse(sender)}：{subject}"
             : "打开 MailDog 查看收件箱";
 
+        var sound = ResolveNotificationSound(settings, newest.AccountId);
+        var playSound = settings.NotificationSoundEnabled
+            && !string.Equals(sound, "none", StringComparison.OrdinalIgnoreCase);
+
         _tray?.ShowNotification(
             title,
             body,
-            settings.NotificationSoundEnabled,
-            settings.NotificationSound,
+            playSound,
+            sound,
             null,
             null,
             null,
@@ -485,6 +494,45 @@ public sealed class EngineHost : IAsyncDisposable
 
     private static string BuildActivationUri(long messageId, string accountId, long folderId)
         => $"{ShellIntegration.UriPrefix}mail?m={messageId}&a={Uri.EscapeDataString(accountId)}&f={folderId}";
+
+    private static string ResolveNotificationSound(AppSettingsDto settings, string accountId)
+    {
+        var perAccount = settings.AccountNotificationSounds
+            .FirstOrDefault(item => string.Equals(item.AccountId, accountId, StringComparison.Ordinal))
+            ?.Sound;
+
+        return string.IsNullOrWhiteSpace(perAccount) ? settings.NotificationSound : perAccount;
+    }
+
+    private IReadOnlyList<NotificationAction>? BuildNotificationActions(
+        MailSummaryDto latest,
+        string accountId)
+    {
+        var actions = new List<NotificationAction>(2);
+
+        if (!latest.Flags.HasFlag(MailFlags.Seen))
+        {
+            actions.Add(new NotificationAction(
+                "read",
+                "标记已读",
+                BuildActionUri("read", latest.Id, accountId, latest.FolderId)));
+        }
+
+        var archive = _store.GetFolders(accountId).FirstOrDefault(folder =>
+            folder.Role == FolderRole.Archive && folder.Id != latest.FolderId);
+        if (archive is not null)
+        {
+            actions.Add(new NotificationAction(
+                "archive",
+                "归档",
+                BuildActionUri("archive", latest.Id, accountId, latest.FolderId)));
+        }
+
+        return actions.Count == 0 ? null : actions;
+    }
+
+    private static string BuildActionUri(string action, long messageId, string accountId, long folderId)
+        => $"{ShellIntegration.UriPrefix}action?do={action}&m={messageId}&a={Uri.EscapeDataString(accountId)}&f={folderId}";
 
     private static string Collapse(string value)
         => string.Join(' ', value.Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries)).Trim();
@@ -500,6 +548,12 @@ public sealed class EngineHost : IAsyncDisposable
         if (uri.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
         {
             ActivateCompose(uri);
+            return;
+        }
+
+        if (ParseNotificationAction(uri) is { } notificationAction)
+        {
+            _ = Task.Run(() => HandleNotificationActionAsync(notificationAction));
             return;
         }
 
@@ -564,6 +618,105 @@ public sealed class EngineHost : IAsyncDisposable
         }
 
         return null;
+    }
+
+    private static (string Action, long MessageId, string AccountId, long FolderId)? ParseNotificationAction(string uri)
+    {
+        try
+        {
+            if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed)
+                || !string.Equals(parsed.Scheme, "maildog", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            long messageId = 0;
+            long folderId = 0;
+            var accountId = string.Empty;
+            var action = string.Empty;
+
+            foreach (var pair in parsed.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = pair.Split('=', 2);
+                if (parts.Length != 2)
+                {
+                    continue;
+                }
+
+                switch (parts[0])
+                {
+                    case "do":
+                        action = parts[1];
+                        break;
+                    case "m":
+                        long.TryParse(parts[1], out messageId);
+                        break;
+                    case "f":
+                        long.TryParse(parts[1], out folderId);
+                        break;
+                    case "a":
+                        accountId = Uri.UnescapeDataString(parts[1]);
+                        break;
+                }
+            }
+
+            return action is "read" or "archive" && messageId > 0 && accountId.Length > 0
+                ? (action, messageId, accountId, folderId)
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task HandleNotificationActionAsync(
+        (string Action, long MessageId, string AccountId, long FolderId) action)
+    {
+        try
+        {
+            var message = _store.GetMessage(action.MessageId);
+            if (message is null
+                || !string.Equals(message.AccountId, action.AccountId, StringComparison.Ordinal))
+            {
+                _log.Warn($"通知操作找不到邮件：{action.MessageId}");
+                return;
+            }
+
+            var sourceFolderId = action.FolderId > 0 ? action.FolderId : message.FolderId;
+
+            if (action.Action == "read")
+            {
+                await _sync.SetSeenAsync(action.MessageId, true, _cts.Token).ConfigureAwait(false);
+            }
+            else
+            {
+                var archive = _store.GetFolders(action.AccountId).FirstOrDefault(folder =>
+                    folder.Role == FolderRole.Archive && folder.Id != message.FolderId);
+
+                if (archive is null)
+                {
+                    _log.Warn($"通知归档失败：账户 {action.AccountId} 没有归档文件夹。");
+                    return;
+                }
+
+                await _sync.MoveMessageAsync(action.MessageId, archive.Id, _cts.Token).ConfigureAwait(false);
+            }
+
+            _ipc.Broadcast(IpcMessageTypes.MailChanged, new MailChangedEvent
+            {
+                AccountId = action.AccountId,
+                MessageId = action.MessageId,
+                FolderId = sourceFolderId,
+                Change = action.Action == "read" ? "flags" : "moved"
+            });
+
+            _tray?.UpdateUnreadCount(TotalUnread());
+        }
+        catch (Exception exception)
+        {
+            _log.Warn($"通知操作执行失败：{exception.Message}");
+        }
     }
 
     private static (long MessageId, string AccountId, long FolderId)? ParseActivation(string uri)

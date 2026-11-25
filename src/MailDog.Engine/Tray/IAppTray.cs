@@ -18,7 +18,8 @@ public interface IAppTray : IDisposable
         string? senderAddress = null,
         string? preview = null,
         string? activationUri = null,
-        string? tag = null);
+        string? tag = null,
+        IReadOnlyList<NotificationAction>? actions = null);
 
     void Quit();
 }

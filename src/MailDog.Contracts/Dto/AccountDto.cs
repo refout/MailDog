@@ -117,6 +117,9 @@ public sealed class AppSettingsDto
     /// <summary>用户保存的邮件模板；正文支持 {{date}} 等变量。</summary>
     public IReadOnlyList<MailTemplateDto> Templates { get; init; } = [];
 
+    /// <summary>按账户覆盖的通知铃声；空字符串表示跟随全局，none 表示静音。</summary>
+    public IReadOnlyList<AccountNotificationSoundDto> AccountNotificationSounds { get; init; } = [];
+
     /// <summary>启动或空闲后锁定界面。</summary>
     public bool AppLockEnabled { get; init; }
 
@@ -140,6 +143,14 @@ public sealed class AccountSignatureDto
     public string AccountId { get; init; } = string.Empty;
 
     public string Signature { get; init; } = string.Empty;
+}
+
+public sealed class AccountNotificationSoundDto
+{
+    public string AccountId { get; init; } = string.Empty;
+
+    /// <summary>default/mail/reminder/asterisk/warning/beep/question/start；none 为静音，空为跟随全局。</summary>
+    public string Sound { get; init; } = string.Empty;
 }
 
 public sealed class MailTemplateDto

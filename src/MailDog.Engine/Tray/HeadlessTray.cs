@@ -50,7 +50,8 @@ internal sealed class HeadlessTray : IAppTray
         string? senderAddress = null,
         string? preview = null,
         string? activationUri = null,
-        string? tag = null)
+        string? tag = null,
+        IReadOnlyList<NotificationAction>? actions = null)
     {
         var body = string.IsNullOrWhiteSpace(preview) ? message : $"{message}\n{preview}";
         LinuxNotifier.Show(
@@ -58,7 +59,8 @@ internal sealed class HeadlessTray : IAppTray
             body,
             activationUri,
             uri => _activated(uri),
-            () => _notificationClicked());
+            () => _notificationClicked(),
+            actions);
     }
 
     public void Quit()

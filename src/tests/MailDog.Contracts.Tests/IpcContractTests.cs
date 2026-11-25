@@ -224,6 +224,28 @@ public sealed class IpcContractTests
     }
 
     [Fact]
+    public void MailChangedEventRoundTrips()
+    {
+        var envelope = IpcCodecRegistry.Create(
+            IpcMessageTypes.MailChanged,
+            new MailChangedEvent
+            {
+                AccountId = "account-1",
+                MessageId = 42,
+                FolderId = 7,
+                Change = "moved"
+            });
+
+        var parsed = Assert.IsType<MailChangedEvent>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(envelope))));
+
+        Assert.Equal("account-1", parsed.AccountId);
+        Assert.Equal(42, parsed.MessageId);
+        Assert.Equal(7, parsed.FolderId);
+        Assert.Equal("moved", parsed.Change);
+    }
+
+    [Fact]
     public void OAuthDtosAreCoveredBySourceGeneratedContext()
     {
         Assert.NotNull(IpcJsonContext.Default.GetTypeInfo(typeof(OAuthTokenResponse)));

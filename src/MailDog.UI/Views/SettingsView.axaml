@@ -402,6 +402,33 @@
                                            Content="启动"
                                            IsChecked="{Binding IsSoundStart}" />
                             </WrapPanel>
+                            <TextBlock Text="按账户铃声" Classes="section" Margin="0,8,0,0" />
+                            <TextBlock Text="账户可以单独选择铃声或静音；没有单独设置的账户跟随上面的全局铃声。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <ItemsControl ItemsSource="{Binding AccountSoundSettings}">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AccountSoundViewModel">
+                                  <Grid ColumnDefinitions="*,180" Margin="0,2">
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <ComboBox Grid.Column="1"
+                                              ItemsSource="{Binding Options}"
+                                              SelectedItem="{Binding SelectedOption, Mode=TwoWay}">
+                                      <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:NotificationSoundOption">
+                                          <TextBlock Text="{Binding Label}" />
+                                        </DataTemplate>
+                                      </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                  </Grid>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="添加账户后这里会自动出现对应条目。"
+                                       Classes="caption"
+                                       IsVisible="{Binding !HasAccountSoundSettings}" />
                           </StackPanel>
                         </StackPanel>
                       </StackPanel>

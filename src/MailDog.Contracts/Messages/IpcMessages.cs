@@ -580,6 +580,20 @@ public sealed class NewMailEvent : Ipc.IIpcMessage
     public long[] NewMessageIds { get; init; } = [];
 }
 
+/// <summary>通知快捷动作等后台操作改动了邮件；界面据此刷新当前文件夹。</summary>
+public sealed class MailChangedEvent : Ipc.IIpcMessage
+{
+    public string AccountId { get; init; } = string.Empty;
+
+    public long MessageId { get; init; }
+
+    /// <summary>改动前的文件夹；移动后界面仍按这个文件夹判断是否需要刷新。</summary>
+    public long FolderId { get; init; }
+
+    /// <summary>flags / moved。</summary>
+    public string Change { get; init; } = "flags";
+}
+
 public sealed class SyncStateEvent : Ipc.IIpcMessage
 {
     public string AccountId { get; init; } = string.Empty;

@@ -24,6 +24,8 @@ internal static class ToastNotifier
         bool playSound,
         string? tag,
         string? activationUri,
+        string? sound = null,
+        IReadOnlyList<NotificationAction>? actions = null,
         string? appId = null)
     {
         if (!OperatingSystem.IsWindows())
@@ -33,7 +35,7 @@ internal static class ToastNotifier
 
         try
         {
-            var xml = BuildPayload(title, body, preview, attribution, avatarPath, playSound, activationUri);
+            var xml = BuildPayload(title, body, preview, attribution, avatarPath, playSound, activationUri, sound, actions);
 
             var document = new XmlDocument();
             document.LoadXml(xml);
@@ -68,7 +70,9 @@ internal static class ToastNotifier
         string? attribution,
         string? avatarPath,
         bool playSound,
-        string? activationUri)
+        string? activationUri,
+        string? sound,
+        IReadOnlyList<NotificationAction>? actions)
     {
         var builder = new StringBuilder(640);
 
@@ -109,9 +113,24 @@ internal static class ToastNotifier
 
         builder.Append("</binding></visual>");
 
-        if (playSound)
+        if (actions is { Count: > 0 })
         {
-            builder.Append("<audio src=\"").Append(MailSound).Append("\" loop=\"false\"/>");
+            builder.Append("<actions>");
+            foreach (var action in actions)
+            {
+                builder.Append("<action content=\"")
+                    .Append(Escape(action.Label))
+                    .Append("\" arguments=\"")
+                    .Append(Escape(action.Uri))
+                    .Append("\" activationType=\"protocol\"/>");
+            }
+
+            builder.Append("</actions>");
+        }
+
+        if (playSound && !string.Equals(sound, "none", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.Append("<audio src=\"").Append(ResolveSoundEvent(sound)).Append("\" loop=\"false\"/>");
         }
         else
         {
@@ -121,6 +140,19 @@ internal static class ToastNotifier
         builder.Append("</toast>");
         return builder.ToString();
     }
+
+    private static string ResolveSoundEvent(string? sound)
+        => sound switch
+        {
+            "default" => "ms-winsoundevent:Notification.Default",
+            "reminder" => "ms-winsoundevent:Notification.Reminder",
+            "asterisk" => "ms-winsoundevent:Notification.IM",
+            "warning" => "ms-winsoundevent:Notification.Reminder",
+            "beep" => "ms-winsoundevent:Notification.Default",
+            "question" => "ms-winsoundevent:Notification.Reminder",
+            "start" => "ms-winsoundevent:Notification.Default",
+            _ => MailSound
+        };
 
     private static string ToFileUri(string path)
         => new Uri(path).AbsoluteUri;

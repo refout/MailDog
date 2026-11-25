@@ -95,6 +95,7 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.DeleteRule, IpcJsonContext.Default.DeleteRuleRequest);
 
         Register(IpcMessageTypes.NewMail, IpcJsonContext.Default.NewMailEvent);
+        Register(IpcMessageTypes.MailChanged, IpcJsonContext.Default.MailChangedEvent);
         Register(IpcMessageTypes.SyncState, IpcJsonContext.Default.SyncStateEvent);
         Register(IpcMessageTypes.AuthState, IpcJsonContext.Default.AuthStateEvent);
         Register(IpcMessageTypes.ShowMainWindow, IpcJsonContext.Default.ShowMainWindowEvent);

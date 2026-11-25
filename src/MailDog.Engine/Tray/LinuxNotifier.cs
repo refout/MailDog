@@ -13,12 +13,13 @@ internal static class LinuxNotifier
         string message,
         string? activationUri = null,
         Action<string>? activated = null,
-        Action? activatedWithoutTarget = null)
+        Action? activatedWithoutTarget = null,
+        IReadOnlyList<NotificationAction>? actions = null)
     {
         try
         {
-            var useAction = activationUri is not null && SupportsActions();
-            var startInfo = CreateStartInfo(title, message, useAction);
+            var useAction = (activationUri is not null || actions is { Count: > 0 }) && SupportsActions();
+            var startInfo = CreateStartInfo(title, message, useAction, actions);
 
             if (!useAction)
             {
@@ -30,7 +31,8 @@ internal static class LinuxNotifier
             // 进程会一直等到用户点击或通知过期，所以这里异步等，不阻塞收信线程。
             var process = new Process { StartInfo = startInfo };
             process.Start();
-            _ = Task.Run(() => ReadActionAndCloseAsync(process, activationUri, activated, activatedWithoutTarget));
+            _ = Task.Run(() =>
+                ReadActionAndCloseAsync(process, activationUri, actions, activated, activatedWithoutTarget));
         }
         catch (Exception exception)
         {
@@ -41,7 +43,11 @@ internal static class LinuxNotifier
         }
     }
 
-    private static ProcessStartInfo CreateStartInfo(string title, string message, bool useAction)
+    private static ProcessStartInfo CreateStartInfo(
+        string title,
+        string message,
+        bool useAction,
+        IReadOnlyList<NotificationAction>? actions)
     {
         var startInfo = new ProcessStartInfo("notify-send")
         {
@@ -57,6 +63,12 @@ internal static class LinuxNotifier
         {
             // default 是桌面环境约定的“点通知正文”动作。
             startInfo.ArgumentList.Add("--action=default=打开");
+
+            foreach (var action in actions ?? [])
+            {
+                startInfo.ArgumentList.Add($"--action={action.Id}={action.Label}");
+            }
+
             startInfo.ArgumentList.Add("--wait");
         }
 
@@ -114,6 +126,7 @@ internal static class LinuxNotifier
     private static async Task ReadActionAndCloseAsync(
         Process process,
         string? activationUri,
+        IReadOnlyList<NotificationAction>? actions,
         Action<string>? activated,
         Action? activatedWithoutTarget)
     {
@@ -142,11 +155,24 @@ internal static class LinuxNotifier
             var output = await outputTask.ConfigureAwait(false);
             foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
-                if (IsDefaultAction(line))
+                var value = line.Trim();
+                if (value.StartsWith("action=", StringComparison.Ordinal))
+                {
+                    value = value["action=".Length..];
+                }
+
+                if (value == "default")
                 {
                     try
                     {
-                        activated?.Invoke(activationUri!);
+                        if (activationUri is { Length: > 0 })
+                        {
+                            activated?.Invoke(activationUri);
+                        }
+                        else
+                        {
+                            activatedWithoutTarget?.Invoke();
+                        }
                     }
                     catch
                     {
@@ -156,7 +182,23 @@ internal static class LinuxNotifier
                     return;
                 }
 
-                if (IsAnyAction(line))
+                var action = actions?.FirstOrDefault(item =>
+                    string.Equals(item.Id, value, StringComparison.Ordinal));
+                if (action is not null)
+                {
+                    try
+                    {
+                        activated?.Invoke(action.Uri);
+                    }
+                    catch
+                    {
+                        // 同上。
+                    }
+
+                    return;
+                }
+
+                if (IsAnyAction(value))
                 {
                     activatedWithoutTarget?.Invoke();
                     return;
@@ -173,11 +215,8 @@ internal static class LinuxNotifier
         }
     }
 
-    private static bool IsDefaultAction(string? line)
+    private static bool IsAnyAction(string? line)
         => line is not null
-            && (line.Trim() == "default" || line.Trim() == "action=default");
-
-    private static bool IsAnyAction(string line)
-        => line.TrimStart().StartsWith("action=", StringComparison.Ordinal)
-            || line.Trim() is "1" or "2" or "3";
+            && (line.TrimStart().StartsWith("action=", StringComparison.Ordinal)
+                || line.Trim() is "1" or "2" or "3");
 }

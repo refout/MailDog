@@ -213,7 +213,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(SelectedMessageInTrash))]
     [NotifyPropertyChangedFor(nameof(SelectedMessageInDrafts))]
     [NotifyPropertyChangedFor(nameof(DeleteActionText))]
+    [NotifyPropertyChangedFor(nameof(HasSelectedMessage))]
+    [NotifyPropertyChangedFor(nameof(HasThreadMessages))]
     private MailSummaryViewModel? _selectedMessage;
+
+    public bool HasSelectedMessage => SelectedMessage is not null;
+
+    public bool HasThreadMessages => SelectedMessage?.ThreadCount > 1;
 
     public FolderViewModel? SelectedMessageFolder => SelectedMessage is null
         ? null
@@ -625,6 +631,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private readonly Dictionary<string, string> _accountSignatures = new(StringComparer.Ordinal);
     private bool _suppressSignatureSync;
+
+    private readonly Dictionary<string, string> _accountNotificationSounds = new(StringComparer.Ordinal);
+    private bool _suppressAccountSoundSync;
+
+    public ObservableCollection<AccountSoundViewModel> AccountSoundSettings { get; } = [];
+
+    public bool HasAccountSoundSettings => AccountSoundSettings.Count > 0;
 
     public ObservableCollection<TagViewModel> Tags { get; } = [];
 
@@ -3413,6 +3426,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             Templates = Templates
                 .Select(item => item.Template)
                 .ToArray(),
+            AccountNotificationSounds = _accountNotificationSounds
+                .Select(pair => new AccountNotificationSoundDto
+                {
+                    AccountId = pair.Key,
+                    Sound = pair.Value
+                })
+                .ToArray(),
             AppLockEnabled = _savedAppLockEnabled,
             AppLockHash = _appLockHash,
             AppLockSalt = _appLockSalt,
@@ -3876,6 +3896,58 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         _accountSignatures[SelectedSignatureAccount.Id] = value;
+        QueueSettingsSave();
+    }
+
+    private void RebuildAccountSoundSettings()
+    {
+        _suppressAccountSoundSync = true;
+        try
+        {
+            var activeIds = Accounts.Select(account => account.Id).ToHashSet(StringComparer.Ordinal);
+            foreach (var stale in _accountNotificationSounds.Keys
+                         .Where(accountId => !activeIds.Contains(accountId))
+                         .ToArray())
+            {
+                _accountNotificationSounds.Remove(stale);
+            }
+
+            AccountSoundSettings.Clear();
+            foreach (var account in Accounts)
+            {
+                var sound = _accountNotificationSounds.GetValueOrDefault(account.Id) ?? string.Empty;
+                var display = string.IsNullOrWhiteSpace(account.DisplayName) ? account.Email : account.DisplayName;
+                AccountSoundSettings.Add(new AccountSoundViewModel(
+                    account.Id,
+                    display,
+                    sound,
+                    OnAccountSoundChanged));
+            }
+        }
+        finally
+        {
+            _suppressAccountSoundSync = false;
+        }
+
+        OnPropertyChanged(nameof(HasAccountSoundSettings));
+    }
+
+    private void OnAccountSoundChanged(AccountSoundViewModel setting)
+    {
+        if (_suppressAccountSoundSync)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(setting.Sound))
+        {
+            _accountNotificationSounds.Remove(setting.AccountId);
+        }
+        else
+        {
+            _accountNotificationSounds[setting.AccountId] = setting.Sound;
+        }
+
         QueueSettingsSave();
     }
 
@@ -4997,6 +5069,104 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>把当前邮件或整个会话渲染成适合打印的独立 HTML；正文沿用阅读区的净化流程。</summary>
+    public async Task<string?> BuildPrintHtmlAsync(bool includeThread)
+    {
+        if (SelectedMessage is not { } selected)
+        {
+            return null;
+        }
+
+        var targets = includeThread && selected.ThreadCount > 1
+            ? selected.ThreadMessages.OrderBy(message => message.Date).ToArray()
+            : [selected];
+
+        var content = new System.Text.StringBuilder(targets.Length * 4096);
+
+        foreach (var message in targets)
+        {
+            try
+            {
+                var response = await _engine.RequestAsync<MessageBodyResponse>(
+                    IpcMessageTypes.GetMessageBody,
+                    new GetMessageBodyRequest { MessageId = message.Id },
+                    TimeSpan.FromSeconds(IpcProtocol.BodyRequestTimeoutSeconds));
+
+                var body = response.Body;
+                var sanitized = _sanitizer.Sanitize(body.Html, _allowRemoteImages);
+                var hasHtml = !string.IsNullOrWhiteSpace(sanitized.Html);
+
+                content.Append("<section class=\"maildog-thread-message\">")
+                    .Append("<div class=\"maildog-print-subject\">")
+                    .Append(System.Net.WebUtility.HtmlEncode(
+                        string.IsNullOrWhiteSpace(body.Subject) ? "（无主题）" : body.Subject))
+                    .Append("</div>")
+                    .Append("<div class=\"maildog-print-meta\">")
+                    .Append(System.Net.WebUtility.HtmlEncode(
+                        string.IsNullOrWhiteSpace(body.FromName) ? body.FromAddress : body.FromName))
+                    .Append(" &lt;")
+                    .Append(System.Net.WebUtility.HtmlEncode(body.FromAddress))
+                    .Append("&gt; · ")
+                    .Append(System.Net.WebUtility.HtmlEncode(body.Date.ToLocalTime().ToString("yyyy-MM-dd HH:mm")))
+                    .Append("</div>");
+
+                if (body.Attachments.Length > 0)
+                {
+                    content.Append("<div class=\"maildog-print-meta\">附件：")
+                        .Append(System.Net.WebUtility.HtmlEncode(
+                            string.Join("、", body.Attachments.Select(attachment => attachment.FileName))))
+                        .Append("</div>");
+                }
+
+                content.Append("<div class=\"maildog-print-body\">");
+                if (hasHtml)
+                {
+                    content.Append(sanitized.Html);
+                }
+                else
+                {
+                    var plain = string.IsNullOrWhiteSpace(body.PlainText)
+                        ? "此邮件没有可显示的正文。"
+                        : body.PlainText;
+                    content.Append("<pre class=\"maildog-print-plain\">")
+                        .Append(System.Net.WebUtility.HtmlEncode(plain))
+                        .Append("</pre>");
+                }
+
+                content.Append("</div></section>");
+            }
+            catch (Exception exception)
+            {
+                content.Append("<section class=\"maildog-thread-message\"><p class=\"maildog-print-error\">")
+                    .Append(System.Net.WebUtility.HtmlEncode($"这封邮件正文加载失败：{GetErrorMessage(exception)}"))
+                    .Append("</p></section>");
+            }
+        }
+
+        return _builder.Build(
+            content.ToString(),
+            darkMode: false,
+            allowRemoteImages: _allowRemoteImages,
+            bodyBackground: null,
+            extraCss: PrintCss);
+    }
+
+    private const string PrintCss = """
+        @page { size: A4; margin: 12mm; }
+        .maildog-thread-message { margin: 0 0 22px; padding-bottom: 16px; border-bottom: 1px solid #dddddd; }
+        .maildog-thread-message:last-child { border-bottom: none; }
+        .maildog-print-subject { font-size: 18px; font-weight: 600; line-height: 1.35; margin: 0 0 6px; }
+        .maildog-print-meta { color: #5c5c5c; font-size: 12px; margin: 0 0 12px; }
+        .maildog-print-body { font-size: 14px; }
+        .maildog-print-plain { white-space: pre-wrap; background: #f6f6f6; padding: 12px; border-radius: 6px; }
+        .maildog-print-error { color: #a4262c; }
+        @media print {
+          body { padding: 0; background: #ffffff; }
+          .maildog-mail { padding: 0; border-radius: 0; }
+          a { color: #000000; text-decoration: underline; }
+        }
+        """;
+
     public async Task ExportSelectedMessageAsync(string destinationPath)
     {
         if (SelectedMessage is not { } message)
@@ -5528,6 +5698,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 }
             }
 
+            _accountNotificationSounds.Clear();
+            foreach (var item in _settings.AccountNotificationSounds)
+            {
+                if (!string.IsNullOrWhiteSpace(item.AccountId)
+                    && !string.IsNullOrWhiteSpace(item.Sound))
+                {
+                    _accountNotificationSounds[item.AccountId] = item.Sound;
+                }
+            }
+
             SelectedSignatureAccount ??= Accounts.FirstOrDefault();
             ReloadTemplateList(_settings.Templates);
             SendDelayIndex = _settings.SendDelaySeconds switch
@@ -5664,6 +5844,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 SelectedUnifiedFolder = UnifiedFolders.FirstOrDefault();
             }
         }
+
+        RebuildAccountSoundSettings();
     }
 
     /// <summary>加载所有账户的文件夹，构建左侧两级树与统一文件夹计数。</summary>
@@ -6502,6 +6684,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             {
                 case NewMailEvent newMail:
                     if (IsFolderInActiveScope(newMail.FolderId))
+                    {
+                        await RefreshMessagesAsync();
+                    }
+
+                    break;
+
+                case MailChangedEvent changed:
+                    if (IsFolderInActiveScope(changed.FolderId))
                     {
                         await RefreshMessagesAsync();
                     }

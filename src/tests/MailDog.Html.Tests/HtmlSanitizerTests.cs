@@ -213,6 +213,21 @@ public sealed class HtmlSanitizerTests
         Assert.DoesNotContain("border: 1px solid", document);
     }
 
+    [Fact]
+    public void BuilderAppendsPrintCssAfterBaseStyles()
+    {
+        var document = _builder.Build(
+            "<p>正文</p>",
+            darkMode: false,
+            allowRemoteImages: false,
+            extraCss: "@page { size: A4; } .maildog-print-subject { font-weight: 600; }");
+
+        Assert.Contains("@page { size: A4; }", document);
+        Assert.Contains(".maildog-print-subject", document);
+        Assert.Contains("<div class=\"maildog-mail\"><p>正文</p></div>", document);
+        Assert.DoesNotContain("color-scheme: dark", document);
+    }
+
     private static int CountOccurrences(string input, string value)
     {
         var count = 0;

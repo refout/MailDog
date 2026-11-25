@@ -83,7 +83,8 @@ public sealed class HtmlDocumentBuilder
         string sanitizedHtml,
         bool darkMode,
         bool allowRemoteImages,
-        string? bodyBackground = null)
+        string? bodyBackground = null,
+        string? extraCss = null)
     {
         var imageSource = allowRemoteImages ? "https: data:" : "data:";
         var css = darkMode ? DarkCss : LightCss;
@@ -98,7 +99,7 @@ public sealed class HtmlDocumentBuilder
             .Append("connect-src 'none'; form-action 'none'; base-uri 'none'\">")
             .Append("<meta name=\"referrer\" content=\"no-referrer\">")
             .Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
-            .Append("<style>").Append(css).Append("</style>")
+            .Append("<style>").Append(css).Append(extraCss ?? string.Empty).Append("</style>")
             .Append("</head><body");
 
         if (!string.IsNullOrWhiteSpace(bodyBackground))

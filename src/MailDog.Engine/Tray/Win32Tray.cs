@@ -185,7 +185,8 @@ public sealed class Win32Tray : IAppTray
         string? senderAddress = null,
         string? preview = null,
         string? activationUri = null,
-        string? tag = null)
+        string? tag = null,
+        IReadOnlyList<NotificationAction>? actions = null)
     {
         // 优先走正式 toast：只有 toast 会落进通知中心，也才有头部应用图标。
         var avatarPath = _avatars.GetAvatarPng(senderName, senderAddress);
@@ -193,7 +194,17 @@ public sealed class Win32Tray : IAppTray
             ? message
             : $"{senderAddress}_{message}");
 
-        if (ToastNotifier.TryShow(title, message, preview, senderAddress, avatarPath, playSound, effectiveTag, activationUri))
+        if (ToastNotifier.TryShow(
+                title,
+                message,
+                preview,
+                senderAddress,
+                avatarPath,
+                playSound,
+                effectiveTag,
+                activationUri,
+                sound,
+                actions))
         {
             return;
         }

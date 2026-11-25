@@ -6,6 +6,31 @@ namespace MailDog.Contracts.Serialization;
 /// <summary>settings 表里的复合字段统一走源生成 JSON，避免 AOT 下反射序列化。</summary>
 public static class SettingsJson
 {
+    public static string SerializeAccountNotificationSounds(
+        IReadOnlyList<AccountNotificationSoundDto> sounds)
+        => JsonSerializer.Serialize(
+            (sounds ?? []).ToArray(),
+            IpcJsonContext.Default.AccountNotificationSoundDtoArray);
+
+    public static IReadOnlyList<AccountNotificationSoundDto> DeserializeAccountNotificationSounds(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(
+                json,
+                IpcJsonContext.Default.AccountNotificationSoundDtoArray) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
     public static string SerializeTemplates(IReadOnlyList<MailTemplateDto> templates)
         => JsonSerializer.Serialize(
             (templates ?? []).ToArray(),

@@ -1212,6 +1212,8 @@ public sealed class SqliteStore : IDisposable
             Signature = values.GetValueOrDefault("signature") ?? string.Empty,
             AccountSignatures = SettingsJson.DeserializeAccountSignatures(values.GetValueOrDefault("accountSignatures")),
             Templates = SettingsJson.DeserializeTemplates(values.GetValueOrDefault("templates")),
+            AccountNotificationSounds = SettingsJson.DeserializeAccountNotificationSounds(
+                values.GetValueOrDefault("accountNotificationSounds")),
             AppLockEnabled = values.GetValueOrDefault("appLockEnabled") == "1",
             AppLockHash = values.GetValueOrDefault("appLockHash") ?? string.Empty,
             AppLockSalt = values.GetValueOrDefault("appLockSalt") ?? string.Empty,
@@ -1254,6 +1256,8 @@ public sealed class SqliteStore : IDisposable
             UpsertSetting(transaction, "signature", settings.Signature);
             UpsertSetting(transaction, "accountSignatures", SettingsJson.SerializeAccountSignatures(settings.AccountSignatures));
             UpsertSetting(transaction, "templates", SettingsJson.SerializeTemplates(settings.Templates));
+            UpsertSetting(transaction, "accountNotificationSounds",
+                SettingsJson.SerializeAccountNotificationSounds(settings.AccountNotificationSounds));
             UpsertSetting(transaction, "appLockEnabled", settings.AppLockEnabled ? "1" : "0");
             UpsertSetting(transaction, "appLockHash", settings.AppLockHash);
             UpsertSetting(transaction, "appLockSalt", settings.AppLockSalt);

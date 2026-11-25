@@ -1155,6 +1155,14 @@
                         <ic:FluentIcon Icon="ArrowDownload" IconSize="Size16" />
                       </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem Header="导出当前邮件为 PDF" Click="OnExportPdfClick" />
+                    <MenuItem Header="导出整个会话为 PDF"
+                              Click="OnExportThreadPdfClick"
+                              IsEnabled="{Binding HasThreadMessages}" />
+                    <MenuItem Header="打印当前邮件" Click="OnPrintMessageClick" />
+                    <MenuItem Header="打印整个会话"
+                              Click="OnPrintThreadClick"
+                              IsEnabled="{Binding HasThreadMessages}" />
                     <Separator />
                     <MenuItem Header="标记为已读/未读" Command="{Binding ToggleReadCommand}">
                       <MenuItem.Icon>

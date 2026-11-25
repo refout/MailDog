@@ -53,6 +53,11 @@ public sealed class SqliteStoreTests : IDisposable
             [
                 new AccountSignatureDto { AccountId = "account-1", Signature = "账户签名" }
             ],
+            AccountNotificationSounds =
+            [
+                new AccountNotificationSoundDto { AccountId = "account-1", Sound = "reminder" },
+                new AccountNotificationSoundDto { AccountId = "account-2", Sound = "none" }
+            ],
             Templates =
             [
                 new MailTemplateDto
@@ -100,6 +105,19 @@ public sealed class SqliteStoreTests : IDisposable
         var signature = Assert.Single(loaded.AccountSignatures);
         Assert.Equal("account-1", signature.AccountId);
         Assert.Equal("账户签名", signature.Signature);
+
+        Assert.Collection(
+            loaded.AccountNotificationSounds,
+            sound =>
+            {
+                Assert.Equal("account-1", sound.AccountId);
+                Assert.Equal("reminder", sound.Sound);
+            },
+            sound =>
+            {
+                Assert.Equal("account-2", sound.AccountId);
+                Assert.Equal("none", sound.Sound);
+            });
 
         var template = Assert.Single(loaded.Templates);
         Assert.Equal("template-1", template.Id);
