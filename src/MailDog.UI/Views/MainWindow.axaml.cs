@@ -75,6 +75,8 @@ public partial class MainWindow : Window
         viewModel.Messages.CollectionChanged += OnMessagesCollectionChanged;
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
         SizeChanged += OnWindowSizeChanged;
+        PointerMoved += (_, _) => _viewModel.NoteUserActivity();
+        PointerPressed += (_, _) => _viewModel.NoteUserActivity();
         Opened += OnOpened;
         KeyDown += OnWindowKeyDown;
         AddHandler(KeyDownEvent, OnWindowPreviewKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -571,6 +573,11 @@ public partial class MainWindow : Window
         {
             ApplyAppearance();
         }
+
+        if (e.PropertyName is nameof(MainWindowViewModel.IsAppLocked) && _viewModel.IsAppLocked)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => UnlockPinBox.Focus());
+        }
     }
 
     private void ApplyAppearance()
@@ -866,6 +873,12 @@ public partial class MainWindow : Window
     /// <summary>Esc 必须走隧道阶段，否则写作页里的 TextBox 会先吃掉按键。</summary>
     private void OnWindowPreviewKeyDown(object? sender, KeyEventArgs e)
     {
+        _viewModel.NoteUserActivity();
+        if (_viewModel.IsAppLocked)
+        {
+            return;
+        }
+
         if (e.Key != Key.Escape)
         {
             return;
@@ -887,6 +900,12 @@ public partial class MainWindow : Window
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        _viewModel.NoteUserActivity();
+        if (_viewModel.IsAppLocked)
+        {
+            return;
+        }
+
         var control = e.KeyModifiers.HasFlag(KeyModifiers.Control);
         var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         var editable = e.Source is TextBox;

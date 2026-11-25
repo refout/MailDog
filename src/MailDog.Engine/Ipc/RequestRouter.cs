@@ -268,6 +268,28 @@ public sealed class RequestRouter
                         .ConfigureAwait(false)
                 };
 
+            case GetTagsRequest:
+                return new TagsResponse { Items = _store.GetTags().ToArray() };
+
+            case SaveTagRequest request:
+                return new TagsResponse { Items = [_store.SaveTag(request.Tag)] };
+
+            case DeleteTagRequest request:
+                _store.DeleteTag(request.TagId);
+                return new OkResponse { Affected = 1 };
+
+            case GetMessageTagsRequest request:
+                return new MessageTagsResponse
+                {
+                    Items = _store.GetMessageTags(request.MessageIds).ToArray()
+                };
+
+            case SetMessageTagsRequest request:
+                return new OkResponse
+                {
+                    Affected = _store.SetMessageTags(request.MessageIds, request.TagIds, request.Add)
+                };
+
             case SyncAccountRequest request:
                 if (string.IsNullOrEmpty(request.AccountId))
                 {
@@ -293,10 +315,16 @@ public sealed class RequestRouter
                 return new StorageCleanupResponse { Result = _storage.Clean(request) };
 
             case CreateBackupRequest request:
-                return new BackupResponse { Result = _backup.CreateBackup(request.DestinationPath) };
+                return new BackupResponse
+                {
+                    Result = _backup.CreateBackup(request.DestinationPath, request.Password)
+                };
 
             case RestoreBackupRequest request:
-                return new RestoreResponse { Result = _backup.StageRestore(request.ArchivePath) };
+                return new RestoreResponse
+                {
+                    Result = _backup.StageRestore(request.ArchivePath, request.Password)
+                };
 
             case ExportMessageRequest request:
             {

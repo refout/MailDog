@@ -72,6 +72,12 @@
                 </ListBoxItem>
                 <ListBoxItem Padding="10,8">
                   <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ic:FluentIcon Icon="Tag" IconSize="Size16" />
+                    <TextBlock Text="标签" FontSize="13" VerticalAlignment="Center" />
+                  </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Padding="10,8">
+                  <StackPanel Orientation="Horizontal" Spacing="12">
                     <ic:FluentIcon Icon="Info" IconSize="Size16" />
                     <TextBlock Text="关于" FontSize="13" VerticalAlignment="Center" />
                   </StackPanel>
@@ -1177,9 +1183,13 @@
 
                         <StackPanel Spacing="10">
                             <TextBlock Text="备份与恢复" Classes="section" />
-                            <TextBlock Text="备份会生成包含本地数据库的 ZIP。恢复只在下次启动 Engine 时替换数据库，启动前会先复制当前数据库。"
+                            <TextBlock Text="备份会生成包含本地数据库的 ZIP。填写密码则生成 AES-256-GCM 加密的 .mdog 备份；恢复只在下次启动 Engine 时替换数据库，启动前会先复制当前数据库。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
+                            <TextBox Text="{Binding BackupPassword, Mode=TwoWay}"
+                                     PasswordChar="●"
+                                     PlaceholderText="备份密码（留空则生成普通 ZIP）"
+                                     MaxLength="128" />
                             <WrapPanel>
                               <Button Content="创建备份"
                                       Click="OnCreateBackupClick"
@@ -1244,9 +1254,69 @@
                                        Classes="caption"
                                        TextWrapping="Wrap" />
                           </StackPanel>
+
+                          <StackPanel Spacing="8">
+                            <TextBlock Text="应用锁" Classes="section" />
+                            <TextBlock Text="开启后，启动应用或空闲超时需要输入 PIN 才能继续操作。PIN 只保存派生哈希，不保存明文；它不能替代磁盘加密。修改后需点“保存应用锁设置”才会生效。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Text="启用应用锁" FontSize="13" VerticalAlignment="Center" />
+                              <ToggleSwitch Grid.Column="1"
+                                            IsChecked="{Binding AppLockEnabled}"
+                                            OnContent=""
+                                            OffContent=""
+                                            AutomationProperties.Name="启用应用锁" />
+                            </Grid>
+                            <TextBlock Text="当前 PIN（修改或关闭时需要）"
+                                       Classes="caption" />
+                            <TextBox Text="{Binding AppLockCurrentPin, Mode=TwoWay}"
+                                     PasswordChar="●"
+                                     MaxLength="32"
+                                     PlaceholderText="未设置过可留空" />
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                              <StackPanel Spacing="4">
+                                <TextBlock Text="新 PIN（至少 4 位）" Classes="caption" />
+                                <TextBox Text="{Binding AppLockPin, Mode=TwoWay}"
+                                         PasswordChar="●"
+                                         MaxLength="32"
+                                         PlaceholderText="留空表示保持现有 PIN" />
+                              </StackPanel>
+                              <StackPanel Grid.Column="1" Spacing="4">
+                                <TextBlock Text="确认新 PIN" Classes="caption" />
+                                <TextBox Text="{Binding AppLockPinConfirm, Mode=TwoWay}"
+                                         PasswordChar="●"
+                                         MaxLength="32"
+                                         PlaceholderText="再次输入" />
+                              </StackPanel>
+                            </Grid>
+                            <TextBlock Text="自动锁定" Classes="caption" />
+                            <ComboBox SelectedIndex="{Binding AppLockTimeoutIndex, Mode=TwoWay}"
+                                      HorizontalAlignment="Left"
+                                      MinWidth="180">
+                              <ComboBoxItem Content="仅启动时锁定" />
+                              <ComboBoxItem Content="空闲 5 分钟" />
+                              <ComboBoxItem Content="空闲 15 分钟" />
+                              <ComboBoxItem Content="空闲 30 分钟" />
+                              <ComboBoxItem Content="空闲 60 分钟" />
+                            </ComboBox>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <Button Content="保存应用锁设置"
+                                      Command="{Binding SaveAppLockCommand}"
+                                      AutomationProperties.Name="保存应用锁设置" />
+                              <Button Content="立即锁定"
+                                      Command="{Binding LockNowCommand}"
+                                      IsEnabled="{Binding HasAppLockPin}"
+                                      AutomationProperties.Name="立即锁定" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding AppLockStatus}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding AppLockStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                          </StackPanel>
                         </StackPanel>
 
-                        <StackPanel IsVisible="{Binding IsToolsSection}" Spacing="16">
+                      <StackPanel IsVisible="{Binding IsToolsSection}" Spacing="16">
                           <TextBlock Classes="page-title" Text="工具" />
 
                           <StackPanel Spacing="10">
@@ -1411,6 +1481,101 @@
                             <StackPanel Orientation="Horizontal" Spacing="8">
                               <Button Content="保存模板" Command="{Binding SaveTemplateCommand}" />
                               <Button Content="取消" Classes="subtle" Command="{Binding CancelTemplateEditCommand}" />
+                            </StackPanel>
+                          </StackPanel>
+                        </Border>
+                      </StackPanel>
+
+                      <StackPanel IsVisible="{Binding IsTagsSection}" Spacing="16">
+                        <TextBlock Classes="page-title" Text="标签" />
+                        <TextBlock Text="标签只保存在本地数据库，不会同步到邮件服务器。用颜色区分客户、项目或待办。"
+                                   Classes="caption"
+                                   TextWrapping="Wrap" />
+
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock Text="已保存标签" Classes="section" VerticalAlignment="Center" />
+                          <Button Grid.Column="1"
+                                  Content="新建标签"
+                                  Command="{Binding NewTagCommand}"
+                                  AutomationProperties.Name="新建标签" />
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding Tags}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:TagViewModel">
+                              <Border BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                      BorderThickness="0,0,0,1"
+                                      Padding="0,10">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                  <Border Width="14"
+                                          Height="14"
+                                          CornerRadius="7"
+                                          Background="{Binding Brush}"
+                                          VerticalAlignment="Center" />
+                                  <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding ColorHint}" Classes="caption" />
+                                  </StackPanel>
+                                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <Button Content="编辑"
+                                            Classes="subtle sm"
+                                            Command="{Binding EditCommand}"
+                                            IsVisible="{Binding !DeleteConfirmVisible}" />
+                                    <Button Content="删除"
+                                            Classes="subtle sm"
+                                            Command="{Binding AskDeleteCommand}"
+                                            IsVisible="{Binding !DeleteConfirmVisible}" />
+                                    <Button Content="确认删除"
+                                            Classes="subtle sm"
+                                            Command="{Binding ConfirmDeleteCommand}"
+                                            IsVisible="{Binding DeleteConfirmVisible}" />
+                                    <Button Content="取消"
+                                            Classes="subtle sm"
+                                            Command="{Binding CancelDeleteCommand}"
+                                            IsVisible="{Binding DeleteConfirmVisible}" />
+                                  </StackPanel>
+                                </Grid>
+                              </Border>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="还没有标签。新建后可在选择模式下给邮件打标签。"
+                                   Classes="caption"
+                                   IsVisible="{Binding !HasTags}" />
+
+                        <Border IsVisible="{Binding IsTagEditorOpen}"
+                                Background="{DynamicResource MailDogBrushSurfaceSubtle}"
+                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="16">
+                          <StackPanel Spacing="10">
+                            <TextBlock Text="{Binding TagEditorTitle}" Classes="section" />
+                            <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto" RowSpacing="8">
+                              <TextBlock Text="名称" VerticalAlignment="Center" />
+                              <TextBox Grid.Column="1"
+                                       Text="{Binding TagName, Mode=TwoWay}"
+                                       PlaceholderText="例如：客户跟进" />
+                              <TextBlock Grid.Row="1" Text="颜色" VerticalAlignment="Center" />
+                              <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                <TextBox Width="110"
+                                         Text="{Binding TagColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         PlaceholderText="#0F7B0F" />
+                                <Border Width="26"
+                                        Height="26"
+                                        CornerRadius="6"
+                                        Background="{Binding TagColorBrush}"
+                                        VerticalAlignment="Center" />
+                                <TextBlock Text="格式 #RRGGBB" Classes="caption" VerticalAlignment="Center" />
+                              </StackPanel>
+                            </Grid>
+                            <TextBlock Text="{Binding TagHint}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding TagHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <Button Content="保存标签" Command="{Binding SaveTagCommand}" />
+                              <Button Content="取消" Classes="subtle" Command="{Binding CancelTagEditCommand}" />
                             </StackPanel>
                           </StackPanel>
                         </Border>

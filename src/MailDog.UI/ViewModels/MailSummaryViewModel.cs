@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using FluentIcons.Common;
@@ -57,6 +58,29 @@ public sealed partial class MailSummaryViewModel : ObservableObject
     /// <summary>服务端线程根键；为空时由 UI 用回复主题前缀回退。</summary>
     public string ThreadKey { get; }
 
+    public ObservableCollection<MessageTagChipViewModel> Tags { get; } = [];
+
+    public bool HasTags => Tags.Count > 0;
+
+    public bool ShowPreviewRow => ShowPreview && !HasTags;
+
+    public bool ShowTagRow => HasTags;
+
+    public bool HasTag(long tagId) => Tags.Any(tag => tag.Id == tagId);
+
+    public void SetTags(IEnumerable<TagDto> tags)
+    {
+        Tags.Clear();
+        foreach (var tag in tags)
+        {
+            Tags.Add(new MessageTagChipViewModel(tag));
+        }
+
+        OnPropertyChanged(nameof(HasTags));
+        OnPropertyChanged(nameof(ShowPreviewRow));
+        OnPropertyChanged(nameof(ShowTagRow));
+    }
+
     public DateTimeOffset Date { get; }
 
     public bool HasAttachments { get; }
@@ -107,6 +131,11 @@ public sealed partial class MailSummaryViewModel : ObservableObject
     /// <summary>紧凑密度下隐藏摘要第三行，避免 64px 行高裁掉预览。</summary>
     [ObservableProperty]
     private bool _showPreview = true;
+
+    partial void OnShowPreviewChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowPreviewRow));
+    }
 
     [ObservableProperty]
     private bool _isHovered;

@@ -44,7 +44,26 @@ public sealed class SqliteStoreTests : IDisposable
             SaveSentCopy = false,
             RunAtStartup = true,
             SendDelaySeconds = 30,
-            RenderMode = "plain"
+            RenderMode = "plain",
+            AppLockEnabled = true,
+            AppLockHash = "hash-value",
+            AppLockSalt = "salt-value",
+            AppLockTimeoutMinutes = 30,
+            AccountSignatures =
+            [
+                new AccountSignatureDto { AccountId = "account-1", Signature = "账户签名" }
+            ],
+            Templates =
+            [
+                new MailTemplateDto
+                {
+                    Id = "template-1",
+                    Name = "客户跟进",
+                    Subject = "关于 {{subject}}",
+                    Body = "您好，{{account}}",
+                    IsQuickReply = true
+                }
+            ]
         };
 
         _store.SaveSettings(settings);
@@ -73,6 +92,20 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.True(loaded.RunAtStartup);
         Assert.Equal(30, loaded.SendDelaySeconds);
         Assert.Equal("plain", loaded.RenderMode);
+        Assert.True(loaded.AppLockEnabled);
+        Assert.Equal("hash-value", loaded.AppLockHash);
+        Assert.Equal("salt-value", loaded.AppLockSalt);
+        Assert.Equal(30, loaded.AppLockTimeoutMinutes);
+
+        var signature = Assert.Single(loaded.AccountSignatures);
+        Assert.Equal("account-1", signature.AccountId);
+        Assert.Equal("账户签名", signature.Signature);
+
+        var template = Assert.Single(loaded.Templates);
+        Assert.Equal("template-1", template.Id);
+        Assert.Equal("客户跟进", template.Name);
+        Assert.Equal("关于 {{subject}}", template.Subject);
+        Assert.True(template.IsQuickReply);
     }
 
     [Fact]
@@ -531,6 +564,116 @@ public sealed class SqliteStoreTests : IDisposable
             {
             }
         }
+    }
+
+    [Fact]
+    public void EncryptedBackupRequiresPasswordAndRestores()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "maildog-backup-tests", Guid.NewGuid().ToString("N"));
+        var databasePath = Path.Combine(directory, "maildog.db");
+        var archivePath = Path.Combine(directory, "backup.mdog");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            var store = new SqliteStore(databasePath);
+            store.UpsertAccount(CreateAccount());
+            var backup = new LocalBackupService(store, databasePath);
+
+            var result = backup.CreateBackup(archivePath, "correct horse battery staple");
+            Assert.True(result.Encrypted);
+            Assert.True(File.Exists(archivePath));
+            Assert.True(result.Size > 0);
+
+            var header = File.ReadAllBytes(archivePath).AsSpan(0, 8);
+            Assert.Equal("MDLOBK1\0"u8.ToArray(), header.ToArray());
+
+            var missing = Assert.Throws<InvalidOperationException>(() => backup.StageRestore(archivePath));
+            Assert.Contains("加密备份", missing.Message);
+
+            var wrong = Assert.Throws<InvalidOperationException>(
+                () => backup.StageRestore(archivePath, "wrong-password"));
+            Assert.Contains("密码不正确", wrong.Message);
+            Assert.False(File.Exists(Path.Combine(directory, "maildog.restore.db")));
+
+            var restore = backup.StageRestore(archivePath, "correct horse battery staple");
+            Assert.True(restore.Staged);
+            Assert.True(restore.RestartRequired);
+
+            store.Dispose();
+            LocalBackupService.ApplyPendingRestore(databasePath);
+
+            using var reopened = new SqliteStore(databasePath);
+            Assert.Single(reopened.GetAccounts());
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(directory, true);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    [Fact]
+    public void TagsRoundTripAndCascadeWithMessages()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+        _store.UpsertFolders(account.Id,
+        [
+            new FolderRecord(0, account.Id, "INBOX", "收件箱", FolderRole.Inbox, 0, 0, 0, 0)
+        ]);
+        var folder = Assert.Single(_store.GetFolders(account.Id));
+        var now = DateTimeOffset.UtcNow;
+        _store.UpsertMessages(account.Id, folder.Id,
+        [
+            new MessageRecord(0, account.Id, folder.Id, 51, "m1", "客户报价", "Alice", "alice@example.com",
+                "me@example.com", string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched),
+            new MessageRecord(0, account.Id, folder.Id, 52, "m2", "项目排期", "Bob", "bob@example.com",
+                "me@example.com", string.Empty, now.AddMinutes(1), 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        var messages = _store.QueryMessages(folder.Id, null, null, 10).Items;
+
+        var client = _store.SaveTag(new TagDto { Name = " 客户 ", Color = "#AABBCC" });
+        var project = _store.SaveTag(new TagDto { Name = "项目", Color = "not-a-color" });
+        Assert.Equal("客户", client.Name);
+        Assert.Equal("#AABBCC", client.Color);
+        Assert.Equal("#0F7B0F", project.Color);
+
+        var renamed = _store.SaveTag(new TagDto { Id = client.Id, Name = "重点客户", Color = "#123456" });
+        Assert.Equal(client.Id, renamed.Id);
+        Assert.Equal("重点客户", renamed.Name);
+
+        Assert.Equal(2, _store.GetTags().Count);
+        Assert.Throws<KeyNotFoundException>(() => _store.SaveTag(new TagDto { Id = 999, Name = "不存在" }));
+        var duplicate = Assert.Throws<InvalidOperationException>(
+            () => _store.SaveTag(new TagDto { Name = "重点客户" }));
+        Assert.Contains("已存在", duplicate.Message);
+
+        var affected = _store.SetMessageTags([messages[0].Id, messages[1].Id], [client.Id], add: true);
+        Assert.Equal(2, affected);
+        Assert.Equal(0, _store.SetMessageTags([messages[0].Id], [client.Id], add: true));
+
+        var assignments = _store.GetMessageTags([messages[0].Id, messages[1].Id]);
+        Assert.Equal(2, assignments.Count);
+        Assert.All(assignments, assignment => Assert.Equal([client.Id], assignment.TagIds));
+
+        Assert.Empty(_store.GetMessageTags([]));
+        Assert.Equal(1, _store.SetMessageTags([messages[0].Id], [client.Id], add: false));
+        Assert.Single(_store.GetMessageTags([messages[0].Id, messages[1].Id]));
+
+        _store.DeleteTag(client.Id);
+        Assert.Single(_store.GetTags());
+        Assert.Empty(_store.GetMessageTags([messages[0].Id, messages[1].Id]));
+
+        _store.SetMessageTags([messages[0].Id], [project.Id], add: true);
+        _store.DeleteMessage(messages[0].Id);
+        Assert.Empty(_store.GetMessageTags([messages[0].Id]));
     }
 
     [Fact]

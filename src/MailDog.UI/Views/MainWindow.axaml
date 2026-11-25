@@ -516,6 +516,34 @@
               </Button>
 
               <Button Classes="icon"
+                      AutomationProperties.Name="标签筛选"
+                      ToolTip.Tip="{Binding TagFilterText}">
+                <ic:FluentIcon Icon="Tag" IconSize="Size16" />
+                <Button.Flyout>
+                  <MenuFlyout Placement="BottomEdgeAlignedRight">
+                    <MenuItem Header="全部邮件" Command="{Binding ClearTagFilterCommand}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="MailInbox" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="按标签筛选"
+                              ItemsSource="{Binding TagFilters}"
+                              IsEnabled="{Binding HasTags}">
+                      <MenuItem.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TagFilterViewModel">
+                          <MenuItem Header="{Binding Name}" Command="{Binding SelectCommand}">
+                            <MenuItem.Icon>
+                              <Border Width="10" Height="10" CornerRadius="5" Background="{Binding Brush}" />
+                            </MenuItem.Icon>
+                          </MenuItem>
+                        </DataTemplate>
+                      </MenuItem.ItemTemplate>
+                    </MenuItem>
+                  </MenuFlyout>
+                </Button.Flyout>
+              </Button>
+
+              <Button Classes="icon"
                       AutomationProperties.Name="排序"
                       ToolTip.Tip="排序">
                 <ic:FluentIcon Icon="ArrowSort" IconSize="Size16" />
@@ -622,6 +650,27 @@
                       <MenuItem.Icon>
                         <ic:FluentIcon Icon="Warning" IconSize="Size16" />
                       </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="添加标签"
+                              ItemsSource="{Binding TagMenuTargets}"
+                              IsEnabled="{Binding HasCheckedMessages}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="Tag" IconSize="Size16" />
+                      </MenuItem.Icon>
+                      <MenuItem.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TagMenuViewModel">
+                          <MenuItem Header="{Binding Name}" Command="{Binding AddCommand}" />
+                        </DataTemplate>
+                      </MenuItem.ItemTemplate>
+                    </MenuItem>
+                    <MenuItem Header="移除标签"
+                              ItemsSource="{Binding TagMenuTargets}"
+                              IsEnabled="{Binding HasCheckedMessages}">
+                      <MenuItem.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TagMenuViewModel">
+                          <MenuItem Header="{Binding Name}" Command="{Binding RemoveCommand}" />
+                        </DataTemplate>
+                      </MenuItem.ItemTemplate>
                     </MenuItem>
                     <MenuItem Header="批量删除"
                               Command="{Binding BatchDeleteCommand}"
@@ -782,12 +831,39 @@
                                                        FontSize="14"
                                                        FontWeight="{Binding SubjectWeight}"
                                                        TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding Preview}"
-                                   IsVisible="{Binding ShowPreview}"
-                                   FontSize="12"
-                                   Foreground="{DynamicResource MailDogBrushTextSecondary}"
-                                   TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center" />
+                        <Grid>
+                          <TextBlock Text="{Binding Preview}"
+                                     IsVisible="{Binding ShowPreviewRow}"
+                                     FontSize="12"
+                                     Foreground="{DynamicResource MailDogBrushTextSecondary}"
+                                     TextTrimming="CharacterEllipsis"
+                                     VerticalAlignment="Center" />
+                          <ItemsControl ItemsSource="{Binding Tags}"
+                                        IsVisible="{Binding ShowTagRow}"
+                                        MaxHeight="18">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="4" />
+                              </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:MessageTagChipViewModel">
+                                <Border Background="{Binding Background}"
+                                        BorderBrush="{Binding Border}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="5,0"
+                                        VerticalAlignment="Center">
+                                  <TextBlock Text="{Binding Name}"
+                                             FontSize="10"
+                                             Foreground="{Binding Foreground}"
+                                             TextTrimming="CharacterEllipsis"
+                                             MaxWidth="90" />
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </Grid>
                       </StackPanel>
 
                       <Border IsVisible="{Binding IsHovered}"
@@ -1220,6 +1296,49 @@
     <views:SettingsView Grid.Row="1"
                         Grid.ColumnSpan="3"
                         IsVisible="{Binding IsSettingsOpen}" />
+
+    <Border Grid.RowSpan="3"
+            Grid.ColumnSpan="3"
+            ZIndex="100"
+            IsVisible="{Binding IsAppLocked}"
+            Background="{DynamicResource MailDogBrushSurfaceWindow}">
+      <StackPanel Width="320"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Spacing="12">
+        <Border Width="72"
+                Height="72"
+                CornerRadius="16"
+                ClipToBounds="True"
+                HorizontalAlignment="Center">
+          <Image Source="avares://MailDog.UI/Assets/logo.png"
+                 Width="72"
+                 Height="72"
+                 Stretch="UniformToFill" />
+        </Border>
+        <TextBlock Classes="page-title"
+                   Text="MailDog 已锁定"
+                   HorizontalAlignment="Center" />
+        <TextBlock Text="输入 PIN 继续使用"
+                   Classes="caption"
+                   HorizontalAlignment="Center" />
+        <TextBox x:Name="UnlockPinBox"
+                 Text="{Binding LockPin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 PasswordChar="●"
+                 MaxLength="32"
+                 HorizontalAlignment="Stretch"
+                 AutomationProperties.Name="应用锁 PIN" />
+        <Button Content="解锁"
+                Command="{Binding UnlockCommand}"
+                HorizontalAlignment="Stretch"
+                IsDefault="True" />
+        <TextBlock Text="{Binding UnlockError}"
+                   Foreground="{DynamicResource MailDogBrushStatusDanger}"
+                   TextWrapping="Wrap"
+                   HorizontalAlignment="Center"
+                   IsVisible="{Binding UnlockError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      </StackPanel>
+    </Border>
 
     <Border Grid.Row="2"
             IsVisible="{Binding IsStatusBarVisible}"

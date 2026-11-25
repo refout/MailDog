@@ -52,6 +52,13 @@ public static class IpcMessageTypes
     public const string MarkReadBatch = "markReadBatch";
     public const string SetFlag = "setFlag";
     public const string SetFlagBatch = "setFlagBatch";
+    public const string GetTags = "getTags";
+    public const string Tags = "tags";
+    public const string SaveTag = "saveTag";
+    public const string DeleteTag = "deleteTag";
+    public const string GetMessageTags = "getMessageTags";
+    public const string MessageTags = "messageTags";
+    public const string SetMessageTags = "setMessageTags";
     public const string DownloadAttachment = "downloadAttachment";
     public const string ReadAttachment = "readAttachment";
     public const string AttachmentBytes = "attachmentBytes";

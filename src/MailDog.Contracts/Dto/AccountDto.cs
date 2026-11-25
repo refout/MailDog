@@ -117,6 +117,18 @@ public sealed class AppSettingsDto
     /// <summary>用户保存的邮件模板；正文支持 {{date}} 等变量。</summary>
     public IReadOnlyList<MailTemplateDto> Templates { get; init; } = [];
 
+    /// <summary>启动或空闲后锁定界面。</summary>
+    public bool AppLockEnabled { get; init; }
+
+    /// <summary>PIN 的 PBKDF2 哈希（Base64）；不保存明文。</summary>
+    public string AppLockHash { get; init; } = string.Empty;
+
+    /// <summary>PIN 哈希盐（Base64）。</summary>
+    public string AppLockSalt { get; init; } = string.Empty;
+
+    /// <summary>空闲多少分钟后自动锁定；0 表示只在启动时锁定。</summary>
+    public int AppLockTimeoutMinutes { get; init; } = 15;
+
     /// <summary>发送前的等待秒数，给出撤销窗口；0 表示立即发送。</summary>
     public int SendDelaySeconds { get; init; } = 10;
 

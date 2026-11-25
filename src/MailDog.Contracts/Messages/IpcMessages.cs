@@ -396,6 +396,45 @@ public sealed class DeleteMessagesRequest : Ipc.IIpcMessage
     public bool Permanent { get; init; }
 }
 
+public sealed class GetTagsRequest : Ipc.IIpcMessage
+{
+}
+
+public sealed class TagsResponse : Ipc.IIpcMessage
+{
+    public TagDto[] Items { get; init; } = [];
+}
+
+public sealed class SaveTagRequest : Ipc.IIpcMessage
+{
+    public TagDto Tag { get; init; } = new();
+}
+
+public sealed class DeleteTagRequest : Ipc.IIpcMessage
+{
+    public long TagId { get; init; }
+}
+
+public sealed class GetMessageTagsRequest : Ipc.IIpcMessage
+{
+    public long[] MessageIds { get; init; } = [];
+}
+
+public sealed class MessageTagsResponse : Ipc.IIpcMessage
+{
+    public MessageTagAssignmentDto[] Items { get; init; } = [];
+}
+
+public sealed class SetMessageTagsRequest : Ipc.IIpcMessage
+{
+    public long[] MessageIds { get; init; } = [];
+
+    public long[] TagIds { get; init; } = [];
+
+    /// <summary>true 添加，false 移除。</summary>
+    public bool Add { get; init; } = true;
+}
+
 public sealed class SyncAccountRequest : Ipc.IIpcMessage
 {
     public string? AccountId { get; init; }
@@ -450,6 +489,9 @@ public sealed class StorageCleanupResponse : Ipc.IIpcMessage
 public sealed class CreateBackupRequest : Ipc.IIpcMessage
 {
     public string DestinationPath { get; init; } = string.Empty;
+
+    /// <summary>非空时生成 AES-256-GCM 加密备份，扩展名为 .mdog。</summary>
+    public string? Password { get; init; }
 }
 
 public sealed class BackupResponse : Ipc.IIpcMessage
@@ -460,6 +502,9 @@ public sealed class BackupResponse : Ipc.IIpcMessage
 public sealed class RestoreBackupRequest : Ipc.IIpcMessage
 {
     public string ArchivePath { get; init; } = string.Empty;
+
+    /// <summary>加密备份需要密码；普通 ZIP 可留空。</summary>
+    public string? Password { get; init; }
 }
 
 public sealed class RestoreResponse : Ipc.IIpcMessage

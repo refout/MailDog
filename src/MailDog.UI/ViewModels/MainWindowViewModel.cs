@@ -626,6 +626,83 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly Dictionary<string, string> _accountSignatures = new(StringComparer.Ordinal);
     private bool _suppressSignatureSync;
 
+    public ObservableCollection<TagViewModel> Tags { get; } = [];
+
+    public ObservableCollection<TagMenuViewModel> TagMenuTargets { get; } = [];
+
+    public ObservableCollection<TagFilterViewModel> TagFilters { get; } = [];
+
+    public bool HasTags => Tags.Count > 0;
+
+    [ObservableProperty]
+    private TagFilterViewModel? _selectedTagFilter;
+
+    [ObservableProperty]
+    private string _tagName = string.Empty;
+
+    [ObservableProperty]
+    private string _tagColor = "#0F7B0F";
+
+    public IBrush TagColorBrush => new SolidColorBrush(TagViewModel.ParseColor(TagColor));
+
+    partial void OnTagColorChanged(string value) => OnPropertyChanged(nameof(TagColorBrush));
+
+    [ObservableProperty]
+    private string? _tagHint;
+
+    [ObservableProperty]
+    private bool _isTagEditorOpen;
+
+    [ObservableProperty]
+    private string _tagEditorTitle = "新建标签";
+
+    private long? _editingTagId;
+
+    public string TagFilterText => SelectedTagFilter is null
+        ? "全部邮件"
+        : $"标签：{SelectedTagFilter.Name}";
+
+    public static int[] AppLockTimeoutValues { get; } = [0, 5, 15, 30, 60];
+
+    [ObservableProperty]
+    private bool _appLockEnabled;
+
+    [ObservableProperty]
+    private string _appLockPin = string.Empty;
+
+    [ObservableProperty]
+    private string _appLockPinConfirm = string.Empty;
+
+    [ObservableProperty]
+    private string _appLockCurrentPin = string.Empty;
+
+    [ObservableProperty]
+    private int _appLockTimeoutIndex = 2;
+
+    [ObservableProperty]
+    private string? _appLockStatus;
+
+    [ObservableProperty]
+    private bool _isAppLocked;
+
+    [ObservableProperty]
+    private string _lockPin = string.Empty;
+
+    [ObservableProperty]
+    private string? _unlockError;
+
+    private string _appLockHash = string.Empty;
+    private string _appLockSalt = string.Empty;
+
+    /// <summary>已保存的应用锁状态；界面上的开关只是待保存值，避免其它设置的自动保存顺手改掉应用锁。</summary>
+    private bool _savedAppLockEnabled;
+    private int _savedAppLockTimeoutMinutes = 15;
+
+    private DateTimeOffset _lastActivity = DateTimeOffset.Now;
+    private DispatcherTimer? _lockTimer;
+
+    public bool HasAppLockPin => !string.IsNullOrEmpty(_appLockHash);
+
     [ObservableProperty]
     private StorageSummaryDto? _storageSummary;
 
@@ -647,6 +724,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _backupStatus = "备份包含本地数据库；恢复会在下次启动 Engine 时生效。";
+
+    /// <summary>仅用于本次加密备份/恢复，不写入设置。</summary>
+    [ObservableProperty]
+    private string _backupPassword = string.Empty;
 
     [ObservableProperty]
     private string _storageStatus = "打开“本地文件”后读取磁盘占用。";
@@ -689,11 +770,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsTemplatesSection => SettingsSectionIndex == 8;
 
+    public bool IsTagsSection => SettingsSectionIndex == 9;
+
     public bool IsAccountListVisible => IsAccountSection && !ShowAddAccountForm;
 
     public bool IsAddAccountFormVisible => IsAccountSection && ShowAddAccountForm;
 
-    public bool IsAboutSection => SettingsSectionIndex == 9;
+    public bool IsAboutSection => SettingsSectionIndex == 10;
 
     public string StorageDataDirectory => StorageSummary?.DataDirectory ?? "尚未读取";
 
@@ -779,6 +862,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsStartupSection));
         OnPropertyChanged(nameof(IsToolsSection));
         OnPropertyChanged(nameof(IsTemplatesSection));
+        OnPropertyChanged(nameof(IsTagsSection));
         OnPropertyChanged(nameof(IsAccountListVisible));
         OnPropertyChanged(nameof(IsAddAccountFormVisible));
         OnPropertyChanged(nameof(IsAboutSection));
@@ -2068,6 +2152,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             }
 
             AddMessages(response.Items);
+            _ = RefreshTagsForMessagesAsync(response.Items.Select(item => item.Id).ToArray());
             HasMore = response.HasMore;
             _nextDate = response.NextDate;
             _nextId = response.NextId;
@@ -3328,6 +3413,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             Templates = Templates
                 .Select(item => item.Template)
                 .ToArray(),
+            AppLockEnabled = _savedAppLockEnabled,
+            AppLockHash = _appLockHash,
+            AppLockSalt = _appLockSalt,
+            AppLockTimeoutMinutes = _savedAppLockTimeoutMinutes,
             SendDelaySeconds = SendDelayIndex switch
             {
                 0 => 0,
@@ -3535,6 +3624,235 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OpenCompose(ComposeMode.Reply, target.Template);
     }
 
+    private void RebuildTagMenus()
+    {
+        TagMenuTargets.Clear();
+        TagFilters.Clear();
+        foreach (var tag in Tags)
+        {
+            TagMenuTargets.Add(new TagMenuViewModel(tag.Tag, AddCheckedTag, RemoveCheckedTag));
+            TagFilters.Add(new TagFilterViewModel(tag.Tag, SelectTagFilter));
+        }
+
+        if (SelectedTagFilter is not null
+            && Tags.All(tag => tag.Id != SelectedTagFilter.Id))
+        {
+            SelectedTagFilter = null;
+        }
+
+        OnPropertyChanged(nameof(HasTags));
+    }
+
+    private void LoadTags(IReadOnlyList<TagDto> tags)
+    {
+        Tags.Clear();
+        foreach (var tag in tags.OrderBy(item => item.Name, StringComparer.CurrentCulture))
+        {
+            Tags.Add(new TagViewModel(tag, EditTag, DeleteTag));
+        }
+
+        RebuildTagMenus();
+    }
+
+    [RelayCommand]
+    private void NewTag()
+    {
+        _editingTagId = null;
+        TagEditorTitle = "新建标签";
+        TagName = string.Empty;
+        TagColor = "#0F7B0F";
+        TagHint = null;
+        IsTagEditorOpen = true;
+    }
+
+    private void EditTag(TagViewModel tag)
+    {
+        _editingTagId = tag.Id;
+        TagEditorTitle = "编辑标签";
+        TagName = tag.Name;
+        TagColor = tag.Color;
+        TagHint = null;
+        IsTagEditorOpen = true;
+    }
+
+    private async void DeleteTag(TagViewModel tag)
+    {
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.DeleteTag,
+                new DeleteTagRequest { TagId = tag.Id });
+            Tags.Remove(tag);
+            RebuildTagMenus();
+            await RefreshTagsForMessagesAsync(Messages.Select(message => message.Id).ToArray());
+            TagHint = $"已删除标签“{tag.Name}”。";
+            StatusMessage = TagHint;
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    [RelayCommand]
+    private void CancelTagEdit()
+    {
+        IsTagEditorOpen = false;
+        _editingTagId = null;
+        TagHint = null;
+    }
+
+    [RelayCommand]
+    private async Task SaveTagAsync()
+    {
+        var name = TagName.Trim();
+        if (name.Length == 0)
+        {
+            TagHint = "请填写标签名称。";
+            return;
+        }
+
+        if (TagColor.Length != 7 || !TagColor.StartsWith('#') || !TagColor[1..].All(Uri.IsHexDigit))
+        {
+            TagHint = "颜色必须是 #RRGGBB 格式。";
+            return;
+        }
+
+        try
+        {
+            var response = await _engine.RequestAsync<TagsResponse>(
+                IpcMessageTypes.SaveTag,
+                new SaveTagRequest
+                {
+                    Tag = new TagDto
+                    {
+                        Id = _editingTagId ?? 0,
+                        Name = name,
+                        Color = TagColor.ToUpperInvariant()
+                    }
+                });
+
+            var saved = response.Items.FirstOrDefault();
+            if (saved is not null)
+            {
+                var existing = Tags.FirstOrDefault(tag => tag.Id == saved.Id);
+                if (existing is not null)
+                {
+                    Tags.Remove(existing);
+                }
+
+                Tags.Add(new TagViewModel(saved, EditTag, DeleteTag));
+                RebuildTagMenus();
+                await RefreshTagsForMessagesAsync(Messages.Select(message => message.Id).ToArray());
+                TagHint = $"已保存标签“{saved.Name}”。";
+                StatusMessage = TagHint;
+            }
+
+            IsTagEditorOpen = false;
+            _editingTagId = null;
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+            TagHint = "标签保存失败。";
+        }
+    }
+
+    private async void AddCheckedTag(TagMenuViewModel tag)
+    {
+        await SetCheckedTagsAsync(tag, add: true);
+    }
+
+    private async void RemoveCheckedTag(TagMenuViewModel tag)
+    {
+        await SetCheckedTagsAsync(tag, add: false);
+    }
+
+    private async Task SetCheckedTagsAsync(TagMenuViewModel tag, bool add)
+    {
+        var targets = CheckedTargets();
+        if (targets.Length == 0)
+        {
+            StatusMessage = "请先勾选邮件。";
+            return;
+        }
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.SetMessageTags,
+                new SetMessageTagsRequest
+                {
+                    MessageIds = targets.Select(message => message.Id).ToArray(),
+                    TagIds = [tag.Id],
+                    Add = add
+                });
+
+            await RefreshTagsForMessagesAsync(Messages.Select(message => message.Id).ToArray());
+            StatusMessage = add
+                ? $"已给 {targets.Length} 封邮件添加标签“{tag.Name}”。"
+                : $"已从 {targets.Length} 封邮件移除标签“{tag.Name}”。";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    private void SelectTagFilter(TagFilterViewModel tag)
+    {
+        SelectedTagFilter = tag;
+        StatusMessage = $"正在显示标签“{tag.Name}”下的邮件。";
+    }
+
+    [RelayCommand]
+    private void ClearTagFilter()
+    {
+        SelectedTagFilter = null;
+        StatusMessage = "已显示全部邮件。";
+    }
+
+    partial void OnSelectedTagFilterChanged(TagFilterViewModel? value)
+    {
+        OnPropertyChanged(nameof(TagFilterText));
+        ApplyFilter();
+    }
+
+    private async Task RefreshTagsForMessagesAsync(IReadOnlyList<long> messageIds)
+    {
+        if (!_engine.IsConnected || messageIds.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await _engine.RequestAsync<MessageTagsResponse>(
+                IpcMessageTypes.GetMessageTags,
+                new GetMessageTagsRequest { MessageIds = messageIds.ToArray() });
+
+            var definitions = Tags.ToDictionary(tag => tag.Id, tag => tag.Tag);
+            var assignments = response.Items.ToDictionary(item => item.MessageId, item => item.TagIds);
+            foreach (var message in _allMessages.Where(message => messageIds.Contains(message.Id)))
+            {
+                var tagIds = assignments.GetValueOrDefault(message.Id, []);
+                message.SetTags(tagIds
+                    .Select(tagId => definitions.GetValueOrDefault(tagId))
+                    .Where(tag => tag is not null)
+                    .Select(tag => tag!));
+            }
+
+            if (SelectedTagFilter is not null)
+            {
+                ApplyFilter();
+            }
+        }
+        catch
+        {
+            // 标签是辅助信息，加载失败不阻断邮件列表。
+        }
+    }
+
     partial void OnSelectedSignatureAccountChanged(AccountViewModel? value)
     {
         if (value is null)
@@ -3559,6 +3877,135 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         _accountSignatures[SelectedSignatureAccount.Id] = value;
         QueueSettingsSave();
+    }
+
+    [RelayCommand]
+    private void SaveAppLock()
+    {
+        var enabling = AppLockEnabled;
+
+        if (!enabling)
+        {
+            if (_appLockHash.Length > 0
+                && !AppLockService.Verify(AppLockCurrentPin, _appLockSalt, _appLockHash))
+            {
+                AppLockStatus = "关闭应用锁需要输入当前 PIN。";
+                return;
+            }
+
+            _appLockHash = string.Empty;
+            _appLockSalt = string.Empty;
+            _savedAppLockEnabled = false;
+            IsAppLocked = false;
+            AppLockCurrentPin = string.Empty;
+            AppLockPin = string.Empty;
+            AppLockPinConfirm = string.Empty;
+            AppLockStatus = "应用锁已关闭。";
+            OnPropertyChanged(nameof(HasAppLockPin));
+            QueueSettingsSave();
+            return;
+        }
+
+        var updatingPin = AppLockPin.Length > 0;
+        if (_appLockHash.Length > 0 && updatingPin
+            && !AppLockService.Verify(AppLockCurrentPin, _appLockSalt, _appLockHash))
+        {
+            AppLockStatus = "修改 PIN 需要先输入当前 PIN。";
+            return;
+        }
+
+        if (updatingPin || _appLockHash.Length == 0)
+        {
+            if (AppLockPin.Trim().Length < 4)
+            {
+                AppLockStatus = "PIN 至少需要 4 位，且不能只由空格组成。";
+                return;
+            }
+
+            if (!string.Equals(AppLockPin, AppLockPinConfirm, StringComparison.Ordinal))
+            {
+                AppLockStatus = "两次输入的新 PIN 不一致。";
+                return;
+            }
+
+            _appLockSalt = AppLockService.CreateSalt();
+            _appLockHash = AppLockService.Hash(AppLockPin, _appLockSalt);
+            AppLockPin = string.Empty;
+            AppLockPinConfirm = string.Empty;
+            AppLockCurrentPin = string.Empty;
+            OnPropertyChanged(nameof(HasAppLockPin));
+        }
+        else if (_appLockHash.Length == 0)
+        {
+            AppLockStatus = "请先设置 PIN。";
+            return;
+        }
+
+        _savedAppLockEnabled = true;
+        _savedAppLockTimeoutMinutes = AppLockTimeoutValues[
+            Math.Clamp(AppLockTimeoutIndex, 0, AppLockTimeoutValues.Length - 1)];
+        AppLockCurrentPin = string.Empty;
+        AppLockStatus = "应用锁设置已保存。";
+        StartLockTimer();
+        QueueSettingsSave();
+    }
+
+    [RelayCommand]
+    private void LockNow()
+    {
+        if (!_savedAppLockEnabled || _appLockHash.Length == 0)
+        {
+            AppLockStatus = "请先在设置中启用并保存应用锁。";
+            return;
+        }
+
+        IsAppLocked = true;
+        LockPin = string.Empty;
+        UnlockError = null;
+    }
+
+    [RelayCommand]
+    private void Unlock()
+    {
+        if (AppLockService.Verify(LockPin, _appLockSalt, _appLockHash))
+        {
+            IsAppLocked = false;
+            LockPin = string.Empty;
+            UnlockError = null;
+            _lastActivity = DateTimeOffset.Now;
+            return;
+        }
+
+        UnlockError = "PIN 不正确。";
+    }
+
+    public void NoteUserActivity()
+    {
+        _lastActivity = DateTimeOffset.Now;
+    }
+
+    private void StartLockTimer()
+    {
+        if (_lockTimer is not null)
+        {
+            return;
+        }
+
+        _lockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _lockTimer.Tick += (_, _) =>
+        {
+            var timeoutMinutes = _savedAppLockTimeoutMinutes;
+            if (!_savedAppLockEnabled || IsAppLocked || timeoutMinutes <= 0 || _appLockHash.Length == 0)
+            {
+                return;
+            }
+
+            if (DateTimeOffset.Now - _lastActivity >= TimeSpan.FromMinutes(timeoutMinutes))
+            {
+                LockNow();
+            }
+        };
+        _lockTimer.Start();
     }
 
     [RelayCommand]
@@ -4185,7 +4632,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenAbout()
     {
-        SettingsSectionIndex = 9;
+        SettingsSectionIndex = 10;
         IsSettingsOpen = true;
     }
 
@@ -4492,10 +4939,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             var response = await _engine.RequestAsync<BackupResponse>(
                 IpcMessageTypes.CreateBackup,
-                new CreateBackupRequest { DestinationPath = destinationPath },
+                new CreateBackupRequest
+                {
+                    DestinationPath = destinationPath,
+                    Password = string.IsNullOrWhiteSpace(BackupPassword) ? null : BackupPassword
+                },
                 TimeSpan.FromSeconds(120));
 
-            BackupStatus = $"备份已保存：{response.Result.Path}（{FormatStorageSize(response.Result.Size)}）";
+            BackupStatus = response.Result.Encrypted
+                ? $"加密备份已保存：{response.Result.Path}（{FormatStorageSize(response.Result.Size)}）"
+                : $"备份已保存：{response.Result.Path}（{FormatStorageSize(response.Result.Size)}）";
+            BackupPassword = string.Empty;
             await LoadStorageSummaryCoreAsync();
         }
         catch (Exception exception)
@@ -4521,12 +4975,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             var response = await _engine.RequestAsync<RestoreResponse>(
                 IpcMessageTypes.RestoreBackup,
-                new RestoreBackupRequest { ArchivePath = archivePath },
+                new RestoreBackupRequest
+                {
+                    ArchivePath = archivePath,
+                    Password = string.IsNullOrWhiteSpace(BackupPassword) ? null : BackupPassword
+                },
                 TimeSpan.FromSeconds(60));
 
             BackupStatus = response.Result.RestartRequired
                 ? "恢复已安排。请从托盘完全退出 MailDog 后重新打开，恢复将在下次启动时生效；当前数据库会先自动保留一份副本。"
                 : "恢复已完成。";
+            BackupPassword = string.Empty;
         }
         catch (Exception exception)
         {
@@ -4998,6 +5457,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             UpdateOfflineState();
             await LoadSettingsAsync();
             await LoadAccountsAsync();
+            await LoadTagsAsync();
             await LoadContactsAsync();
             StatusMessage = null;
         }
@@ -5078,6 +5538,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 _ => 3
             };
             RenderModeIndex = _settings.RenderMode == "plain" || !HtmlRendering.IsAvailable ? 1 : 0;
+            _appLockHash = _settings.AppLockHash;
+            _appLockSalt = _settings.AppLockSalt;
+            _savedAppLockEnabled = _settings.AppLockEnabled;
+            var timeoutIndex = Array.IndexOf(AppLockTimeoutValues, _settings.AppLockTimeoutMinutes);
+            _savedAppLockTimeoutMinutes = timeoutIndex >= 0 ? _settings.AppLockTimeoutMinutes : 15;
+            AppLockEnabled = _settings.AppLockEnabled;
+            AppLockTimeoutIndex = timeoutIndex >= 0 ? timeoutIndex : 2;
+            OnPropertyChanged(nameof(HasAppLockPin));
+            if (_savedAppLockEnabled && _appLockHash.Length > 0)
+            {
+                IsAppLocked = true;
+            }
+
+            StartLockTimer();
             _allowRemoteImages = _settings.ShowRemoteImages;
             ApplyTheme();
             SettingsSaveHint = "所有更改会自动保存";
@@ -5088,6 +5562,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         await LoadRulesAsync();
+    }
+
+    private async Task LoadTagsAsync()
+    {
+        try
+        {
+            var response = await _engine.RequestAsync<TagsResponse>(
+                IpcMessageTypes.GetTags,
+                new GetTagsRequest());
+            LoadTags(response.Items);
+        }
+        catch (Exception exception)
+        {
+            // 标签是辅助数据，加载失败时仍允许正常收发邮件。
+            StatusMessage = $"标签加载失败：{GetErrorMessage(exception)}";
+        }
     }
 
     private async Task LoadContactsAsync()
@@ -5397,6 +5887,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             NotifySelectionState();
 
             AddMessages(response.Items);
+            _ = RefreshTagsForMessagesAsync(response.Items.Select(item => item.Id).ToArray());
             HasMore = response.HasMore;
             _nextDate = response.NextDate;
             _nextId = response.NextId;
@@ -5452,6 +5943,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             }
 
             AddMessages(response.Items);
+            _ = RefreshTagsForMessagesAsync(response.Items.Select(item => item.Id).ToArray());
             ApplyFilter();
         }
         catch (Exception exception)
@@ -5702,6 +6194,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             3 => query.Where(message => message.HasAttachments),
             _ => query
         };
+
+        if (SelectedTagFilter is { } tagFilter)
+        {
+            query = query.Where(message => message.HasTag(tagFilter.Id));
+        }
 
         var filtered = query.ToList();
         filtered.Sort(CompareMessages);
@@ -6398,6 +6895,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         _disposed = true;
         _autoSaveCts?.Cancel();
         _autoSaveCts?.Dispose();
+        _lockTimer?.Stop();
         _engine.EventReceived -= OnEngineEvent;
         _engine.Disconnected -= OnEngineDisconnected;
         _engine.EngineStarting -= OnEngineStarting;

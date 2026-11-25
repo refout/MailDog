@@ -54,6 +54,8 @@ public sealed class BackupResultDto
     public long Size { get; init; }
 
     public DateTimeOffset CreatedUtc { get; init; }
+
+    public bool Encrypted { get; init; }
 }
 
 public sealed class RestoreResultDto

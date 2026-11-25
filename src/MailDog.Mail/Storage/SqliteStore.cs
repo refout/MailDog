@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using MailDog.Contracts.Dto;
+using MailDog.Contracts.Serialization;
 using Microsoft.Data.Sqlite;
 
 namespace MailDog.Mail.Storage;
@@ -1209,6 +1210,14 @@ public sealed class SqliteStore : IDisposable
             ShowRemoteImages = values.GetValueOrDefault("showRemoteImages") == "1",
             SaveSentCopy = !values.TryGetValue("saveSentCopy", out var saveSentCopy) || saveSentCopy != "0",
             Signature = values.GetValueOrDefault("signature") ?? string.Empty,
+            AccountSignatures = SettingsJson.DeserializeAccountSignatures(values.GetValueOrDefault("accountSignatures")),
+            Templates = SettingsJson.DeserializeTemplates(values.GetValueOrDefault("templates")),
+            AppLockEnabled = values.GetValueOrDefault("appLockEnabled") == "1",
+            AppLockHash = values.GetValueOrDefault("appLockHash") ?? string.Empty,
+            AppLockSalt = values.GetValueOrDefault("appLockSalt") ?? string.Empty,
+            AppLockTimeoutMinutes = int.TryParse(values.GetValueOrDefault("appLockTimeoutMinutes"), out var lockTimeout)
+                ? Math.Clamp(lockTimeout, 0, 240)
+                : 15,
             SendDelaySeconds = int.TryParse(values.GetValueOrDefault("sendDelaySeconds"), out var sendDelay)
                 ? Math.Clamp(sendDelay, 0, 30)
                 : 10,
@@ -1243,6 +1252,12 @@ public sealed class SqliteStore : IDisposable
             UpsertSetting(transaction, "showRemoteImages", settings.ShowRemoteImages ? "1" : "0");
             UpsertSetting(transaction, "saveSentCopy", settings.SaveSentCopy ? "1" : "0");
             UpsertSetting(transaction, "signature", settings.Signature);
+            UpsertSetting(transaction, "accountSignatures", SettingsJson.SerializeAccountSignatures(settings.AccountSignatures));
+            UpsertSetting(transaction, "templates", SettingsJson.SerializeTemplates(settings.Templates));
+            UpsertSetting(transaction, "appLockEnabled", settings.AppLockEnabled ? "1" : "0");
+            UpsertSetting(transaction, "appLockHash", settings.AppLockHash);
+            UpsertSetting(transaction, "appLockSalt", settings.AppLockSalt);
+            UpsertSetting(transaction, "appLockTimeoutMinutes", settings.AppLockTimeoutMinutes.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "sendDelaySeconds", settings.SendDelaySeconds.ToString(CultureInfo.InvariantCulture));
             UpsertSetting(transaction, "renderMode", settings.RenderMode == "plain" ? "plain" : "html");
             transaction.Commit();
@@ -1269,6 +1284,186 @@ public sealed class SqliteStore : IDisposable
             transaction.Commit();
         }
     }
+
+    // 标签
+
+    public IReadOnlyList<TagDto> GetTags()
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = "SELECT id, name, color FROM tags ORDER BY name COLLATE NOCASE;";
+            using var reader = command.ExecuteReader();
+            var result = new List<TagDto>();
+            while (reader.Read())
+            {
+                result.Add(new TagDto
+                {
+                    Id = reader.GetInt64(0),
+                    Name = reader.GetString(1),
+                    Color = reader.GetString(2)
+                });
+            }
+
+            return result;
+        }
+    }
+
+    public TagDto SaveTag(TagDto tag)
+    {
+        var name = tag.Name.Trim();
+        if (name.Length == 0)
+        {
+            throw new InvalidOperationException("标签名称不能为空。");
+        }
+
+        var color = NormalizeTagColor(tag.Color);
+        lock (_gate)
+        {
+            using (var duplicate = _connection.CreateCommand())
+            {
+                duplicate.CommandText = """
+                    SELECT 1 FROM tags
+                    WHERE name = $name COLLATE NOCASE AND id <> $id
+                    LIMIT 1;
+                    """;
+                duplicate.Parameters.AddWithValue("$name", name);
+                duplicate.Parameters.AddWithValue("$id", tag.Id);
+                if (duplicate.ExecuteScalar() is not null)
+                {
+                    throw new InvalidOperationException($"标签“{name}”已存在。");
+                }
+            }
+
+            using var transaction = _connection.BeginTransaction();
+            long id;
+            if (tag.Id > 0)
+            {
+                using var update = _connection.CreateCommand();
+                update.Transaction = transaction;
+                update.CommandText = "UPDATE tags SET name = $name, color = $color WHERE id = $id;";
+                update.Parameters.AddWithValue("$name", name);
+                update.Parameters.AddWithValue("$color", color);
+                update.Parameters.AddWithValue("$id", tag.Id);
+                if (update.ExecuteNonQuery() == 0)
+                {
+                    throw new KeyNotFoundException("标签不存在。");
+                }
+
+                id = tag.Id;
+            }
+            else
+            {
+                using var insert = _connection.CreateCommand();
+                insert.Transaction = transaction;
+                insert.CommandText = """
+                    INSERT INTO tags (name, color, created_utc)
+                    VALUES ($name, $color, $created);
+                    SELECT last_insert_rowid();
+                    """;
+                insert.Parameters.AddWithValue("$name", name);
+                insert.Parameters.AddWithValue("$color", color);
+                insert.Parameters.AddWithValue("$created", DateTimeOffset.UtcNow.ToString("O"));
+                id = Convert.ToInt64(insert.ExecuteScalar(), CultureInfo.InvariantCulture);
+            }
+
+            transaction.Commit();
+            return new TagDto { Id = id, Name = name, Color = color };
+        }
+    }
+
+    public void DeleteTag(long tagId)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = "DELETE FROM tags WHERE id = $id;";
+            command.Parameters.AddWithValue("$id", tagId);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    public IReadOnlyList<MessageTagAssignmentDto> GetMessageTags(IReadOnlyList<long> messageIds)
+    {
+        if (messageIds.Count == 0)
+        {
+            return [];
+        }
+
+        var wanted = messageIds.ToHashSet();
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = "SELECT message_id, tag_id FROM message_tags;";
+            using var reader = command.ExecuteReader();
+            var grouped = new Dictionary<long, List<long>>();
+            while (reader.Read())
+            {
+                var messageId = reader.GetInt64(0);
+                if (wanted.Contains(messageId))
+                {
+                    if (!grouped.TryGetValue(messageId, out var tagList))
+                    {
+                        tagList = [];
+                        grouped[messageId] = tagList;
+                    }
+
+                    tagList.Add(reader.GetInt64(1));
+                }
+            }
+
+            return grouped
+                .Select(pair => new MessageTagAssignmentDto
+                {
+                    MessageId = pair.Key,
+                    TagIds = pair.Value.ToArray()
+                })
+                .ToArray();
+        }
+    }
+
+    public int SetMessageTags(IReadOnlyList<long> messageIds, IReadOnlyList<long> tagIds, bool add)
+    {
+        if (messageIds.Count == 0 || tagIds.Count == 0)
+        {
+            return 0;
+        }
+
+        lock (_gate)
+        {
+            using var transaction = _connection.BeginTransaction();
+            var affected = 0;
+            foreach (var messageId in messageIds.Distinct())
+            {
+                foreach (var tagId in tagIds.Distinct())
+                {
+                    using var command = _connection.CreateCommand();
+                    command.Transaction = transaction;
+                    command.CommandText = add
+                        ? """
+                          INSERT OR IGNORE INTO message_tags (message_id, tag_id)
+                          VALUES ($messageId, $tagId);
+                          """
+                        : """
+                          DELETE FROM message_tags
+                          WHERE message_id = $messageId AND tag_id = $tagId;
+                          """;
+                    command.Parameters.AddWithValue("$messageId", messageId);
+                    command.Parameters.AddWithValue("$tagId", tagId);
+                    affected += command.ExecuteNonQuery();
+                }
+            }
+
+            transaction.Commit();
+            return affected;
+        }
+    }
+
+    private static string NormalizeTagColor(string? color)
+        => color is { Length: 7 } && color[0] == '#'
+           && color[1..].All(Uri.IsHexDigit)
+            ? color.ToUpperInvariant()
+            : "#0F7B0F";
 
     // 本地来信规则
 
@@ -2281,6 +2476,27 @@ public sealed class SqliteStore : IDisposable
 
                 CREATE INDEX IF NOT EXISTS ix_rules_enabled ON rules(enabled);
                 PRAGMA user_version = 10;
+                """);
+        }
+
+        if (version < 11)
+        {
+            Execute("""
+                CREATE TABLE IF NOT EXISTS tags (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name        TEXT NOT NULL UNIQUE,
+                    color       TEXT NOT NULL DEFAULT '#0F7B0F',
+                    created_utc TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS message_tags (
+                    message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+                    tag_id     INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+                    PRIMARY KEY (message_id, tag_id)
+                );
+
+                CREATE INDEX IF NOT EXISTS ix_message_tags_tag ON message_tags(tag_id);
+                PRAGMA user_version = 11;
                 """);
         }
     }

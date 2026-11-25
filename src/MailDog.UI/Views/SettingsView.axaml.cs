@@ -123,14 +123,14 @@ public partial class SettingsView : UserControl
             return;
         }
 
+        var encrypted = !string.IsNullOrWhiteSpace(Vm?.BackupPassword);
         var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "创建 MailDog 备份",
-            SuggestedFileName = $"MailDog-backup-{DateTime.Now:yyyyMMdd-HHmm}.zip",
-            DefaultExtension = "zip",
+            SuggestedFileName = $"MailDog-backup-{DateTime.Now:yyyyMMdd-HHmm}{(encrypted ? ".mdog" : ".zip")}",
+            DefaultExtension = encrypted ? "mdog" : "zip",
             ShowOverwritePrompt = true
         });
-
         var path = file?.TryGetLocalPath();
         if (!string.IsNullOrEmpty(path) && Vm is { } vm)
         {
@@ -154,7 +154,7 @@ public partial class SettingsView : UserControl
             [
                 new FilePickerFileType("MailDog 备份")
                 {
-                    Patterns = ["*.zip"]
+                    Patterns = ["*.zip", "*.mdog"]
                 }
             ]
         });

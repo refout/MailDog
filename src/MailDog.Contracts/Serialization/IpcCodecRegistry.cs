@@ -62,6 +62,13 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.MarkReadBatch, IpcJsonContext.Default.MarkReadBatchRequest);
         Register(IpcMessageTypes.SetFlag, IpcJsonContext.Default.SetFlagRequest);
         Register(IpcMessageTypes.SetFlagBatch, IpcJsonContext.Default.SetFlagBatchRequest);
+        Register(IpcMessageTypes.GetTags, IpcJsonContext.Default.GetTagsRequest);
+        Register(IpcMessageTypes.Tags, IpcJsonContext.Default.TagsResponse);
+        Register(IpcMessageTypes.SaveTag, IpcJsonContext.Default.SaveTagRequest);
+        Register(IpcMessageTypes.DeleteTag, IpcJsonContext.Default.DeleteTagRequest);
+        Register(IpcMessageTypes.GetMessageTags, IpcJsonContext.Default.GetMessageTagsRequest);
+        Register(IpcMessageTypes.MessageTags, IpcJsonContext.Default.MessageTagsResponse);
+        Register(IpcMessageTypes.SetMessageTags, IpcJsonContext.Default.SetMessageTagsRequest);
         Register(IpcMessageTypes.SyncAccount, IpcJsonContext.Default.SyncAccountRequest);
         Register(IpcMessageTypes.Ok, IpcJsonContext.Default.OkResponse);
 

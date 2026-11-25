@@ -159,6 +159,71 @@ public sealed class IpcContractTests
     }
 
     [Fact]
+    public void TagRequestsRoundTrip()
+    {
+        var save = new SaveTagRequest
+        {
+            Tag = new TagDto { Id = 7, Name = "客户", Color = "#AABBCC" }
+        };
+        var saveEnvelope = IpcCodecRegistry.Create(IpcMessageTypes.SaveTag, save);
+        var parsedSave = Assert.IsType<SaveTagRequest>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(saveEnvelope))));
+        Assert.Equal(7, parsedSave.Tag.Id);
+        Assert.Equal("客户", parsedSave.Tag.Name);
+        Assert.Equal("#AABBCC", parsedSave.Tag.Color);
+
+        var set = new SetMessageTagsRequest
+        {
+            MessageIds = [11, 12],
+            TagIds = [7, 8],
+            Add = false
+        };
+        var setEnvelope = IpcCodecRegistry.Create(IpcMessageTypes.SetMessageTags, set);
+        var parsedSet = Assert.IsType<SetMessageTagsRequest>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(setEnvelope))));
+        Assert.Equal([11L, 12L], parsedSet.MessageIds);
+        Assert.Equal([7L, 8L], parsedSet.TagIds);
+        Assert.False(parsedSet.Add);
+
+        var response = new MessageTagsResponse
+        {
+            Items = [new MessageTagAssignmentDto { MessageId = 11, TagIds = [7, 8] }]
+        };
+        var responseEnvelope = IpcCodecRegistry.Create(IpcMessageTypes.MessageTags, response);
+        var parsedResponse = Assert.IsType<MessageTagsResponse>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(responseEnvelope))));
+        var assignment = Assert.Single(parsedResponse.Items);
+        Assert.Equal(11, assignment.MessageId);
+        Assert.Equal([7L, 8L], assignment.TagIds);
+    }
+
+    [Fact]
+    public void BackupRequestsCarryOptionalPassword()
+    {
+        var create = new CreateBackupRequest { DestinationPath = "C:\\backup.mdog", Password = "secret" };
+        var createEnvelope = IpcCodecRegistry.Create(IpcMessageTypes.CreateBackup, create);
+        var parsedCreate = Assert.IsType<CreateBackupRequest>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(createEnvelope))));
+        Assert.Equal("C:\\backup.mdog", parsedCreate.DestinationPath);
+        Assert.Equal("secret", parsedCreate.Password);
+
+        var restore = new RestoreBackupRequest { ArchivePath = "C:\\backup.mdog", Password = "secret" };
+        var restoreEnvelope = IpcCodecRegistry.Create(IpcMessageTypes.RestoreBackup, restore);
+        var parsedRestore = Assert.IsType<RestoreBackupRequest>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(restoreEnvelope))));
+        Assert.Equal("C:\\backup.mdog", parsedRestore.ArchivePath);
+        Assert.Equal("secret", parsedRestore.Password);
+    }
+
+    [Fact]
+    public void SettingsJsonFallsBackWhenStoredCollectionsAreCorrupt()
+    {
+        Assert.Empty(SettingsJson.DeserializeTemplates("{not-json"));
+        Assert.Empty(SettingsJson.DeserializeAccountSignatures("[1,2,"));
+        Assert.Empty(SettingsJson.DeserializeTemplates(null));
+    }
+
+    [Fact]
     public void OAuthDtosAreCoveredBySourceGeneratedContext()
     {
         Assert.NotNull(IpcJsonContext.Default.GetTypeInfo(typeof(OAuthTokenResponse)));
