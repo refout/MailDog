@@ -96,6 +96,10 @@ public static class IpcMessageTypes
     public const string RestoreResult = "restoreResult";
     public const string ExportMessage = "exportMessage";
     public const string MessageExport = "messageExport";
+    public const string ImportMailbox = "importMailbox";
+    public const string MailboxImported = "mailboxImported";
+    public const string ExportMailbox = "exportMailbox";
+    public const string MailboxExported = "mailboxExported";
     public const string ListOutbox = "listOutbox";
     public const string OutboxList = "outboxList";
     public const string RetryOutbox = "retryOutbox";

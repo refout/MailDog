@@ -565,6 +565,34 @@ public sealed class MessageExportResponse : Ipc.IIpcMessage
     public long Size { get; init; }
 }
 
+public sealed class ImportMailboxRequest : Ipc.IIpcMessage
+{
+    public string AccountId { get; init; } = string.Empty;
+
+    public long FolderId { get; init; }
+
+    public string[] Paths { get; init; } = [];
+}
+
+public sealed class MailboxImportResponse : Ipc.IIpcMessage
+{
+    public MailboxImportResultDto Result { get; init; } = new();
+}
+
+public sealed class ExportMailboxRequest : Ipc.IIpcMessage
+{
+    public string AccountId { get; init; } = string.Empty;
+
+    public long? FolderId { get; init; }
+
+    public string DestinationPath { get; init; } = string.Empty;
+}
+
+public sealed class MailboxExportResponse : Ipc.IIpcMessage
+{
+    public MailboxExportResultDto Result { get; init; } = new();
+}
+
 public sealed class ListOutboxRequest : Ipc.IIpcMessage
 {
 }

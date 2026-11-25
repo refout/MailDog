@@ -776,6 +776,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _storageStatus = "打开“本地文件”后读取磁盘占用。";
 
+    [ObservableProperty]
+    private bool _isMigrationBusy;
+
+    [ObservableProperty]
+    private string _migrationStatus = "可导入 .eml/.mbox，或把当前账户导出为 mbox。";
+
     partial void OnStorageSummaryChanged(StorageSummaryDto? value)
     {
         OnPropertyChanged(nameof(StorageDataDirectory));
@@ -5868,6 +5874,95 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private Task CompactDatabaseAsync()
         => CleanStorageAsync(new CleanStorageRequest { CompactDatabase = true });
+
+    public async Task ImportMailboxAsync(IReadOnlyList<string> paths)
+    {
+        if (IsMigrationBusy || paths.Count == 0)
+        {
+            return;
+        }
+
+        var account = SelectedAccount ?? Accounts.FirstOrDefault();
+        var inbox = account?.Folders.FirstOrDefault(folder => folder.Role == FolderRole.Inbox)
+            ?? account?.Folders.FirstOrDefault();
+        if (account is null || inbox is null)
+        {
+            MigrationStatus = "请先添加账户并同步文件夹。";
+            return;
+        }
+
+        IsMigrationBusy = true;
+        MigrationStatus = $"正在导入 {paths.Count} 个文件…";
+
+        try
+        {
+            var response = await _engine.RequestAsync<MailboxImportResponse>(
+                IpcMessageTypes.ImportMailbox,
+                new ImportMailboxRequest
+                {
+                    AccountId = account.Id,
+                    FolderId = inbox.Id,
+                    Paths = paths.ToArray()
+                },
+                TimeSpan.FromMinutes(10));
+
+            var errorText = response.Result.Errors.Length > 0
+                ? $" 示例：{string.Join("；", response.Result.Errors.Take(3))}"
+                : string.Empty;
+            MigrationStatus =
+                $"{response.Result.Message}（目标：{account.DisplayName} / {inbox.Name}）{errorText}";
+        }
+        catch (Exception exception)
+        {
+            MigrationStatus = $"导入失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsMigrationBusy = false;
+        }
+    }
+
+    public async Task ExportMailboxAsync(string destinationPath)
+    {
+        if (IsMigrationBusy)
+        {
+            return;
+        }
+
+        var account = SelectedAccount ?? Accounts.FirstOrDefault();
+        if (account is null)
+        {
+            MigrationStatus = "请先添加账户。";
+            return;
+        }
+
+        IsMigrationBusy = true;
+        MigrationStatus = $"正在导出 {account.DisplayName} 的全部邮件…";
+
+        try
+        {
+            var response = await _engine.RequestAsync<MailboxExportResponse>(
+                IpcMessageTypes.ExportMailbox,
+                new ExportMailboxRequest
+                {
+                    AccountId = account.Id,
+                    DestinationPath = destinationPath
+                },
+                TimeSpan.FromMinutes(30));
+
+            MigrationStatus =
+                $"{response.Result.Message} 文件大小 {FormatStorageSize(response.Result.Size)}，"
+                + $"路径：{response.Result.Path}";
+        }
+        catch (Exception exception)
+        {
+            MigrationStatus = $"导出失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsMigrationBusy = false;
+        }
+    }
 
     [RelayCommand]
     private void OpenFolder(string? path)

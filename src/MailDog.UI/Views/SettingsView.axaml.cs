@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -115,8 +116,61 @@ public partial class SettingsView : UserControl
         }
     }
 
-    private async void OnCreateBackupClick(object? sender, RoutedEventArgs e)
+    private async void OnImportMailboxClick(object? sender, RoutedEventArgs e)
     {
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage is null)
+        {
+            return;
+        }
+
+        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "导入邮件",
+            AllowMultiple = true,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("邮件归档")
+                {
+                    Patterns = ["*.eml", "*.mbox", "*.mbx"]
+                }
+            ]
+        });
+
+        var paths = files
+            .Select(file => file.TryGetLocalPath())
+            .Where(path => !string.IsNullOrEmpty(path))
+            .Cast<string>()
+            .ToArray();
+        if (paths.Length > 0 && Vm is { } vm)
+        {
+            await vm.ImportMailboxAsync(paths);
+        }
+    }
+
+    private async void OnExportMailboxClick(object? sender, RoutedEventArgs e)
+    {
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage is null)
+        {
+            return;
+        }
+
+        var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "导出当前账户为 mbox",
+            SuggestedFileName = $"MailDog-{DateTime.Now:yyyyMMdd-HHmm}.mbox",
+            DefaultExtension = "mbox",
+            ShowOverwritePrompt = true
+        });
+        var path = file?.TryGetLocalPath();
+        if (!string.IsNullOrEmpty(path) && Vm is { } vm)
+        {
+            await vm.ExportMailboxAsync(path);
+        }
+    }
+
+    private async void OnCreateBackupClick(object? sender, RoutedEventArgs e)    {
         var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
         if (storage is null)
         {

@@ -360,6 +360,26 @@ public sealed class RequestRouter
                 };
             }
 
+            case ImportMailboxRequest request:
+                return new MailboxImportResponse
+                {
+                    Result = await _sync.ImportMailboxAsync(
+                        request.AccountId,
+                        request.FolderId,
+                        request.Paths,
+                        cancellationToken).ConfigureAwait(false)
+                };
+
+            case ExportMailboxRequest request:
+                return new MailboxExportResponse
+                {
+                    Result = await _sync.ExportMailboxAsync(
+                        request.AccountId,
+                        request.FolderId,
+                        request.DestinationPath,
+                        cancellationToken).ConfigureAwait(false)
+                };
+
             case ListOutboxRequest:
                 return new OutboxListResponse
                 {

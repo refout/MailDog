@@ -88,6 +88,10 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.RestoreResult, IpcJsonContext.Default.RestoreResponse);
         Register(IpcMessageTypes.ExportMessage, IpcJsonContext.Default.ExportMessageRequest);
         Register(IpcMessageTypes.MessageExport, IpcJsonContext.Default.MessageExportResponse);
+        Register(IpcMessageTypes.ImportMailbox, IpcJsonContext.Default.ImportMailboxRequest);
+        Register(IpcMessageTypes.MailboxImported, IpcJsonContext.Default.MailboxImportResponse);
+        Register(IpcMessageTypes.ExportMailbox, IpcJsonContext.Default.ExportMailboxRequest);
+        Register(IpcMessageTypes.MailboxExported, IpcJsonContext.Default.MailboxExportResponse);
         Register(IpcMessageTypes.ListOutbox, IpcJsonContext.Default.ListOutboxRequest);
         Register(IpcMessageTypes.OutboxList, IpcJsonContext.Default.OutboxListResponse);
         Register(IpcMessageTypes.RetryOutbox, IpcJsonContext.Default.RetryOutboxRequest);

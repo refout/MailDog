@@ -1324,6 +1324,29 @@
                           </StackPanel>
 
                         <StackPanel Spacing="10">
+                            <TextBlock Text="迁移与互操作" Classes="section" />
+                            <TextBlock Text="导入会把 .eml 或 mbox 逐封追加到当前账户的收件箱；导出会把当前账户的全部已同步邮件写成标准 mbox。Thunderbird 可直接导入导出的 mbox；Outlook 导入时请选择“从 Thunderbird 导入”或先用 Thunderbird 打开 mbox。导入需要服务器支持 IMAP APPEND，重复导入可能产生重复邮件。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <WrapPanel>
+                              <Button Content="导入 mbox / eml"
+                                      Click="OnImportMailboxClick"
+                                      IsEnabled="{Binding !IsMigrationBusy}"
+                                      Margin="0,0,8,8" />
+                              <Button Content="导出当前账户 mbox"
+                                      Click="OnExportMailboxClick"
+                                      IsEnabled="{Binding !IsMigrationBusy}"
+                                      Margin="0,0,0,8" />
+                            </WrapPanel>
+                            <ProgressBar IsIndeterminate="True"
+                                         Height="3"
+                                         IsVisible="{Binding IsMigrationBusy}" />
+                            <TextBlock Text="{Binding MigrationStatus}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="10">
                             <TextBlock Text="备份与恢复" Classes="section" />
                             <TextBlock Text="备份会生成包含本地数据库的 ZIP。填写密码则生成 AES-256-GCM 加密的 .mdog 备份；恢复只在下次启动 Engine 时替换数据库，启动前会先复制当前数据库。"
                                        Classes="caption"

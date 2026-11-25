@@ -755,6 +755,34 @@ public sealed class SqliteStore : IDisposable
         };
     }
 
+    /// <summary>导出 mbox 时按账户/文件夹读取全部本地索引；正文仍由 IMAP 按需拉取。</summary>
+    public IReadOnlyList<MessageRecord> GetMessagesForExport(string accountId, long? folderId)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                SELECT id, account_id, folder_id, uid, message_id, subject, from_name, from_addr,
+                       to_addrs, cc_addrs, date_utc, size, flags, has_attachments, preview, body_state,
+                       thread_key
+                FROM messages
+                WHERE account_id = $accountId AND ($folderId IS NULL OR folder_id = $folderId)
+                ORDER BY date_utc ASC, id ASC;
+                """;
+            command.Parameters.AddWithValue("$accountId", accountId);
+            command.Parameters.AddWithValue("$folderId", (object?)folderId ?? DBNull.Value);
+
+            var result = new List<MessageRecord>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                result.Add(ReadMessage(reader));
+            }
+
+            return result;
+        }
+    }
+
     /// <summary>按规则扫描历史邮件；调用方用小 limit 做预览，用大 limit 做回溯。</summary>
     public IReadOnlyList<MessageRecord> FindRuleMatches(RuleDto rule, int limit = 500)
     {

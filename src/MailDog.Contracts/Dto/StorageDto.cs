@@ -47,6 +47,28 @@ public sealed class StorageCleanupResultDto
     public string Message { get; init; } = string.Empty;
 }
 
+public sealed class MailboxImportResultDto
+{
+    public int Imported { get; init; }
+
+    public int Skipped { get; init; }
+
+    public string[] Errors { get; init; } = [];
+
+    public string Message { get; init; } = string.Empty;
+}
+
+public sealed class MailboxExportResultDto
+{
+    public string Path { get; init; } = string.Empty;
+
+    public long Size { get; init; }
+
+    public int Messages { get; init; }
+
+    public string Message { get; init; } = string.Empty;
+}
+
 public sealed class BackupResultDto
 {
     public string Path { get; init; } = string.Empty;
