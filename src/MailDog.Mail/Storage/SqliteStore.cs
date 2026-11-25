@@ -14,8 +14,11 @@ public sealed class SqliteStore : IDisposable
     private readonly object _gate = new();
     private bool _disposed;
 
+    public string DatabasePath { get; }
+
     public SqliteStore(string databasePath)
     {
+        DatabasePath = databasePath;
         SqliteNativeBootstrap.EnsureLoaded();
         SQLitePCL.Batteries_V2.Init();
 

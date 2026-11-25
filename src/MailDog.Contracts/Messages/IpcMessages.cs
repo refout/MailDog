@@ -551,6 +551,12 @@ public sealed class ShowMainWindowEvent : Ipc.IIpcMessage
 
     public long? FolderId { get; init; }
 
+    /// <summary>mailto: 链接，界面打开后用它预填撰写窗口。</summary>
+    public string? ComposeUri { get; init; }
+
+    /// <summary>要直接打开的 .eml 文件路径。</summary>
+    public string? EmlPath { get; init; }
+
     /// <summary>只要窗口并把左侧设置页切到「关于」，用于托盘里的"检查更新"。</summary>
     public bool OpenAbout { get; init; }
 
@@ -566,6 +572,12 @@ public sealed class PendingNavigationResponse : Ipc.IIpcMessage
 {
     public bool HasTarget { get; init; }
 
+    /// <summary>冷启动时由 mailto: 链接带来的撰写内容。</summary>
+    public string? ComposeUri { get; init; }
+
+    /// <summary>冷启动时要直接打开的 .eml 文件。</summary>
+    public string? EmlPath { get; init; }
+
     public long? MessageId { get; init; }
 
     public string? AccountId { get; init; }
@@ -576,6 +588,48 @@ public sealed class PendingNavigationResponse : Ipc.IIpcMessage
     public bool OpenAbout { get; init; }
 
     public bool CheckUpdate { get; init; }
+}
+
+/// <summary>请求后台进程收尾并退出；只应由本机同一用户的界面或命令行发出。</summary>
+public sealed class ActivateRequest : Ipc.IIpcMessage
+{
+    public string Uri { get; init; } = string.Empty;
+}
+
+public sealed class AddRecentRequest : Ipc.IIpcMessage
+{
+    public long MessageId { get; init; }
+
+    public string AccountId { get; init; } = string.Empty;
+
+    public long FolderId { get; init; }
+
+    public string Subject { get; init; } = string.Empty;
+
+    public string From { get; init; } = string.Empty;
+}
+
+public sealed class ShutdownRequest : Ipc.IIpcMessage
+{
+}
+
+public sealed class GetAccountHealthRequest : Ipc.IIpcMessage
+{
+}
+
+public sealed class AccountHealthResponse : Ipc.IIpcMessage
+{
+    public AccountHealthDto[] Items { get; init; } = [];
+}
+
+public sealed class GetEmlPreviewRequest : Ipc.IIpcMessage
+{
+    public string Path { get; init; } = string.Empty;
+}
+
+public sealed class EmlPreviewResponse : Ipc.IIpcMessage
+{
+    public EmlPreviewDto Preview { get; init; } = new();
 }
 
 public sealed class AccountChangedEvent : Ipc.IIpcMessage

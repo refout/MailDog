@@ -225,6 +225,8 @@ public sealed class UiConnection : IAsyncDisposable
             IpcMessageTypes.CancelOAuth => IpcMessageTypes.Ok,
             IpcMessageTypes.UpdateSettings => IpcMessageTypes.Ok,
             IpcMessageTypes.GetStorageSummary => IpcMessageTypes.StorageSummary,
+            IpcMessageTypes.GetAccountHealth => IpcMessageTypes.AccountHealth,
+            IpcMessageTypes.GetEmlPreview => IpcMessageTypes.EmlPreview,
             IpcMessageTypes.CleanStorage => IpcMessageTypes.StorageCleanup,
             _ => IpcMessageTypes.Ok
         };

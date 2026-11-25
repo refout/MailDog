@@ -62,10 +62,17 @@ public static class IpcMessageTypes
     public const string DraftContent = "draftContent";
     public const string SyncAccount = "syncAccount";
     public const string Ok = "ok";
+    public const string Activate = "activate";
+    public const string AddRecent = "addRecent";
 
     public const string GetSettings = "getSettings";
     public const string Settings = "settings";
     public const string UpdateSettings = "updateSettings";
+
+    public const string GetAccountHealth = "getAccountHealth";
+    public const string AccountHealth = "accountHealth";
+    public const string GetEmlPreview = "getEmlPreview";
+    public const string EmlPreview = "emlPreview";
 
     public const string GetStorageSummary = "getStorageSummary";
     public const string StorageSummary = "storageSummary";
@@ -93,6 +100,7 @@ public static class IpcMessageTypes
     public const string TakePendingNavigation = "takePendingNavigation";
     public const string PendingNavigation = "pendingNavigation";
     public const string AccountChanged = "accountChanged";
+    public const string Shutdown = "shutdown";
 
     public const string Error = "error";
 }

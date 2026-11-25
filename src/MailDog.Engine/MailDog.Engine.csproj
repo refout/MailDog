@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net11.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework Condition="'$(OS)' == 'Windows_NT'">net11.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework Condition="'$(OS)' != 'Windows_NT'">net11.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <DefineConstants Condition="'$(TargetFramework)' == 'net11.0-windows10.0.19041.0'">$(DefineConstants);MAILDOG_WINDOWS</DefineConstants>
     <AssemblyName>MailDog.Engine</AssemblyName>
     <RootNamespace>MailDog.Engine</RootNamespace>
     <AssemblyTitle>MailDog</AssemblyTitle>
@@ -15,6 +18,22 @@
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
     <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL2057;IL2060;IL2070;IL2072;IL2075;IL2090;IL2091;IL3050;IL3051;IL3053</WarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != 'net11.0-windows10.0.19041.0'">
+    <Compile Remove="Tray/Win32Tray.cs" />
+    <Compile Remove="Tray/ToastNotifier.cs" />
+    <Compile Remove="Tray/ToastActivation.cs" />
+    <Compile Remove="Tray/AvatarIconFactory.cs" />
+    <Compile Remove="Tray/NativeMethods.cs" />
+    <Compile Remove="Tray/AppIdentity.cs" />
+    <Compile Remove="Tray/ShellIntegration.cs" />
+    <Compile Remove="Tray/WindowsIntegration.cs" />
+    <Compile Remove="Hosting/StartupRegistration.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net11.0-windows10.0.19041.0'">
+    <Compile Remove="Tray/AppIdentity.Linux.cs" />
+    <Compile Remove="Tray/ShellIntegration.Linux.cs" />
+    <Compile Remove="Hosting/StartupRegistration.Linux.cs" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MailDog.Contracts\MailDog.Contracts.csproj" />
     <ProjectReference Include="..\MailDog.Mail\MailDog.Mail.csproj" />

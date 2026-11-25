@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
+using MailDog.Contracts.Platform;
 
 namespace MailDog.UI.Services;
 
@@ -99,7 +100,8 @@ public sealed class UpdateService
                         installerSize = asset.TryGetProperty("size", out var sizeElement) ? sizeElement.GetInt64() : 0;
                         digest = asset.TryGetProperty("digest", out var digestElement) ? digestElement.GetString() : null;
                     }
-                    else if (name.EndsWith("-win-x64.zip", StringComparison.OrdinalIgnoreCase))
+                    else if (name.EndsWith("-win-x64.zip", StringComparison.OrdinalIgnoreCase)
+                        || (OperatingSystem.IsLinux() && IsLinuxPackage(name)))
                     {
                         portableUrl = asset.TryGetProperty("browser_download_url", out var urlElement) ? urlElement.GetString() : null;
                     }
@@ -221,7 +223,7 @@ public sealed class UpdateService
         }
 
         // 安装包与界面同目录，装完直接启新版本；当前进程随后退出。
-        var uiPath = Path.Combine(AppContext.BaseDirectory, "MailDog.UI.exe");
+        var uiPath = Path.Combine(AppContext.BaseDirectory, ProductPaths.UiExecutableName);
 
         if (File.Exists(uiPath))
         {
@@ -232,6 +234,18 @@ public sealed class UpdateService
     }
 
     public static string ReleasePageUrl => ReleasesPage;
+
+    /// <summary>Linux 包按当前 CPU 架构选资产，避免 x64 用户下到 arm64 包。</summary>
+    private static bool IsLinuxPackage(string name)
+    {
+        var architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture switch
+        {
+            System.Runtime.InteropServices.Architecture.Arm64 => "arm64",
+            _ => "x64"
+        };
+
+        return name.EndsWith($"-linux-{architecture}.tar.gz", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static UpdateCheckResult Empty(string currentVersion, string error)
         => new(false, currentVersion, string.Empty, null, 0, null, null, ReleasesPage, error);

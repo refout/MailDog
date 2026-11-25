@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace MailDog.Engine.Tray;
 
-public sealed class Win32Tray : IDisposable
+public sealed class Win32Tray : IAppTray
 {
     private const uint WM_TRAYICON = NativeMethods.WM_APP + 1;
     private const uint WM_POWERBROADCAST = 0x0218;

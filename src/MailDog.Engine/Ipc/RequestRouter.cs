@@ -44,6 +44,21 @@ public sealed class RequestRouter
     /// <summary>由 EngineHost 注入：取出并清除待跳转的通知目标。</summary>
     public Func<PendingNavigationResponse>? TakePendingNavigation { get; set; }
 
+    /// <summary>由 EngineHost 注入：请求正常退出后台进程。</summary>
+    public Action? ShutdownRequested { get; set; }
+
+    /// <summary>由 EngineHost 注入：第二个进程带 --activate 启动时，把 URI 交给常驻进程。</summary>
+    public Action<string>? ActivationRequested { get; set; }
+
+    /// <summary>由 EngineHost 注入：返回当前账号健康快照。</summary>
+    public Func<AccountHealthDto[]>? GetAccountHealth { get; set; }
+
+    /// <summary>由 EngineHost 注入：解析外部 .eml 供界面预览。</summary>
+    public Func<string, EmlPreviewDto>? GetEmlPreview { get; set; }
+
+    /// <summary>由 EngineHost 注入：把打开的邮件加入系统最近列表。</summary>
+    public Action<AddRecentRequest>? AddRecent { get; set; }
+
     public HelloAck CreateHelloAck()
         => new()
         {
@@ -322,6 +337,28 @@ public sealed class RequestRouter
 
             case TakePendingNavigationRequest:
                 return TakePendingNavigation?.Invoke() ?? new PendingNavigationResponse();
+
+            case ActivateRequest activate:
+                ActivationRequested?.Invoke(activate.Uri);
+                return new OkResponse();
+
+            case AddRecentRequest recent:
+                AddRecent?.Invoke(recent);
+                return new OkResponse();
+
+            case ShutdownRequest:
+                ShutdownRequested?.Invoke();
+                return new OkResponse();
+
+            case GetAccountHealthRequest:
+                return new AccountHealthResponse { Items = GetAccountHealth?.Invoke() ?? [] };
+
+            case GetEmlPreviewRequest request:
+                return new EmlPreviewResponse
+                {
+                    Preview = GetEmlPreview?.Invoke(request.Path)
+                        ?? new EmlPreviewDto { FileName = Path.GetFileName(request.Path), Error = "引擎不支持预览。" }
+                };
 
             case UpdateSettingsRequest request:
                 _store.SaveSettings(request.Settings);

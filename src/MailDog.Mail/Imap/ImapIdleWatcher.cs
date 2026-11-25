@@ -7,6 +7,14 @@ using MailKit.Security;
 
 namespace MailDog.Mail.Imap;
 
+/// <summary>IDLE 连接的只读状态，供账号健康面板展示。</summary>
+public sealed record IdleConnectionState(
+    string AccountId,
+    bool IsConnected,
+    bool? SupportsIdle,
+    DateTimeOffset? ConnectedSinceUtc,
+    string? LastError);
+
 /// <summary>
 /// 为每个账户维持一条 IMAP IDLE 连接，收到新邮件通知时触发同步。
 /// 与同步会话分开连接，避免 IDLE 长时间占用操作通道。
@@ -21,6 +29,7 @@ public sealed class ImapIdleWatcher : IAsyncDisposable
     private readonly AccountService _accounts;
     private readonly IAccessTokenProvider _tokens;
     private readonly Dictionary<string, Loop> _loops = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IdleConnectionState> _states = new(StringComparer.Ordinal);
     private readonly object _gate = new();
     private readonly CancellationTokenSource _cts = new();
 
@@ -46,6 +55,11 @@ public sealed class ImapIdleWatcher : IAsyncDisposable
             {
                 Stop(_loops[id]);
                 _loops.Remove(id);
+            }
+
+            foreach (var id in _states.Keys.Where(key => !ids.Contains(key)).ToArray())
+            {
+                _states.Remove(id);
             }
 
             foreach (var account in accounts)
@@ -79,6 +93,15 @@ public sealed class ImapIdleWatcher : IAsyncDisposable
         }
     }
 
+    /// <summary>当前每个账户的 IDLE 连接状态；没有建立过连接时不返回。</summary>
+    public IReadOnlyList<IdleConnectionState> GetStates()
+    {
+        lock (_gate)
+        {
+            return _states.Values.ToArray();
+        }
+    }
+
     private async Task RunAsync(AccountRecord account, CancellationToken cancellationToken)
     {
         var failures = 0;
@@ -87,6 +110,7 @@ public sealed class ImapIdleWatcher : IAsyncDisposable
         {
             ImapClient? client = null;
             TimeSpan delay;
+            UpdateState(account.Id, connected: false);
 
             try
             {
@@ -96,6 +120,7 @@ public sealed class ImapIdleWatcher : IAsyncDisposable
 
                 if (!client.Capabilities.Contains(ImapCapability.Idle))
                 {
+                    UpdateState(account.Id, connected: false, supportsIdle: false, error: "服务器不支持 IDLE");
                     Diagnostic?.Invoke($"账户 {account.Email} 的服务器不支持 IDLE，继续使用周期同步。");
                     return;
                 }
@@ -103,6 +128,12 @@ public sealed class ImapIdleWatcher : IAsyncDisposable
                 var inbox = client.Inbox;
                 await inbox.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
                 failures = 0;
+                UpdateState(
+                    account.Id,
+                    connected: true,
+                    supportsIdle: true,
+                    connectedSince: DateTimeOffset.UtcNow,
+                    error: null);
                 Diagnostic?.Invoke($"账户 {account.Email} 已启用 IDLE 实时同步。");
 
                 while (!cancellationToken.IsCancellationRequested)
@@ -121,6 +152,7 @@ public sealed class ImapIdleWatcher : IAsyncDisposable
             }
             catch (AuthenticationException exception)
             {
+                UpdateState(account.Id, connected: false, supportsIdle: true, error: $"认证失败：{exception.Message}");
                 Diagnostic?.Invoke($"账户 {account.Email} 的 IDLE 认证失败：{exception.Message}");
                 delay = AuthBackoff;
             }
@@ -131,6 +163,7 @@ public sealed class ImapIdleWatcher : IAsyncDisposable
                     MaxBackoff.TotalSeconds,
                     30 * Math.Pow(2, Math.Min(failures - 1, 5))));
 
+                UpdateState(account.Id, connected: false, error: $"连接中断：{exception.Message}");
                 Diagnostic?.Invoke($"账户 {account.Email} 的 IDLE 连接中断，{delay.TotalSeconds:0} 秒后重连：{exception.Message}");
             }
             finally
@@ -171,6 +204,26 @@ public sealed class ImapIdleWatcher : IAsyncDisposable
             {
                 return;
             }
+        }
+    }
+
+    private void UpdateState(
+        string accountId,
+        bool connected,
+        bool? supportsIdle = null,
+        DateTimeOffset? connectedSince = null,
+        string? error = null)
+    {
+        lock (_gate)
+        {
+            var previous = _states.GetValueOrDefault(accountId);
+
+            _states[accountId] = new IdleConnectionState(
+                accountId,
+                connected,
+                supportsIdle ?? previous?.SupportsIdle,
+                connected ? connectedSince ?? previous?.ConnectedSinceUtc : null,
+                error);
         }
     }
 

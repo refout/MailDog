@@ -221,13 +221,8 @@ public sealed class SqliteStoreTests : IDisposable
     }
 
     [Fact]
-    public void SecretStoreRoundTripsOnWindows()
+    public void SecretStoreRoundTrips()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
         var secrets = new SecretStore(_store);
         secrets.Save("test:secret", "imap_password", "auth-code");
 

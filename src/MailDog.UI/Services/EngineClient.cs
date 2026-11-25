@@ -1,9 +1,9 @@
 using System.IO.Pipes;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Collections.Concurrent;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
+using MailDog.Contracts.Platform;
 using MailDog.Contracts.Serialization;
 
 namespace MailDog.UI.Services;
@@ -54,7 +54,7 @@ public sealed class EngineClient : IAsyncDisposable
             if (pipe is null)
             {
                 throw new InvalidOperationException(
-                    "无法连接到 MailDog 后台。请确认 MailDog.Engine.exe 与 MailDog.UI.exe 位于同一目录，或先启动 MailDog.Engine.exe。");
+                    $"无法连接到 MailDog 后台。请确认 {ProductPaths.EngineExecutableName} 与 {ProductPaths.UiExecutableName} 位于同一目录，或先启动 {ProductPaths.EngineExecutableName}。");
             }
 
             _pipe = pipe;
@@ -231,9 +231,9 @@ public sealed class EngineClient : IAsyncDisposable
             };
 
             var uiPath = Environment.ProcessPath;
-            if (!string.Equals(Path.GetFileName(uiPath), "MailDog.UI.exe", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(Path.GetFileName(uiPath), ProductPaths.UiExecutableName, StringComparison.OrdinalIgnoreCase))
             {
-                uiPath = Path.Combine(AppContext.BaseDirectory, "MailDog.UI.exe");
+                uiPath = Path.Combine(AppContext.BaseDirectory, ProductPaths.UiExecutableName);
             }
 
             if (File.Exists(uiPath))
@@ -258,7 +258,7 @@ public sealed class EngineClient : IAsyncDisposable
             return path;
         }
 
-        path = Path.Combine(AppContext.BaseDirectory, "MailDog.Engine.exe");
+        path = Path.Combine(AppContext.BaseDirectory, ProductPaths.EngineExecutableName);
 
         if (File.Exists(path))
         {
@@ -267,7 +267,7 @@ public sealed class EngineClient : IAsyncDisposable
 
         // 开发时 UI 与 Engine 分属不同输出目录，向上查找同仓库的 Engine 构建产物。
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        var runtime = RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "win-arm64" : "win-x64";
+        var runtime = ProductPaths.RuntimeIdentifier;
         var configurations = AppContext.BaseDirectory.Contains(
             $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}",
             StringComparison.OrdinalIgnoreCase)
@@ -293,7 +293,7 @@ public sealed class EngineClient : IAsyncDisposable
                         "artifacts",
                         runtime,
                         "engine",
-                        "MailDog.Engine.exe");
+                        ProductPaths.EngineExecutableName);
 
                     if (File.Exists(artifact))
                     {
@@ -301,8 +301,8 @@ public sealed class EngineClient : IAsyncDisposable
                     }
                 }
 
-                // Engine 的目标框架带 Windows 版本（它要用 WinRT 发通知），
-                // 目录名不是固定的 net11.0，所以按前缀找一遍。
+                // Engine 在 Windows 上是 net11.0-windows，Linux 上是 net11.0，
+                // 目录名不固定，所以按前缀找一遍。
                 string[] targetFrameworks;
 
                 try
@@ -319,14 +319,19 @@ public sealed class EngineClient : IAsyncDisposable
                 foreach (var targetFramework in targetFrameworks)
                 {
                     // 优先使用 RID 发布产物，避免误用旧的非 RID apphost。
-                    var published = Path.Combine(targetFramework, runtime, "MailDog.Engine.exe");
+                    var published = Path.Combine(
+                        targetFramework,
+                        runtime,
+                        ProductPaths.EngineExecutableName);
 
                     if (File.Exists(published))
                     {
                         return published;
                     }
 
-                    var candidate = Path.Combine(targetFramework, "MailDog.Engine.exe");
+                    var candidate = Path.Combine(
+                        targetFramework,
+                        ProductPaths.EngineExecutableName);
 
                     if (File.Exists(candidate))
                     {

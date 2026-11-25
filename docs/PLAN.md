@@ -19,11 +19,11 @@
 | 邮件协议 | MailKit 5.0.0（IMAP/SMTP），不引用 `MimeKit.Cryptography` |
 | 本地存储 | SQLite（`Microsoft.Data.Sqlite` 11.0.0，ADO.NET，不用 EF Core） |
 | 认证 | QQ 邮箱授权码 + SASL PLAIN；Outlook OAuth2 Authorization Code + PKCE（自研回环） |
-| IPC | Windows 命名管道 + 4 字节长度前缀 + 源生成 JSON |
-| 进程模型 | Engine 持有 Win32 托盘；UI 关闭即 `Shutdown()`，Engine 继续驻留 |
+| IPC | 命名管道（Windows Named Pipe / Linux Unix Domain Socket）+ 4 字节长度前缀 + 源生成 JSON |
+| 进程模型 | Engine 持有 Win32 托盘；Linux 用 Avalonia TrayIcon（无 StatusNotifier 宿主时静默常驻），`shutdown` IPC / `maildog quit` 收尾；UI 关闭即 `Shutdown()`，Engine 继续驻留 |
 | 发布 | Native AOT 单文件 × 2，零 .NET 运行时依赖 |
 | 仓库 | 本地 `C:\Users\hale\IdeaProjects\MailDog`；远端 `https://github.com/refout/MailDog`（Public） |
-| 平台范围 | v1 只交付 Windows x64/arm64；macOS/Linux 预留抽象，后续里程碑实现 |
+| 平台范围 | v1 交付 Windows x64/arm64；v0.3.0 增加 Linux x64（WebKitGTK HTML/纯文本回退、可选托盘、协议激活）；macOS 与 Linux arm64 仍未定 |
 
 ### 0.1 对原始架构稿的技术修正
 
@@ -35,7 +35,7 @@
    > 原方案强调 `response_mode=query` 以免 `#fragment` 无法读取，这一点仍然成立，必须显式设置。
 
 3. **Linux 的 WebView 回退顺序需按官方文档修正。**
-   `NativeWebView` 在 Linux 上**优先 WPE WebKit，未安装时自动回退 WebKitGTK**；`NativeWebDialog` 始终使用 WebKitGTK。因此在 Linux 上不存在“WPE 缺失就必须换 `NativeWebDialog`”的硬分叉。v1 不实现 Linux，相关判断放到 UI 渲染协调器的平台策略中预留。
+   `NativeWebView` 在 Linux 上**优先 WPE WebKit，未安装时自动回退 WebKitGTK**；`NativeWebDialog` 始终使用 WebKitGTK。因此在 Linux 上不存在“WPE 缺失就必须换 `NativeWebDialog`”的硬分叉。v0.3.0 的 UI 通过 `HtmlRendering` 探测 `libwebkit2gtk-4.1.so.0` / `libwebkit2gtk-4.0.so.37` / `libWPEWebKit-2.0.so.1`，可用时渲染 HTML，缺库时正文自动退回纯文本。
 
 4. **.NET 11 SDK 已就位。**
    本机已安装 11.0.100；`global.json` 锁定 `11.0.100`（`rollForward=latestFeature`）。Stage 0 的所有探针均在该 SDK 上完成。
@@ -178,7 +178,7 @@ Contracts ← UI
 | `Newtonsoft.Json` | 反射序列化，AOT 不可用；统一 `System.Text.Json` 源生成 |
 | `Serilog` / `NLog` | 配置与反射较多；自写 ~120 行滚动文件日志即可 |
 | `EntityFrameworkCore` | 裁剪与迁移复杂度高；直接 ADO.NET 更可控 |
-| `System.CommandLine` | 预览版 API 变动；Engine 参数极少，手写解析 |
+| `System.CommandLine` | CLI 用 2.0.15 稳定版，保留原命令、开关、输出与退出码；Engine 参数极少，仍手写解析 |
 | `IdentityModel.OidcClient` | 额外依赖；PKCE 代码量小且完全可控 |
 | `System.Drawing.Common` | Windows-only 且 AOT 不友好；图标全部走 Fluent 图标几何/ICO 资源 |
 
@@ -1314,15 +1314,16 @@ GitHub Actions `windows-latest`：
 - 输出约定：默认人读表格；`--json` 输出稳定 JSON（列表为每行一条 JSON，便于管道）；禁止在输出里出现口令、令牌、DPAPI 明文。
 - 退出码：`0` 成功、`2` 未找到、`3` 账号未登录或离线、`4` 被权限/配置拒绝、`5` 参数错误。
 - 测试：✅ CI 已加轻量冒烟（`schema` 结构、`help` 退出 0、未知开关退出 5，不需要 Engine）；✅ 临时库种子集成测试（2026-11-24）：`src/build/testdata/cli-seed.db` 是一份 140 KB 的预置库（1 个种子账号、3 封邮件、1 封带正文），CI 用 `--db` 起一个真实 Engine 后跑 `accounts` / `list` / `search haystack --all` / `show 2 --body` / `send --dry-run`，脚本为 `src/build/ci-cli-seed.ps1`，跑完即删临时库。写命令（`mark` / `move` / `draft`）仍只在真机验证过，未进 CI。
-- 打包：✅ `publish.ps1` 产出 `MailDog.Cli.exe`（AOT，5.24 MiB）与 `maildog.cmd` 转发壳，zip 与安装包一并带上；PATH 自动改写暂不做（避免卸载误删整条 Path），需要时手动把安装目录加进 PATH。已用 CI 产物实测 `schema` / `help` 正常。
+- 打包与分发（v0.3.0 调整）：`publish.ps1` 仍产出 `MailDog.Cli` 与 `maildog` 转发壳供构建/CI 使用，但 `package.ps1` / `package-linux.sh` 会把它们和 `maildog-cli` Skill、说明收进 `cli/MailDog-cli.zip`（Linux 为 `.tar.gz`），再从安装目录移除顶层 CLI。安装包只带这个压缩包，设置 → 关于的“命令行工具”按需保存；不自动改 PATH，也不写系统目录。这样普通用户不会多一个 5 MB 的 exe 和一条卸载时不敢删的 PATH。
 - 配套 Agent Skill（✅ 2026-11-24 已产出）：`workspace/.user_skills/maildog-cli`，正文按 `maildog schema --json` 的真实输出重写：命令名、参数（`--folder` 不是 `--role`，正文用 `--text` / `--body-file`，移动用 `--account` + `--folder`）、`--json` 字段、退出码 0/2/3/4/5/6 与 `--force-send`、`cancel <outboxId>` 全部对齐实现；只读命令在种子库上逐条跑过，写命令在临时库验证了 `mark`，`draft` / `move` 受种子账号无授权码限制只验证到退出码 3。硬约束已写进 SKILL.md：
   - 找不到 `maildog` 时先构建 `src\MailDog.Cli`，**禁止**退回去直读 sqlite 或凭截图臆测。
   - id 只能来自 `list` / `search`，不猜 id。
   - `send` 先 dry-run 给用户看，确认后才加 `--confirm`；`draft` / `mark` / `move` 同样要用户明确同意；命中发送前检查时退出码 6，确认后 `--force-send`。
-- ⏳ **解析层迁移到 `System.CommandLine`**（v0.3 起，单独一批提交）：当前为手写解析（约 150 行），换来的是零依赖、中文文案与退出码完全可控；代价是边界情况全靠自己维护——`--name=value`、`--` 终止符、值以 `-` 开头、可重复开关的去重与顺序、拼错开关时的提示，都要逐条补测试，长期属于"自造小轮子"的维护负担。
+  - 随包副本：`src/build/cli-bundle/maildog-cli/SKILL.md`，和 CLI 一起压进 `cli/MailDog-cli.zip` / `.tar.gz`；不依赖开发机的 `.user_skills` 路径，正文里的命令解析改成先查 PATH。
+- ✅ **解析层迁移到 `System.CommandLine`**（2026-11-25 完成）：`Arguments.cs` 用 `RootCommand` / `Option<T>` / `ParseResult` 承载词法与开关识别，`Program.cs`、`Schema.cs`、`Output.cs`、`Commands.cs` 未改；命令名、开关、`--json` 输出、`schema` JSON 与退出码 0/2/3/4/5/6 保持不变。`Arguments` 仍保留原外观，先按白名单扫一遍，未知开关/缺值/未知命令继续给中文提示；`--name=value`、`--` 终止符、可重复 `--to`/`--attach`、单值开关重复后写覆盖前写均有测试（`MailDog.Cli.Tests`，10 条）。
   - 现状依据：`System.CommandLine` 已有正式版（2.0.x 到 2.0.15，3.0.0 已发布），不再是当年长期 beta 的状态；AOT/裁剪场景可用，仍是微软官方维护。微软那篇中文教程用的是 beta 期 API（`CommandLineBuilder` / `UseDefaults`），迁移时以官方当前文档的 `RootCommand` / `Option<T>` / `ParseResult` 为准，不要照教程抄。
-  - 迁移范围只限 `Arguments.cs` + `Program.cs`；**对外契约不得变化**：命令名、开关名、`--json` 输出结构、退出码（0/2/3/4/5）、`maildog schema` 的 JSON 全部保持原样，`Schema.cs` / `Output.cs` / `Commands.cs` 不动。
-  - 迁移后必须补的验收：`schema` / `help` / 未知开关退回 5 / `--name=value` / `--` 后接 `-` 开头的正文 / 可重复 `--to`、`--attach` / AOT 发布无 IL 警告 / 本机真实账号跑一遍只读命令。
+  - 实际只改 `Arguments.cs`；`Program.cs`、`Schema.cs`、`Output.cs`、`Commands.cs` 未动。**对外契约不变**：命令名、开关名、`--json` 输出结构、退出码（0/2/3/4/5）、`maildog schema` 的 JSON 全部保持原样。
+  - 已验收：`schema` / `help` / 未知开关与未知命令退回 5 / `--name=value` / `--` 后接 `-` 开头的正文 / 可重复 `--to`、`--attach` / AOT 发布无 IL 警告 / 本机真实账号跑只读命令。
   - 迁移失败即回滚单条提交，手写版保留在 git 历史里可随时取回。
 
 #### P1 邮件可靠性：本地规则、延迟发送、附件防漏
@@ -1347,11 +1348,13 @@ GitHub Actions `windows-latest`：
 - 官网截图重拍：首页仍是 v0.1.1 的旧图标真机图，与 v0.1.2 新标不一致。
 - 代码签名与依赖审计：OV/EV 证书接入，`NuGetAudit` 进 CI。
 
-### v0.3 规划（2026-11-24 拟定，未开工）
+### v0.3 规划（2026-11-24 拟定）
 
-- **Windows 集成**：注册 `mailto:` 协议、支持"设为默认邮件程序"、资源管理器右键"发送到"、拖入 `.eml` 直接打开、任务栏 JumpList 列出最近邮件。注册表写法复用 `maildog:` 协议与 AUMID 那套经验，卸载时一并清理。
-- **诊断包导出**：`logs/engine-*.log` + 版本 + 配置概览打成 zip，邮箱地址、口令、令牌、正文全部脱敏；入口放关于页，配合"UI 崩溃留痕"使用。
-- **账号健康面板**：每个账号的上次同步成功时间、IDLE 是否在连、最近一次错误分类与重试次数。数据本来就在日志与状态里，只是没给用户看见。
+- **Linux x64（已完成 0.3.0）**：Engine、UI、CLI 可在 Linux 构建运行；Engine 按宿主 OS 单目标编译，Windows 专用托盘/Toast 与 Linux 实现分离；数据目录走 XDG，登录启动写 `~/.config/autostart/maildog.desktop`；凭据优先存 `secret-tool` 的系统钥匙串，不可用时回退数据目录内 0600 密钥的 AES-GCM；SQLite 嵌入 `libe_sqlite3.so`；通知走 `notify-send`，0.8+ 支持 action 时点击跳回邮件；Avalonia `TrayIcon` 提供显示/退出菜单；写 `maildog-handler.desktop` 注册 `maildog://`，二次启动经容器管道交回已运行 Engine；`shutdown` IPC、CLI `quit` 与关于页“退出后台”兜底；WebKitGTK 可用时渲染 HTML，缺库回退纯文本；锁屏时通知隐藏内容；更新识别 `*-linux-x64.tar.gz`；发布 `MailDog-<版本>-linux-x64.tar.gz`，CI 增加 ubuntu-latest 任务。未做：Linux arm64。
+
+- **Windows 集成（已完成 0.3.0 代码）**：注册 `mailto:` 协议、`.eml` ProgID 与 `OpenWithProgids`、`RegisteredApplications`/`Capabilities` 默认邮件程序候选、资源管理器“发送到”快捷方式、拖入 `.eml` 打开、`SHAddToRecentDocs` + 快捷方式维护最近邮件。卸载器清理上述 HKCU 键、SendTo 快捷方式与 JumpList 目录。Windows 交叉编译通过；实机注册表、SendTo 与 JumpList 仍需在 Windows 上验收。
+- **诊断包导出（已完成 0.3.0）**：`report.txt` + `settings.json` + 最近 5 个 `engine-*.log` + `crash.log` 打成 zip；邮箱地址、签名、口令、令牌、Bearer 全部脱敏；关于页一键导出；UI 未处理异常与未观察 Task 异常写 `crash.log`。
+- **账号健康面板（已完成 0.3.0）**：每个账号的上次同步成功时间、IDLE 连接状态、最近一次错误分类与重试时间；设置页“同步”区展示，进入页面自动刷新。
 
 ### 远期与不做（先记结论，避免反复讨论）
 
@@ -1385,7 +1388,7 @@ GitHub Actions `windows-latest`：
 3. **代码签名**：是否已有证书？没有的话 v1 先以未签名 ZIP 分发？
 4. **发信范围**：v1 是否必须包含撰写/回复？当前方案将其放入 v1.1。
 5. **附件**：是否需要 v1 支持下载？当前只返回元数据。
-6. **macOS/Linux**：目标时间点与优先级；是否接受 Linux 需要用户安装 WebKitGTK/WPE。
+6. **macOS/Linux**：Linux x64 已在 v0.3.0 落地；macOS 与 Linux arm64 的目标时间点仍未定。
 7. **自动更新**：是否允许联网检查版本（涉及隐私与代理环境）。
 8. **代理**：是否需要支持系统代理/自定义代理（MailKit 与 HttpClient 均需配置）。
 

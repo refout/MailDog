@@ -552,6 +552,27 @@ internal static class Commands
         return affected > 0 ? 0 : 2;
     }
 
+    /// <summary>让后台 Engine 正常收尾退出，Linux 无托盘时用它代替“右键退出”。</summary>
+    public static async Task<int> QuitAsync(IpcClient client, Arguments args, CancellationToken cancellationToken)
+    {
+        await client.RequestAsync<OkResponse>(
+            IpcMessageTypes.Shutdown,
+            new ShutdownRequest(),
+            TimeSpan.FromSeconds(5),
+            cancellationToken).ConfigureAwait(false);
+
+        if (args.Json)
+        {
+            Console.WriteLine("{\"stopped\":true}");
+        }
+        else
+        {
+            Console.WriteLine("已请求 MailDog 后台退出。");
+        }
+
+        return 0;
+    }
+
     private static async Task<AccountDto[]> GetAccountsAsync(IpcClient client, CancellationToken cancellationToken)
         => (await client.RequestAsync<AccountsResponse>(
             IpcMessageTypes.GetAccounts,

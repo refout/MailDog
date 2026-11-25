@@ -29,13 +29,14 @@ internal static class Usage
           mark <邮件 id>... [--unread]            批量标已读；--unread 反向标未读
           move <邮件 id>... --account <邮箱> --folder <目标>   移到指定文件夹
           cancel <发件箱 id>...                    撤回延迟发送窗口里还没发出的邮件
+          quit                                    让后台 Engine 正常退出（Linux 无托盘时用）
 
         通用开关：
           --json        每行一条 JSON，便于管道与脚本
           --confirm     写命令真正执行；不带时只打印预览
           --force-send  发送前检查没过（如正文提到附件却没带）时，确认后强发
           --no-start    连不上时不去拉起 Engine
-          --engine <路径>  指定 MailDog.Engine.exe
+          --engine <路径>  指定 MailDog.Engine（Windows 下为 .exe）
 
         退出码：
           0 成功   2 没找到   3 账号未登录或后台不可用、发送失败

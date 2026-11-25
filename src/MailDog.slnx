@@ -8,4 +8,6 @@
   <Project Path="tests/MailDog.Contracts.Tests/MailDog.Contracts.Tests.csproj" />
   <Project Path="tests/MailDog.Mail.Tests/MailDog.Mail.Tests.csproj" />
   <Project Path="tests/MailDog.Html.Tests/MailDog.Html.Tests.csproj" />
+  <Project Path="tests/MailDog.Cli.Tests/MailDog.Cli.Tests.csproj" />
+  <Project Path="tests/MailDog.UI.Tests/MailDog.UI.Tests.csproj" />
 </Solution>

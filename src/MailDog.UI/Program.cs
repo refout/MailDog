@@ -22,18 +22,29 @@ internal static class Program
             return;
         }
 
-        NativeBootstrap.EnsureLoaded();
+        CrashLog.Install();
+
+        if (OperatingSystem.IsWindows())
+        {
+            NativeBootstrap.EnsureLoaded();
+        }
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .With(new Win32PlatformOptions
+    {
+        var builder = AppBuilder.Configure<App>().UsePlatformDetect();
+
+        if (OperatingSystem.IsWindows())
+        {
+            builder = builder.With(new Win32PlatformOptions
             {
                 // 优先 ANGLE 以启用透明窗口与云母/亚克力材质，加载失败时回退软件渲染。
                 RenderingMode = new[] { Win32RenderingMode.AngleEgl, Win32RenderingMode.Software }
-            })
-            .LogToTrace(LogEventLevel.Warning);
+            });
+        }
+
+        return builder.LogToTrace(LogEventLevel.Warning);
+    }
 }

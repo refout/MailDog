@@ -16,4 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\MailDog.Contracts\MailDog.Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
 </Project>

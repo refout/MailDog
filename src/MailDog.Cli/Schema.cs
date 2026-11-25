@@ -22,7 +22,7 @@ internal static class Schema
             .Append(',')
             .Append(Flag("--confirm", "写命令真正执行；不带时只打印预览", false))
             .Append(',')
-            .Append(Flag("--engine", "指定 MailDog.Engine.exe 的路径", true))
+            .Append(Flag("--engine", "指定 MailDog.Engine 可执行文件的路径", true))
             .Append("],\"commands\":[");
 
         builder.Append(Command(
@@ -148,6 +148,14 @@ internal static class Schema
             [],
             [],
             "{\"affected\"}；位置参数是一个或多个发件箱 id"));
+
+        builder.Append(',');
+        builder.Append(Command(
+            "quit",
+            "让后台 Engine 正常收尾并退出；Linux 无托盘时用它停止后台收信",
+            [],
+            [],
+            "{\"stopped\":true}"));
 
         builder.Append(',');
         builder.Append(Command("schema", "输出本说明的 JSON", [], [], "本对象"))

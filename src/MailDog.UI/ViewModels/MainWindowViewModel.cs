@@ -14,8 +14,10 @@ using FluentIcons.Common;
 using MailDog.Contracts.Dto;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
+using MailDog.Contracts.Platform;
 using MailDog.Html;
 using MailDog.UI.Services;
+using MailDog.UI.Views;
 
 namespace MailDog.UI.ViewModels;
 
@@ -36,6 +38,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly Dictionary<long, FolderRole> _folderRoles = [];
     private readonly Dictionary<string, string> _syncErrors = [];
     private AppSettingsDto _settings = new();
+
+    public ObservableCollection<AccountHealthViewModel> AccountHealth { get; } = [];
     private MailBodyDto? _currentBody;
     private DateTimeOffset? _nextDate;
     private long? _nextId;
@@ -100,6 +104,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public string AppVersion => typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
 
     public string VersionText => $"版本 {AppVersion}";
+
+    public string PlatformText => OperatingSystem.IsWindows()
+        ? "Windows 10 / 11（x64、Arm64）"
+        : OperatingSystem.IsLinux()
+            ? "Linux（x64）"
+            : "当前平台";
+
+    public string DataDirectoryText => $"本机 SQLite 数据库（{ProductPaths.DisplayDataDirectory}）";
+
+    public string StartupTitle => OperatingSystem.IsWindows()
+        ? "登录 Windows 时自动启动 MailDog"
+        : "登录系统时自动启动 MailDog";
+
+    public string StartupDescription => OperatingSystem.IsWindows()
+        ? "开启后，登录 Windows 会自动启动 MailDog 并继续收取新邮件；关闭后会移除当前用户的启动项，不影响账户与邮件数据。"
+        : "开启后，登录桌面会自动启动 MailDog 并继续收取新邮件；关闭后会移除当前用户的 autostart 项，不影响账户与邮件数据。";
 
     /// <summary>关于页直接展示的主要开源组件；完整清单见 docs/THIRD-PARTY-NOTICES.md。</summary>
     public IReadOnlyList<ThirdPartyNoticeViewModel> ThirdPartyNotices { get; } =
@@ -712,6 +732,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsAddAccountFormVisible));
         OnPropertyChanged(nameof(IsAboutSection));
 
+        if (value == 3)
+        {
+            _ = RefreshAccountHealthAsync();
+        }
+
         if (value == 5)
         {
             _ = RefreshStorageAsync();
@@ -800,6 +825,46 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private int _renderModeIndex;
+
+    /// <summary>Windows 始终有 WebView2；Linux 需要系统 WebKitGTK/WPE，缺少时退回纯文本。</summary>
+    public bool IsHtmlRenderAvailable => HtmlRendering.IsAvailable;
+
+    [ObservableProperty]
+    private bool _hasAccountHealth;
+
+    [ObservableProperty]
+    private string _accountHealthStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _diagnosticsStatus = string.Empty;
+
+    [ObservableProperty]
+    private bool _isExportingDiagnostics;
+
+    [ObservableProperty]
+    private string _cliDownloadStatus = string.Empty;
+
+    [ObservableProperty]
+    private bool _isDownloadingCli;
+
+    /// <summary>Linux 的托盘显示取决于桌面环境，关于页保留“连后台一起退出”的可靠入口。</summary>
+    public bool IsLinuxPlatform => OperatingSystem.IsLinux();
+
+    public bool IsWindowsPlatform => OperatingSystem.IsWindows();
+
+    [ObservableProperty]
+    private string _backgroundExitStatus = string.Empty;
+
+    [ObservableProperty]
+    private bool _isBackgroundExiting;
+
+    public bool HasBackgroundExitStatus => !string.IsNullOrWhiteSpace(BackgroundExitStatus);
+
+    partial void OnBackgroundExitStatusChanged(string value)
+        => OnPropertyChanged(nameof(HasBackgroundExitStatus));
+
+    /// <summary>云母/亚克力只存在于 Windows 11，Linux 不展示无效选项。</summary>
+    public bool IsWindowsMaterialAvailable => OperatingSystem.IsWindows();
 
     public string Material => MaterialIndex switch
     {
@@ -2337,6 +2402,71 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         IsComposeOpen = true;
     }
 
+    /// <summary>mailto: 协议或外部链接：用链接里的收件人、主题和正文预填撰写窗口。</summary>
+    public void OpenMailto(string uri)
+    {
+        if (Accounts.Count == 0)
+        {
+            StatusMessage = "请先添加邮箱账户，再撰写邮件。";
+            return;
+        }
+
+        if (IsComposeOpen)
+        {
+            StatusMessage = "请先关闭当前正在撰写的邮件。";
+            return;
+        }
+
+        var fields = MailtoParser.Parse(uri);
+
+        if (fields is null)
+        {
+            StatusMessage = "这个 mailto 链接无法解析。";
+            return;
+        }
+
+        var compose = new ComposeViewModel(
+            _engine,
+            BuildComposeAccounts(),
+            ComposeMode.New,
+            null,
+            signature: SignatureText,
+            contacts: _contacts);
+
+        compose.ToText = fields.GetValueOrDefault("to", string.Empty);
+        compose.CcText = fields.GetValueOrDefault("cc", string.Empty);
+        compose.BccText = fields.GetValueOrDefault("bcc", string.Empty);
+        compose.SubjectText = fields.GetValueOrDefault("subject", string.Empty);
+        compose.SetExternalBody(fields.GetValueOrDefault("body", string.Empty));
+
+        MountCompose(compose);
+    }
+
+    /// <summary>直接打开 .eml：向 Engine 要只读预览，弹独立窗口，不改本地邮件库。</summary>
+    public async Task OpenEmlFileAsync(string path)
+    {
+        if (!_engine.IsConnected)
+        {
+            StatusMessage = "后台尚未连接，暂时无法打开 .eml。";
+            return;
+        }
+
+        try
+        {
+            var response = await _engine.RequestAsync<EmlPreviewResponse>(
+                IpcMessageTypes.GetEmlPreview,
+                new GetEmlPreviewRequest { Path = path },
+                TimeSpan.FromSeconds(20)).ConfigureAwait(true);
+
+            var window = new EmlViewerWindow(new EmlPreviewViewModel(response.Preview));
+            window.Show();
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"打开 .eml 失败：{GetErrorMessage(exception)}";
+        }
+    }
+
     [RelayCommand]
     private void NewMail() => OpenCompose(ComposeMode.New);
 
@@ -3220,6 +3350,231 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task ExportDiagnosticsAsync()
+    {
+        if (IsExportingDiagnostics)
+        {
+            return;
+        }
+
+        var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+
+        if (window is null)
+        {
+            return;
+        }
+
+        var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "导出 MailDog 诊断包",
+            SuggestedFileName = $"MailDog-diagnostics-{DateTime.Now:yyyyMMdd-HHmm}.zip",
+            ShowOverwritePrompt = true
+        });
+
+        var path = file?.TryGetLocalPath();
+
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        IsExportingDiagnostics = true;
+        DiagnosticsStatus = "正在整理诊断包…";
+
+        try
+        {
+            AccountHealthDto[] health = [];
+
+            if (_engine.IsConnected)
+            {
+                try
+                {
+                    health = (await _engine.RequestAsync<AccountHealthResponse>(
+                        IpcMessageTypes.GetAccountHealth,
+                        new GetAccountHealthRequest()).ConfigureAwait(true)).Items;
+                }
+                catch
+                {
+                    // 健康快照取不到时仍然导出日志与配置。
+                }
+            }
+
+            var accounts = Accounts
+                .Select(account => new DiagnosticsExporter.AccountSnapshot(
+                    account.Id,
+                    account.Email,
+                    account.DisplayName,
+                    account.StatusText))
+                .ToArray();
+
+            var settings = BuildSettings();
+
+            await Task.Run(() => DiagnosticsExporter.Export(
+                path,
+                AppVersion,
+                settings,
+                accounts,
+                health)).ConfigureAwait(true);
+
+            DiagnosticsStatus = $"已导出 {Path.GetFileName(path)}";
+        }
+        catch (Exception exception)
+        {
+            DiagnosticsStatus = $"导出失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsExportingDiagnostics = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadCliAsync()
+    {
+        if (IsDownloadingCli)
+        {
+            return;
+        }
+
+        var bundle = CliBundle.Find();
+
+        if (bundle is null)
+        {
+            CliDownloadStatus = "当前构建没有附带 CLI 包，请使用发布版安装包。";
+            return;
+        }
+
+        var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+
+        if (window is null)
+        {
+            return;
+        }
+
+        var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "下载 MailDog 命令行工具",
+            SuggestedFileName = CliBundle.SuggestedFileName(AppVersion),
+            ShowOverwritePrompt = true
+        });
+
+        var path = file?.TryGetLocalPath();
+
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        IsDownloadingCli = true;
+        CliDownloadStatus = "正在复制 CLI 包…";
+
+        try
+        {
+            await Task.Run(() => File.Copy(bundle, path, true)).ConfigureAwait(true);
+            CliDownloadStatus = $"已下载 {Path.GetFileName(path)}";
+        }
+        catch (Exception exception)
+        {
+            CliDownloadStatus = $"下载失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsDownloadingCli = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshAccountHealthAsync()
+    {
+        if (!_engine.IsConnected)
+        {
+            AccountHealthStatus = "后台尚未连接。";
+            return;
+        }
+
+        try
+        {
+            var response = await _engine.RequestAsync<AccountHealthResponse>(
+                IpcMessageTypes.GetAccountHealth,
+                new GetAccountHealthRequest()).ConfigureAwait(true);
+
+            AccountHealth.Clear();
+
+            foreach (var item in response.Items)
+            {
+                AccountHealth.Add(new AccountHealthViewModel(item));
+            }
+
+            HasAccountHealth = AccountHealth.Count > 0;
+            AccountHealthStatus = HasAccountHealth ? string.Empty : "还没有账户。";
+        }
+        catch (Exception exception)
+        {
+            AccountHealthStatus = $"读取失败：{GetErrorMessage(exception)}";
+        }
+    }
+
+    /// <summary>托盘“退出 MailDog”：后台没响应也把界面关掉，不留下看不见的窗口。</summary>
+    public async Task QuitFromTrayAsync()
+    {
+        try
+        {
+            if (_engine.IsConnected)
+            {
+                await _engine.RequestAsync<OkResponse>(
+                    IpcMessageTypes.Shutdown,
+                    new ShutdownRequest(),
+                    TimeSpan.FromSeconds(5)).ConfigureAwait(true);
+            }
+        }
+        catch
+        {
+            // 后台已经退出或管道断开时直接关界面。
+        }
+
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+        }
+    }
+
+    /// <summary>Linux 无托盘时的退出入口：先让 Engine 收尾，再关掉界面。</summary>
+    [RelayCommand]
+    private async Task QuitBackgroundAsync()
+    {
+        if (IsBackgroundExiting)
+        {
+            return;
+        }
+
+        IsBackgroundExiting = true;
+        BackgroundExitStatus = "正在退出后台…";
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.Shutdown,
+                new ShutdownRequest(),
+                TimeSpan.FromSeconds(5)).ConfigureAwait(true);
+
+            BackgroundExitStatus = "后台已退出。";
+            await Task.Delay(300).ConfigureAwait(true);
+
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+            }
+        }
+        catch (Exception exception)
+        {
+            BackgroundExitStatus = $"退出失败：{GetErrorMessage(exception)}";
+            IsBackgroundExiting = false;
+        }
+    }
+
+    [RelayCommand]
     private void OpenAbout()
     {
         SettingsSectionIndex = 7;
@@ -3282,7 +3637,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
             var canInstall = UpdateService.IsInstalledLayout() && result.InstallerUrl is not null;
             UpdateActionText = canInstall ? "下载并安装" : "去下载页";
-            UpdateStatusText = $"发现新版本 {result.LatestVersion}。";
+            UpdateStatusText = OperatingSystem.IsLinux()
+                ? result.PortableUrl is not null
+                    ? $"发现新版本 {result.LatestVersion}，Linux 包已发布，请下载 tar.gz 解压替换。"
+                    : $"发现新版本 {result.LatestVersion}。"
+                : $"发现新版本 {result.LatestVersion}。";
             HasUpdateAvailable = true;
         }
         catch (Exception ex)
@@ -3362,6 +3721,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         catch
         {
             // 打开浏览器失败不影响关于页。
+        }
+    }
+
+    [RelayCommand]
+    private void OpenDefaultAppsSettings()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("ms-settings:defaultapps") { UseShellExecute = true });
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"打开系统设置失败：{GetErrorMessage(exception)}";
         }
     }
 
@@ -4086,7 +4458,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 10 => 2,
                 _ => 3
             };
-            RenderModeIndex = _settings.RenderMode == "plain" ? 1 : 0;
+            RenderModeIndex = _settings.RenderMode == "plain" || !HtmlRendering.IsAvailable ? 1 : 0;
             _allowRemoteImages = _settings.ShowRemoteImages;
             ApplyTheme();
             SettingsSaveHint = "所有更改会自动保存";
@@ -4498,6 +4870,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _currentBody = response.Body;
             RenderCurrentBody();
 
+            if (OperatingSystem.IsWindows())
+            {
+                _ = RecordRecentAsync(message);
+            }
+
             if (_settings.MarkReadOnOpen && !message.IsRead)
             {
                 await MarkReadAsync(message, true);
@@ -4512,6 +4889,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         finally
         {
             Reader.IsLoading = false;
+        }
+    }
+
+    private async Task RecordRecentAsync(MailSummaryViewModel message)
+    {
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.AddRecent,
+                new AddRecentRequest
+                {
+                    MessageId = message.Id,
+                    AccountId = message.AccountId,
+                    FolderId = message.FolderId,
+                    Subject = message.Subject,
+                    From = message.SenderAddress
+                }).ConfigureAwait(false);
+        }
+        catch
+        {
+            // 最近列表失败不影响阅读。
         }
     }
 
@@ -4533,7 +4931,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _allowRemoteImages,
             dark,
             background,
-            preferPlain ?? RenderModeIndex == 1);
+            preferPlain ?? (RenderModeIndex == 1 || !HtmlRendering.IsAvailable));
     }
 
     private (string Background, bool Dark) GetReaderAppearance()
@@ -5021,6 +5419,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 IpcMessageTypes.TakePendingNavigation,
                 new TakePendingNavigationRequest());
 
+            if (pending.ComposeUri is { Length: > 0 } composeUri)
+            {
+                OpenMailto(composeUri);
+                return;
+            }
+
+            if (pending.EmlPath is { Length: > 0 } emlPath)
+            {
+                await OpenEmlFileAsync(emlPath);
+                return;
+            }
+
             if (pending.OpenAbout)
             {
                 OpenAbout();
@@ -5045,6 +5455,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private async Task HandleShowRequestAsync(ShowMainWindowEvent show)
     {
         ShowRequested?.Invoke();
+
+        if (show.ComposeUri is { Length: > 0 } composeUri)
+        {
+            OpenMailto(composeUri);
+            return;
+        }
+
+        if (show.EmlPath is { Length: > 0 } emlPath)
+        {
+            await OpenEmlFileAsync(emlPath);
+            return;
+        }
 
         if (show.OpenAbout)
         {
