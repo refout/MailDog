@@ -150,6 +150,14 @@ internal static class Schema
             "{\"affected\"}；位置参数是一个或多个发件箱 id"));
 
         builder.Append(',');
+        builder.Append(Command(
+            "quit",
+            "让后台 Engine 正常收尾并退出；Linux 无托盘时用它停止后台收信",
+            [],
+            [],
+            "{\"stopped\":true}"));
+
+        builder.Append(',');
         builder.Append(Command("schema", "输出本说明的 JSON", [], [], "本对象"))
             .Append(',')
             .Append(Command("help", "输出人读用法", [], [], "纯文本"));

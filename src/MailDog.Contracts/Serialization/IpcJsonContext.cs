@@ -97,6 +97,7 @@ namespace MailDog.Contracts.Serialization;
 [JsonSerializable(typeof(TakePendingNavigationRequest))]
 [JsonSerializable(typeof(PendingNavigationResponse))]
 [JsonSerializable(typeof(AccountChangedEvent))]
+[JsonSerializable(typeof(ShutdownRequest))]
 [JsonSerializable(typeof(ErrorResponse))]
 [JsonSerializable(typeof(AccountDto))]
 [JsonSerializable(typeof(FolderDto))]

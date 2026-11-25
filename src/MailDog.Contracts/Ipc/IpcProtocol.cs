@@ -93,6 +93,7 @@ public static class IpcMessageTypes
     public const string TakePendingNavigation = "takePendingNavigation";
     public const string PendingNavigation = "pendingNavigation";
     public const string AccountChanged = "accountChanged";
+    public const string Shutdown = "shutdown";
 
     public const string Error = "error";
 }

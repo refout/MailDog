@@ -13,7 +13,8 @@ internal static class EngineGateway
     public static async Task<IpcClient> ConnectAsync(
         string? enginePath,
         bool allowStart,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? notRunningMessage = null)
     {
         var existing = await IpcClient.TryConnectAsync(FirstAttempt, cancellationToken).ConfigureAwait(false);
 
@@ -26,7 +27,7 @@ internal static class EngineGateway
         {
             throw new IpcCallException(
                 IpcErrorCodes.UpstreamUnavailable,
-                "没有找到正在运行的 MailDog 后台（已指定 --no-start）。");
+                notRunningMessage ?? "没有找到正在运行的 MailDog 后台（已指定 --no-start）。");
         }
 
         var executable = ResolveEnginePath(enginePath)

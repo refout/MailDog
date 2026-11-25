@@ -149,8 +149,15 @@ internal static class Program
 #else
         MailDog.Engine.Tray.LinuxNotifier.Show(
             "测试发件人",
-            "这是一封测试邮件的主题\n如果能看到这条通知，说明桌面通知链路可用。");
+            "这是一封测试邮件的主题\n如果能看到这条通知，说明桌面通知链路可用。",
+            activationUri: "maildog://open",
+            activated: uri =>
+            {
+                Console.WriteLine($"Linux 桌面通知被点击：{uri}");
+                Console.WriteLine("通知点击链路可用。");
+            });
         Console.WriteLine("已请求发送 Linux 桌面通知。");
+        Thread.Sleep(1500);
         return 0;
 #endif
     }

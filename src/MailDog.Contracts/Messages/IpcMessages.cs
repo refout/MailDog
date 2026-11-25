@@ -578,6 +578,11 @@ public sealed class PendingNavigationResponse : Ipc.IIpcMessage
     public bool CheckUpdate { get; init; }
 }
 
+/// <summary>请求后台进程收尾并退出；只应由本机同一用户的界面或命令行发出。</summary>
+public sealed class ShutdownRequest : Ipc.IIpcMessage
+{
+}
+
 public sealed class AccountChangedEvent : Ipc.IIpcMessage
 {
     public AccountDto Account { get; init; } = new();

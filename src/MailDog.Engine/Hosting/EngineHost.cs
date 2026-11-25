@@ -83,6 +83,12 @@ public sealed class EngineHost : IAsyncDisposable
 
         _router.Diagnostic += message => _log.Warn(message);
         _router.TakePendingNavigation = TakePendingNavigation;
+        // 先把响应发回给调用方，再收尾；否则界面/命令行只会看到连接被断开。
+        _router.ShutdownRequested = () => _ = Task.Run(async () =>
+        {
+            await Task.Delay(250).ConfigureAwait(false);
+            _tray?.Quit();
+        });
         _sync.Diagnostic += message => _log.Warn(message);
         _smtp.Diagnostic += message => _log.Warn(message);
         _outbox.Diagnostic += message => _log.Info(message);

@@ -92,6 +92,7 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.TakePendingNavigation, IpcJsonContext.Default.TakePendingNavigationRequest);
         Register(IpcMessageTypes.PendingNavigation, IpcJsonContext.Default.PendingNavigationResponse);
         Register(IpcMessageTypes.AccountChanged, IpcJsonContext.Default.AccountChangedEvent);
+        Register(IpcMessageTypes.Shutdown, IpcJsonContext.Default.ShutdownRequest);
 
         Register(IpcMessageTypes.Error, IpcJsonContext.Default.ErrorResponse);
     }

@@ -36,7 +36,7 @@ internal static class Program
                 return ExitOk;
             }
 
-            if (arguments.Command is not ("accounts" or "folders" or "list" or "search" or "show" or "attachment" or "draft" or "send" or "mark" or "move" or "cancel"))
+            if (arguments.Command is not ("accounts" or "folders" or "list" or "search" or "show" or "attachment" or "draft" or "send" or "mark" or "move" or "cancel" or "quit"))
             {
                 throw new UsageException($"不认识的命令：{arguments.Command}（用 maildog schema 看全部命令）");
             }
@@ -44,8 +44,9 @@ internal static class Program
             using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(2));
             var client = await EngineGateway.ConnectAsync(
                 arguments.Value("--engine"),
-                !arguments.Has("--no-start"),
-                cancellation.Token).ConfigureAwait(false);
+                !arguments.Has("--no-start") && arguments.Command is not "quit",
+                cancellation.Token,
+                arguments.Command is "quit" ? "后台没有在运行，不需要退出。" : null).ConfigureAwait(false);
 
             try
             {
@@ -62,6 +63,7 @@ internal static class Program
                     "mark" => await Commands.MarkAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     "move" => await Commands.MoveAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     "cancel" => await Commands.CancelAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
+                    "quit" => await Commands.QuitAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     _ => ExitUsage
                 };
             }

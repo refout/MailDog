@@ -1316,6 +1316,27 @@
                         <Border Margin="0,22,0,0"
                                 Padding="0,20,0,0"
                                 BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                BorderThickness="0,1,0,0"
+                                IsVisible="{Binding IsLinuxPlatform}">
+                          <StackPanel Spacing="10">
+                            <TextBlock Text="后台进程" Classes="section" />
+                            <TextBlock Text="Linux 版本没有托盘图标。关闭窗口后后台仍会继续收信；要彻底退出，用下面的按钮，或在终端运行 maildog quit。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <Button Content="退出后台"
+                                    Command="{Binding QuitBackgroundCommand}"
+                                    IsEnabled="{Binding !IsBackgroundExiting}"
+                                    HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding BackgroundExitStatus}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding HasBackgroundExitStatus}" />
+                          </StackPanel>
+                        </Border>
+
+                        <Border Margin="0,22,0,0"
+                                Padding="0,20,0,0"
+                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                                 BorderThickness="0,1,0,0">
                           <StackPanel Spacing="12">
                             <TextBlock Text="支持" Classes="section" />

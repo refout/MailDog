@@ -821,6 +821,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     /// <summary>Linux 暂不接 WebView，只用纯文本阅读。</summary>
     public bool IsHtmlRenderAvailable => OperatingSystem.IsWindows();
 
+    /// <summary>Linux 没有托盘，需要关于页提供一个“连后台一起退出”的入口。</summary>
+    public bool IsLinuxPlatform => OperatingSystem.IsLinux();
+
+    [ObservableProperty]
+    private string _backgroundExitStatus = string.Empty;
+
+    [ObservableProperty]
+    private bool _isBackgroundExiting;
+
+    public bool HasBackgroundExitStatus => !string.IsNullOrWhiteSpace(BackgroundExitStatus);
+
+    partial void OnBackgroundExitStatusChanged(string value)
+        => OnPropertyChanged(nameof(HasBackgroundExitStatus));
+
     /// <summary>云母/亚克力只存在于 Windows 11，Linux 不展示无效选项。</summary>
     public bool IsWindowsMaterialAvailable => OperatingSystem.IsWindows();
 
@@ -3239,6 +3253,40 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         finally
         {
             IsAddingAccount = false;
+        }
+    }
+
+    /// <summary>Linux 无托盘时的退出入口：先让 Engine 收尾，再关掉界面。</summary>
+    [RelayCommand]
+    private async Task QuitBackgroundAsync()
+    {
+        if (IsBackgroundExiting)
+        {
+            return;
+        }
+
+        IsBackgroundExiting = true;
+        BackgroundExitStatus = "正在退出后台…";
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.Shutdown,
+                new ShutdownRequest(),
+                TimeSpan.FromSeconds(5)).ConfigureAwait(true);
+
+            BackgroundExitStatus = "后台已退出。";
+            await Task.Delay(300).ConfigureAwait(true);
+
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+            }
+        }
+        catch (Exception exception)
+        {
+            BackgroundExitStatus = $"退出失败：{GetErrorMessage(exception)}";
+            IsBackgroundExiting = false;
         }
     }
 

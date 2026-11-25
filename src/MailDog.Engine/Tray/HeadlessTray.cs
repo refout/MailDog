@@ -7,6 +7,9 @@ namespace MailDog.Engine.Tray;
 internal sealed class HeadlessTray : IAppTray
 {
     private readonly ManualResetEventSlim _exit = new(false);
+    private readonly Action _notificationClicked;
+    private readonly Action<string> _activated;
+    private readonly Action _exitProcess;
 
     public HeadlessTray(
         Action openUi,
@@ -18,6 +21,9 @@ internal sealed class HeadlessTray : IAppTray
         Action exit,
         Func<bool> isDarkTheme)
     {
+        _notificationClicked = notificationClicked;
+        _activated = activated;
+        _exitProcess = exit;
     }
 
     public void Run(bool hideConsole)
@@ -47,11 +53,17 @@ internal sealed class HeadlessTray : IAppTray
         string? tag = null)
     {
         var body = string.IsNullOrWhiteSpace(preview) ? message : $"{message}\n{preview}";
-        LinuxNotifier.Show(title, body);
+        LinuxNotifier.Show(
+            title,
+            body,
+            activationUri,
+            uri => _activated(uri),
+            () => _notificationClicked());
     }
 
     public void Quit()
     {
+        _exitProcess();
         _exit.Set();
     }
 

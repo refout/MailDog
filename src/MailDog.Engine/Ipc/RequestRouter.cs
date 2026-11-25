@@ -44,6 +44,9 @@ public sealed class RequestRouter
     /// <summary>由 EngineHost 注入：取出并清除待跳转的通知目标。</summary>
     public Func<PendingNavigationResponse>? TakePendingNavigation { get; set; }
 
+    /// <summary>由 EngineHost 注入：请求正常退出后台进程。</summary>
+    public Action? ShutdownRequested { get; set; }
+
     public HelloAck CreateHelloAck()
         => new()
         {
@@ -322,6 +325,10 @@ public sealed class RequestRouter
 
             case TakePendingNavigationRequest:
                 return TakePendingNavigation?.Invoke() ?? new PendingNavigationResponse();
+
+            case ShutdownRequest:
+                ShutdownRequested?.Invoke();
+                return new OkResponse();
 
             case UpdateSettingsRequest request:
                 _store.SaveSettings(request.Settings);
