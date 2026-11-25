@@ -61,6 +61,8 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.MarkRead, IpcJsonContext.Default.MarkReadRequest);
         Register(IpcMessageTypes.MarkReadBatch, IpcJsonContext.Default.MarkReadBatchRequest);
         Register(IpcMessageTypes.SnoozeMessage, IpcJsonContext.Default.SnoozeMessageRequest);
+        Register(IpcMessageTypes.GetUnsubscribeInfo, IpcJsonContext.Default.GetUnsubscribeInfoRequest);
+        Register(IpcMessageTypes.UnsubscribeInfo, IpcJsonContext.Default.UnsubscribeInfoResponse);
         Register(IpcMessageTypes.SetFlag, IpcJsonContext.Default.SetFlagRequest);
         Register(IpcMessageTypes.SetFlagBatch, IpcJsonContext.Default.SetFlagBatchRequest);
         Register(IpcMessageTypes.GetTags, IpcJsonContext.Default.GetTagsRequest);

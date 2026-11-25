@@ -293,6 +293,11 @@ public sealed class EngineHost : IAsyncDisposable
                     {
                         ApplyRuleFlagsAsync(id, rule.MarkRead, rule.Flag);
                     }
+
+                    if (rule.MoveToJunk)
+                    {
+                        ApplyRuleMoveToJunkAsync(id, message.AccountId);
+                    }
                 }
             }
 
@@ -332,6 +337,28 @@ public sealed class EngineHost : IAsyncDisposable
             catch (Exception exception)
             {
                 _log.Warn($"规则应用到邮件 #{messageId} 失败：{exception.Message}");
+            }
+        });
+    }
+
+    private void ApplyRuleMoveToJunkAsync(long messageId, string accountId)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var junk = _store.GetFolders(accountId).FirstOrDefault(folder => folder.Role == FolderRole.Junk);
+                if (junk is null)
+                {
+                    _log.Warn($"账号 {accountId} 没有垃圾邮件文件夹，规则无法移动邮件 #{messageId}。");
+                    return;
+                }
+
+                await _sync.MoveMessageAsync(messageId, junk.Id, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                _log.Warn($"规则把邮件 #{messageId} 移到垃圾邮件失败：{exception.Message}");
             }
         });
     }

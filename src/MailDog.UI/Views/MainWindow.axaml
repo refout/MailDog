@@ -1256,6 +1256,18 @@
                               Click="OnPrintThreadClick"
                               IsEnabled="{Binding HasThreadMessages}" />
                     <Separator />
+                    <MenuItem Header="退订这封邮件" Command="{Binding UnsubscribeSelectedCommand}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="MailInbox" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="标记垃圾邮件并拦截发件人"
+                              Command="{Binding MarkJunkAndBlockSenderCommand}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="MailProhibited" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
                     <MenuItem Header="标记为已读/未读" Command="{Binding ToggleReadCommand}">
                       <MenuItem.Icon>
                         <ic:FluentIcon Icon="Mail" IconSize="Size16" />

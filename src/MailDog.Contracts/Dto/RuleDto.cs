@@ -23,6 +23,9 @@ public sealed class RuleDto
     /// <summary>命中后不弹通知，邮件照常进列表。</summary>
     public bool Mute { get; init; }
 
+    /// <summary>命中后移动到账户的垃圾邮件文件夹；没有垃圾文件夹时只保留其他动作。</summary>
+    public bool MoveToJunk { get; init; }
+
     public bool Enabled { get; init; } = true;
 
     /// <summary>累计命中次数，用来判断规则是不是写得太宽。</summary>

@@ -19,6 +19,7 @@ public sealed partial class RuleViewModel : ObservableObject
         MarkRead = rule.MarkRead;
         Flag = rule.Flag;
         Mute = rule.Mute;
+        MoveToJunk = rule.MoveToJunk;
         Hits = rule.Hits;
         _enabled = rule.Enabled;
         _save = save;
@@ -38,6 +39,8 @@ public sealed partial class RuleViewModel : ObservableObject
     public bool Flag { get; }
 
     public bool Mute { get; }
+
+    public bool MoveToJunk { get; }
 
     public int Hits { get; }
 
@@ -74,6 +77,11 @@ public sealed partial class RuleViewModel : ObservableObject
                 actions.Add("不通知");
             }
 
+            if (MoveToJunk)
+            {
+                actions.Add("移入垃圾邮件");
+            }
+
             return actions.Count == 0 ? "（没有动作）" : string.Join(" · ", actions);
         }
     }
@@ -90,6 +98,7 @@ public sealed partial class RuleViewModel : ObservableObject
             MarkRead = MarkRead,
             Flag = Flag,
             Mute = Mute,
+            MoveToJunk = MoveToJunk,
             Enabled = Enabled,
             Hits = Hits
         };

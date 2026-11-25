@@ -614,7 +614,7 @@
 
                         <StackPanel Spacing="8">
                           <TextBlock Text="来信规则" Classes="section" Margin="0,8,0,0" />
-                          <TextBlock Text="新邮件到达时按关键词自动处理：标已读、加旗标，或者不弹通知。规则只对之后收到的邮件生效，也不会删除邮件。"
+                          <TextBlock Text="新邮件到达时按关键词自动处理：标已读、加旗标、移入垃圾邮件，或者不弹通知。规则只对之后收到的邮件生效，也不会删除邮件。"
                                      Classes="caption"
                                      TextWrapping="Wrap" />
                           <TextBlock Text="还没有规则。下面加一条试试。"
@@ -703,6 +703,9 @@
                                 <CheckBox Content="不弹通知"
                                           Margin="0,0,16,4"
                                           IsChecked="{Binding NewRuleMute}" />
+                                <CheckBox Content="移入垃圾邮件"
+                                          Margin="0,0,16,4"
+                                          IsChecked="{Binding NewRuleMoveToJunk}" />
                               </WrapPanel>
                               <StackPanel Orientation="Horizontal" Spacing="10">
                                 <Button Classes="primary"

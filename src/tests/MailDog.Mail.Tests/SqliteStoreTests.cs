@@ -824,7 +824,7 @@ public sealed class SqliteStoreTests : IDisposable
         };
 
         var firstId = _store.SaveRule(fromRule);
-        var anyRule = new RuleDto { Field = "any", Pattern = "账单", Flag = true };
+        var anyRule = new RuleDto { Field = "any", Pattern = "账单", Flag = true, MoveToJunk = true };
         var secondId = _store.SaveRule(anyRule);
 
         var rules = _store.GetRules();
@@ -842,6 +842,7 @@ public sealed class SqliteStoreTests : IDisposable
         var second = Assert.Single(rules, rule => rule.Id == secondId);
         Assert.Null(second.AccountId);
         Assert.True(second.Flag);
+        Assert.True(second.MoveToJunk);
 
         _store.IncrementRuleHits([firstId, firstId, secondId]);
         var afterHits = _store.GetRules();

@@ -214,6 +214,12 @@ public sealed class RequestRouter
                         cancellationToken).ConfigureAwait(false)
                 };
 
+            case GetUnsubscribeInfoRequest request:
+                return new UnsubscribeInfoResponse
+                {
+                    Info = await _sync.GetUnsubscribeInfoAsync(request.MessageId, cancellationToken).ConfigureAwait(false)
+                };
+
             case MarkReadRequest request:
                 await _sync.SetSeenAsync(request.MessageId, request.IsRead, cancellationToken).ConfigureAwait(false);
                 return new OkResponse { Affected = 1 };

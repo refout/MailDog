@@ -82,6 +82,23 @@ public sealed class MailBodyDto
     public string? RfcMessageId { get; init; }
 }
 
+/// <summary>从 List-Unsubscribe / List-Unsubscribe-Post 头解析出的退订方式。</summary>
+public sealed class UnsubscribeInfoDto
+{
+    public bool Available { get; init; }
+
+    /// <summary>优先为 http(s) 地址。</summary>
+    public string? Url { get; init; }
+
+    /// <summary>mailto: 退订地址；没有网页退订时使用。</summary>
+    public string? MailTo { get; init; }
+
+    /// <summary>RFC 8058 一键退订：向 Url POST List-Unsubscribe=One-Click。</summary>
+    public bool OneClickPost { get; init; }
+
+    public string? Error { get; init; }
+}
+
 public sealed class MailListPage
 {
     public MailSummaryDto[] Items { get; init; } = [];

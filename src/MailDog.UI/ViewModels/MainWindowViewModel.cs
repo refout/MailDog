@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Net.Http;
 using System.Net.Mail;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -26,6 +28,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 {
     private static readonly string[] ThreadSubjectPrefixes =
         ["re:", "re：", "fwd:", "fw:", "回复：", "答复：", "转发："];
+
+    private static readonly HttpClient UnsubscribeClient = new()
+    {
+        Timeout = TimeSpan.FromSeconds(12)
+    };
 
     private readonly EngineClient _engine;
     private readonly UpdateService _updates = new();
@@ -1433,6 +1440,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _newRuleMute;
 
     [ObservableProperty]
+    private bool _newRuleMoveToJunk;
+
+    [ObservableProperty]
     private string? _ruleHint;
 
     public bool HasRules => Rules.Count > 0;
@@ -1500,7 +1510,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (!NewRuleMarkRead && !NewRuleFlag && !NewRuleMute)
+        if (!NewRuleMarkRead && !NewRuleFlag && !NewRuleMute && !NewRuleMoveToJunk)
         {
             RuleHint = "至少选择一个动作";
             return;
@@ -1519,6 +1529,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             MarkRead = NewRuleMarkRead,
             Flag = NewRuleFlag,
             Mute = NewRuleMute,
+            MoveToJunk = NewRuleMoveToJunk,
             Enabled = true
         };
 
@@ -1532,6 +1543,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             NewRuleMarkRead = true;
             NewRuleFlag = false;
             NewRuleMute = false;
+            NewRuleMoveToJunk = false;
             RuleHint = "规则已保存，新的来信会立即生效";
             await LoadRulesAsync();
         }
@@ -2274,6 +2286,109 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         var date = new DateTimeOffset(now.Year, now.Month, now.Day, 9, 0, 0, now.Offset)
             .AddDays(days == 0 ? 7 : days);
         return date;
+    }
+
+    /// <summary>按 List-Unsubscribe 退订；有 RFC 8058 一键退订时直接 POST，否则打开网页 / mailto。</summary>
+    [RelayCommand]
+    private async Task UnsubscribeSelectedAsync()
+    {
+        if (SelectedMessage is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await _engine.RequestAsync<UnsubscribeInfoResponse>(
+                IpcMessageTypes.GetUnsubscribeInfo,
+                new GetUnsubscribeInfoRequest { MessageId = SelectedMessage.Id },
+                TimeSpan.FromSeconds(60));
+
+            var info = response.Info;
+            if (!info.Available)
+            {
+                StatusMessage = info.Error ?? "这封邮件没有提供退订方式。";
+                return;
+            }
+
+            if (info.OneClickPost && info.Url is { } postUrl)
+            {
+                using var content = new StringContent(
+                    "List-Unsubscribe=One-Click",
+                    Encoding.UTF8,
+                    "application/x-www-form-urlencoded");
+                using var result = await UnsubscribeClient.PostAsync(postUrl, content);
+                StatusMessage = result.IsSuccessStatusCode
+                    ? "已发送一键退订请求。"
+                    : $"退订服务返回 {result.StatusCode}；可以再打开网页退订。";
+                return;
+            }
+
+            var target = info.Url ?? info.MailTo;
+            if (target is null)
+            {
+                StatusMessage = "这封邮件的退订地址不可用。";
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+            StatusMessage = "已打开退订页面，请在浏览器里完成确认。";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    /// <summary>标记垃圾邮件，并把发件人加入本地拦截规则（之后的新邮件直接进垃圾箱）。</summary>
+    [RelayCommand]
+    private async Task MarkJunkAndBlockSenderAsync()
+    {
+        if (SelectedMessage is null)
+        {
+            return;
+        }
+
+        var message = SelectedMessage;
+        var junk = Folders.FirstOrDefault(folder =>
+            string.Equals(folder.AccountId, message.AccountId, StringComparison.Ordinal)
+            && folder.Role == FolderRole.Junk);
+
+        try
+        {
+            if (junk is not null && message.FolderId != junk.Id)
+            {
+                await _engine.RequestAsync<OkResponse>(
+                    IpcMessageTypes.MoveMessages,
+                    new MoveMessagesRequest { MessageIds = [message.Id], TargetFolderId = junk.Id });
+            }
+
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.SaveRule,
+                new SaveRuleRequest
+                {
+                    Rule = new RuleDto
+                    {
+                        AccountId = message.AccountId,
+                        Field = "from",
+                        Pattern = message.SenderAddress,
+                        MoveToJunk = true,
+                        Mute = true,
+                        Enabled = true
+                    }
+                });
+
+            await LoadRulesAsync();
+            RemoveMessageFromView(message);
+            await ReloadCurrentFolderAsync();
+            StatusMessage = junk is null
+                ? $"已记住发件人 {message.SenderAddress}；该账户没有垃圾文件夹，后续只静音通知。"
+                : $"已标记垃圾邮件，并记住发件人 {message.SenderAddress}。";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
     }
 
     /// <summary>切换指定邮件的已读状态；列表行快捷操作与工具栏共用。</summary>

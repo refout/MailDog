@@ -201,6 +201,7 @@ public sealed class UiConnection : IAsyncDisposable
             IpcMessageTypes.SearchMessages => IpcMessageTypes.MessageSearch,
             IpcMessageTypes.ListContacts => IpcMessageTypes.Contacts,
             IpcMessageTypes.GetMessageBody => IpcMessageTypes.MessageBody,
+            IpcMessageTypes.GetUnsubscribeInfo => IpcMessageTypes.UnsubscribeInfo,
             IpcMessageTypes.DownloadAttachment => IpcMessageTypes.AttachmentSaved,
             IpcMessageTypes.ReadAttachment => IpcMessageTypes.AttachmentBytes,
             IpcMessageTypes.SendMail => IpcMessageTypes.SendMailResult,

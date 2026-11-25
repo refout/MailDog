@@ -215,6 +215,16 @@ public sealed class MessageBodyResponse : Ipc.IIpcMessage
     public MailBodyDto Body { get; init; } = new();
 }
 
+public sealed class GetUnsubscribeInfoRequest : Ipc.IIpcMessage
+{
+    public long MessageId { get; init; }
+}
+
+public sealed class UnsubscribeInfoResponse : Ipc.IIpcMessage
+{
+    public UnsubscribeInfoDto Info { get; init; } = new();
+}
+
 public sealed class MoveMessageRequest : Ipc.IIpcMessage
 {
     public long MessageId { get; init; }

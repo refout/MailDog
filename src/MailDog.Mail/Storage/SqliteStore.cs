@@ -1590,7 +1590,7 @@ public sealed class SqliteStore : IDisposable
         {
             using var command = _connection.CreateCommand();
             command.CommandText = """
-                SELECT id, account_id, field, pattern, mark_read, flag, mute, enabled, hits
+                SELECT id, account_id, field, pattern, mark_read, flag, mute, enabled, hits, move_to_junk
                 FROM rules
                 ORDER BY id;
                 """;
@@ -1610,7 +1610,8 @@ public sealed class SqliteStore : IDisposable
                     Flag = reader.GetInt32(5) != 0,
                     Mute = reader.GetInt32(6) != 0,
                     Enabled = reader.GetInt32(7) != 0,
-                    Hits = reader.GetInt32(8)
+                    Hits = reader.GetInt32(8),
+                    MoveToJunk = !reader.IsDBNull(9) && reader.GetInt32(9) != 0
                 });
             }
 
@@ -1633,7 +1634,8 @@ public sealed class SqliteStore : IDisposable
                 update.CommandText = """
                     UPDATE rules
                     SET account_id = $accountId, field = $field, pattern = $pattern,
-                        mark_read = $markRead, flag = $flag, mute = $mute, enabled = $enabled
+                        mark_read = $markRead, flag = $flag, mute = $mute, enabled = $enabled,
+                        move_to_junk = $moveToJunk
                     WHERE id = $id;
                     """;
                 update.Parameters.AddWithValue("$accountId", (object?)accountId ?? DBNull.Value);
@@ -1642,6 +1644,7 @@ public sealed class SqliteStore : IDisposable
                 update.Parameters.AddWithValue("$markRead", rule.MarkRead ? 1 : 0);
                 update.Parameters.AddWithValue("$flag", rule.Flag ? 1 : 0);
                 update.Parameters.AddWithValue("$mute", rule.Mute ? 1 : 0);
+                update.Parameters.AddWithValue("$moveToJunk", rule.MoveToJunk ? 1 : 0);
                 update.Parameters.AddWithValue("$enabled", rule.Enabled ? 1 : 0);
                 update.Parameters.AddWithValue("$id", rule.Id);
                 update.ExecuteNonQuery();
@@ -1650,8 +1653,8 @@ public sealed class SqliteStore : IDisposable
 
             using var insert = _connection.CreateCommand();
             insert.CommandText = """
-                INSERT INTO rules (account_id, field, pattern, mark_read, flag, mute, enabled, hits, created_utc)
-                VALUES ($accountId, $field, $pattern, $markRead, $flag, $mute, $enabled, 0, $created)
+                INSERT INTO rules (account_id, field, pattern, mark_read, flag, mute, enabled, hits, created_utc, move_to_junk)
+                VALUES ($accountId, $field, $pattern, $markRead, $flag, $mute, $enabled, 0, $created, $moveToJunk)
                 RETURNING id;
                 """;
             insert.Parameters.AddWithValue("$accountId", (object?)accountId ?? DBNull.Value);
@@ -1661,6 +1664,7 @@ public sealed class SqliteStore : IDisposable
             insert.Parameters.AddWithValue("$flag", rule.Flag ? 1 : 0);
             insert.Parameters.AddWithValue("$mute", rule.Mute ? 1 : 0);
             insert.Parameters.AddWithValue("$enabled", rule.Enabled ? 1 : 0);
+            insert.Parameters.AddWithValue("$moveToJunk", rule.MoveToJunk ? 1 : 0);
             insert.Parameters.AddWithValue("$created", ToDb(DateTimeOffset.UtcNow));
             return Convert.ToInt64(insert.ExecuteScalar(), CultureInfo.InvariantCulture);
         }
@@ -2659,6 +2663,13 @@ public sealed class SqliteStore : IDisposable
 
                 CREATE INDEX IF NOT EXISTS ix_snoozed_until ON snoozed_messages(until_utc);
                 PRAGMA user_version = 13;
+                """);
+        }
+        if (version < 14)
+        {
+            Execute("""
+                ALTER TABLE rules ADD COLUMN move_to_junk INTEGER NOT NULL DEFAULT 0;
+                PRAGMA user_version = 14;
                 """);
         }
     }

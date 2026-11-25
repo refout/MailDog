@@ -312,6 +312,84 @@ public sealed class ImapSyncService : IAsyncDisposable
         }
     }
 
+    public async Task<UnsubscribeInfoDto> GetUnsubscribeInfoAsync(long messageId, CancellationToken cancellationToken)
+    {
+        var message = _store.GetMessage(messageId)
+            ?? throw new KeyNotFoundException("邮件不存在。");
+        var account = _accounts.GetRecord(message.AccountId)
+            ?? throw new KeyNotFoundException("账户不存在。");
+        var folderRecord = _store.GetFolder(message.FolderId)
+            ?? throw new KeyNotFoundException("文件夹不存在。");
+
+        var session = await GetSessionAsync(account.Id, cancellationToken);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await EnsureConnectedAsync(session, account, cancellationToken).ConfigureAwait(false);
+            var folder = session.Client!.GetFolder(folderRecord.FullName);
+            await folder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                var mime = await folder.GetMessageAsync(ToUniqueId(message.Uid), cancellationToken).ConfigureAwait(false);
+                return ParseUnsubscribe(
+                    mime.Headers["List-Unsubscribe"],
+                    mime.Headers["List-Unsubscribe-Post"]);
+            }
+            finally
+            {
+                await folder.CloseAsync(false, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            throw;
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    public static UnsubscribeInfoDto ParseUnsubscribe(string? listUnsubscribe, string? listUnsubscribePost)
+    {
+        var url = default(string);
+        var mailTo = default(string);
+
+        foreach (var raw in (listUnsubscribe ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var value = raw.Trim().Trim('<', '>').Trim();
+            if (value.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
+            {
+                mailTo ??= value;
+                continue;
+            }
+
+            if (Uri.TryCreate(value, UriKind.Absolute, out var parsed)
+                && (parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps))
+            {
+                url ??= value;
+            }
+        }
+
+        var oneClick = (listUnsubscribePost ?? string.Empty).Contains("one-click", StringComparison.OrdinalIgnoreCase)
+            || (listUnsubscribePost ?? string.Empty).Contains("List-Unsubscribe=One-Click", StringComparison.OrdinalIgnoreCase);
+
+        return new UnsubscribeInfoDto
+        {
+            Available = url is not null || mailTo is not null,
+            Url = url,
+            MailTo = mailTo,
+            OneClickPost = oneClick && url is not null,
+            Error = url is null && mailTo is null ? "这封邮件没有提供 List-Unsubscribe 退订头。" : null
+        };
+    }
+
     public async Task<(string FileName, long Size)> SaveAttachmentAsync(
         long messageId,
         int attachmentIndex,
