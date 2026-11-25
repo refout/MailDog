@@ -14,6 +14,7 @@ using FluentIcons.Common;
 using MailDog.Contracts.Dto;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
+using MailDog.Contracts.Platform;
 using MailDog.Html;
 using MailDog.UI.Services;
 
@@ -100,6 +101,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public string AppVersion => typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
 
     public string VersionText => $"版本 {AppVersion}";
+
+    public string PlatformText => OperatingSystem.IsWindows()
+        ? "Windows 10 / 11（x64、Arm64）"
+        : OperatingSystem.IsLinux()
+            ? "Linux（x64）"
+            : "当前平台";
+
+    public string DataDirectoryText => $"本机 SQLite 数据库（{ProductPaths.DisplayDataDirectory}）";
+
+    public string StartupTitle => OperatingSystem.IsWindows()
+        ? "登录 Windows 时自动启动 MailDog"
+        : "登录系统时自动启动 MailDog";
+
+    public string StartupDescription => OperatingSystem.IsWindows()
+        ? "开启后，登录 Windows 会自动启动 MailDog 并继续收取新邮件；关闭后会移除当前用户的启动项，不影响账户与邮件数据。"
+        : "开启后，登录桌面会自动启动 MailDog 并继续收取新邮件；关闭后会移除当前用户的 autostart 项，不影响账户与邮件数据。";
 
     /// <summary>关于页直接展示的主要开源组件；完整清单见 docs/THIRD-PARTY-NOTICES.md。</summary>
     public IReadOnlyList<ThirdPartyNoticeViewModel> ThirdPartyNotices { get; } =
@@ -800,6 +817,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private int _renderModeIndex;
+
+    /// <summary>Linux 暂不接 WebView，只用纯文本阅读。</summary>
+    public bool IsHtmlRenderAvailable => OperatingSystem.IsWindows();
+
+    /// <summary>云母/亚克力只存在于 Windows 11，Linux 不展示无效选项。</summary>
+    public bool IsWindowsMaterialAvailable => OperatingSystem.IsWindows();
 
     public string Material => MaterialIndex switch
     {
@@ -4086,7 +4109,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 10 => 2,
                 _ => 3
             };
-            RenderModeIndex = _settings.RenderMode == "plain" ? 1 : 0;
+            RenderModeIndex = _settings.RenderMode == "plain" || !OperatingSystem.IsWindows() ? 1 : 0;
             _allowRemoteImages = _settings.ShowRemoteImages;
             ApplyTheme();
             SettingsSaveHint = "所有更改会自动保存";
@@ -4533,7 +4556,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _allowRemoteImages,
             dark,
             background,
-            preferPlain ?? RenderModeIndex == 1);
+            preferPlain ?? (RenderModeIndex == 1 || !OperatingSystem.IsWindows()));
     }
 
     private (string Background, bool Dark) GetReaderAppearance()

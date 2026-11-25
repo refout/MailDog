@@ -1,6 +1,6 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using MailDog.Contracts.Ipc;
+using MailDog.Contracts.Platform;
 
 namespace MailDog.Cli;
 
@@ -32,7 +32,7 @@ internal static class EngineGateway
         var executable = ResolveEnginePath(enginePath)
             ?? throw new IpcCallException(
                 IpcErrorCodes.UpstreamUnavailable,
-                "找不到 MailDog.Engine.exe。请把命令行和程序放在同一目录，或用 --engine 指定路径。");
+                $"找不到 {ProductPaths.EngineExecutableName}。请把命令行和程序放在同一目录，或用 --engine 指定路径。");
 
         StartEngine(executable);
 
@@ -51,7 +51,7 @@ internal static class EngineGateway
 
         throw new IpcCallException(
             IpcErrorCodes.UpstreamUnavailable,
-            $"后台没有按时就绪（{StartupWindow.TotalSeconds:0} 秒）。可以先手动启动 MailDog.Engine.exe 再试。");
+            $"后台没有按时就绪（{StartupWindow.TotalSeconds:0} 秒）。可以先手动启动 {ProductPaths.EngineExecutableName} 再试。");
     }
 
     private static async Task<IpcClient> HandshakeAsync(IpcClient client, CancellationToken cancellationToken)
@@ -84,7 +84,7 @@ internal static class EngineGateway
             return fromEnvironment;
         }
 
-        var sameDirectory = Path.Combine(AppContext.BaseDirectory, "MailDog.Engine.exe");
+        var sameDirectory = Path.Combine(AppContext.BaseDirectory, ProductPaths.EngineExecutableName);
 
         if (File.Exists(sameDirectory))
         {
@@ -93,11 +93,16 @@ internal static class EngineGateway
 
         // 开发时命令行与 Engine 分属不同输出目录，按仓库结构向上找一遍。
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        var runtime = RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "win-arm64" : "win-x64";
+        var runtime = ProductPaths.RuntimeIdentifier;
 
         for (var depth = 0; depth < 6 && directory is not null; depth++, directory = directory.Parent)
         {
-            var artifact = Path.Combine(directory.FullName, "artifacts", runtime, "engine", "MailDog.Engine.exe");
+            var artifact = Path.Combine(
+                directory.FullName,
+                "artifacts",
+                runtime,
+                "engine",
+                ProductPaths.EngineExecutableName);
 
             if (File.Exists(artifact))
             {
@@ -122,7 +127,7 @@ internal static class EngineGateway
 
                 foreach (var targetFramework in Directory.GetDirectories(configurationRoot, "net11.0*"))
                 {
-                    var candidate = Path.Combine(targetFramework, "MailDog.Engine.exe");
+                    var candidate = Path.Combine(targetFramework, ProductPaths.EngineExecutableName);
 
                     if (File.Exists(candidate))
                     {
@@ -148,7 +153,9 @@ internal static class EngineGateway
             WorkingDirectory = Path.GetDirectoryName(executable) ?? string.Empty
         };
 
-        var uiPath = Path.Combine(Path.GetDirectoryName(executable) ?? string.Empty, "MailDog.UI.exe");
+        var uiPath = Path.Combine(
+            Path.GetDirectoryName(executable) ?? string.Empty,
+            ProductPaths.UiExecutableName);
 
         if (File.Exists(uiPath))
         {

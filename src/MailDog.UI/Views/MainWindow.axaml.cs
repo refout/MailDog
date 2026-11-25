@@ -694,6 +694,11 @@ public partial class MainWindow : Window
 
     private void ApplyNativeTitleBarTheme(bool dark, Color baseColor)
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
         if (handle == IntPtr.Zero)
         {

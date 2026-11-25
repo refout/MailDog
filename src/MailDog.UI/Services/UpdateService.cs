@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
+using MailDog.Contracts.Platform;
 
 namespace MailDog.UI.Services;
 
@@ -221,7 +222,7 @@ public sealed class UpdateService
         }
 
         // 安装包与界面同目录，装完直接启新版本；当前进程随后退出。
-        var uiPath = Path.Combine(AppContext.BaseDirectory, "MailDog.UI.exe");
+        var uiPath = Path.Combine(AppContext.BaseDirectory, ProductPaths.UiExecutableName);
 
         if (File.Exists(uiPath))
         {

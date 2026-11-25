@@ -22,7 +22,7 @@ internal static class Schema
             .Append(',')
             .Append(Flag("--confirm", "写命令真正执行；不带时只打印预览", false))
             .Append(',')
-            .Append(Flag("--engine", "指定 MailDog.Engine.exe 的路径", true))
+            .Append(Flag("--engine", "指定 MailDog.Engine 可执行文件的路径", true))
             .Append("],\"commands\":[");
 
         builder.Append(Command(

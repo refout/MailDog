@@ -67,6 +67,11 @@ public partial class App : Application
     /// <summary>与 Engine 共用应用标识，通知与任务栏才会认成同一个 MailDog。</summary>
     private static void ApplyAppIdentity()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         try
         {
             SetCurrentProcessExplicitAppUserModelID("MailDog.MailDog.App");

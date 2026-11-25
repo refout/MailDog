@@ -107,7 +107,7 @@
                                      TextWrapping="Wrap" />
                         </StackPanel>
 
-                        <StackPanel Spacing="6">
+                        <StackPanel Spacing="6" IsVisible="{Binding IsWindowsMaterialAvailable}">
                           <TextBlock Text="背景材质" FontSize="13" />
                           <StackPanel Orientation="Horizontal" Spacing="16">
                             <RadioButton GroupName="material"
@@ -395,7 +395,8 @@
                           <StackPanel Orientation="Horizontal" Spacing="16">
                             <RadioButton GroupName="renderMode"
                                          Content="全量渲染（HTML）"
-                                         IsChecked="{Binding IsHtmlRenderMode}" />
+                                         IsChecked="{Binding IsHtmlRenderMode}"
+                                         IsVisible="{Binding IsHtmlRenderAvailable}" />
                             <RadioButton GroupName="renderMode"
                                          Content="纯文本"
                                          IsChecked="{Binding IsPlainRenderMode}" />
@@ -403,6 +404,10 @@
                           <TextBlock Text="纯文本模式只显示文本内容；邮件没有纯文本段时会从 HTML 提取文本。"
                                      Classes="caption"
                                      TextWrapping="Wrap" />
+                          <TextBlock Text="当前平台暂不加载 HTML 渲染器，邮件正文以纯文本显示。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap"
+                                     IsVisible="{Binding !IsHtmlRenderAvailable}" />
                         </StackPanel>
                         <StackPanel Spacing="8">
                           <TextBlock Text="打开行为" Classes="section" />
@@ -1128,16 +1133,16 @@
 
                           <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*,Auto">
-                              <TextBlock Text="登录 Windows 时自动启动 MailDog"
+                              <TextBlock Text="{Binding StartupTitle}"
                                          FontSize="13"
                                          VerticalAlignment="Center" />
                               <ToggleSwitch Grid.Column="1"
                                             IsChecked="{Binding RunAtStartup}"
                                             OnContent=""
                                             OffContent=""
-                                            AutomationProperties.Name="登录 Windows 时自动启动 MailDog" />
+                                            AutomationProperties.Name="{Binding StartupTitle}" />
                             </Grid>
-                            <TextBlock Text="开启后，登录 Windows 会自动启动 MailDog 并继续收取新邮件；关闭后会移除当前用户的启动项，不影响账户与邮件数据。"
+                            <TextBlock Text="{Binding StartupDescription}"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
                           </StackPanel>
@@ -1195,7 +1200,7 @@
 
                         <TextBlock TextWrapping="Wrap"
                                    LineHeight="20"
-                                   Text="MailDog 是一款本地优先的 Windows 邮件客户端，邮件收取、阅读与存储均在本机完成，不经过第三方中转服务器。" />
+                                   Text="MailDog 是一款本地优先的桌面邮件客户端，邮件收取、阅读与存储均在本机完成，不经过第三方中转服务器。" />
 
                         <Border Margin="0,22,0,0"
                                 Padding="0,20,0,0"
@@ -1208,7 +1213,7 @@
                                          FontSize="13"
                                          Foreground="{DynamicResource MailDogBrushTextSecondary}" />
                               <TextBlock Grid.Column="1"
-                                         Text="Windows 10 / 11（x64、Arm64）"
+                                         Text="{Binding PlatformText}"
                                          FontSize="13"
                                          TextWrapping="Wrap" />
                             </Grid>
@@ -1217,7 +1222,7 @@
                                          FontSize="13"
                                          Foreground="{DynamicResource MailDogBrushTextSecondary}" />
                               <TextBlock Grid.Column="1"
-                                         Text="本机 SQLite 数据库（%LOCALAPPDATA%\MailDog）"
+                                         Text="{Binding DataDirectoryText}"
                                          FontSize="13"
                                          TextWrapping="Wrap" />
                             </Grid>

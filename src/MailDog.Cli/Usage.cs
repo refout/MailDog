@@ -35,7 +35,7 @@ internal static class Usage
           --confirm     写命令真正执行；不带时只打印预览
           --force-send  发送前检查没过（如正文提到附件却没带）时，确认后强发
           --no-start    连不上时不去拉起 Engine
-          --engine <路径>  指定 MailDog.Engine.exe
+          --engine <路径>  指定 MailDog.Engine（Windows 下为 .exe）
 
         退出码：
           0 成功   2 没找到   3 账号未登录或后台不可用、发送失败
