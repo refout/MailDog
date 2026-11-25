@@ -4,14 +4,22 @@ using MailDog.Contracts.Platform;
 namespace MailDog.Cli;
 
 /// <summary>
-/// 本地调用记录：只记命令名、退出码和耗时，不落参数、输出、邮箱或正文。
+/// 本地调用记录。cli-usage.log 保留轻量摘要；cli-calls.jsonl 保存结构化调用，
+/// 带 --json 时把当时的 JSON 输出一并留下，方便在界面里回看。
 /// 记录失败不会影响命令本身；用户可用 MAILDOG_NO_CLI_AUDIT=1 关闭。
 /// </summary>
 internal static class CliAudit
 {
-    private const long MaxFileBytes = 512 * 1024;
+    private const long MaxUsageFileBytes = 512 * 1024;
+    private const long MaxCallsFileBytes = 2 * 1024 * 1024;
 
-    public static void Record(string? command, int exitCode, TimeSpan elapsed)
+    public static void Record(
+        string? command,
+        int exitCode,
+        TimeSpan elapsed,
+        string? jsonOutput = null,
+        bool jsonRequested = false,
+        bool jsonTruncated = false)
     {
         if (IsDisabled())
         {
@@ -23,19 +31,21 @@ internal static class CliAudit
             var directory = Path.Combine(ProductPaths.DataDirectory, "logs");
             Directory.CreateDirectory(directory);
 
-            var path = Path.Combine(directory, "cli-usage.log");
-            Rotate(path);
+            var timestamp = DateTimeOffset.Now;
 
-            var line = FormatLine(DateTimeOffset.Now, Program.Version, command, exitCode, elapsed)
-                + Environment.NewLine;
+            var usagePath = Path.Combine(directory, "cli-usage.log");
+            Rotate(usagePath, MaxUsageFileBytes);
+            Append(
+                usagePath,
+                FormatLine(timestamp, Program.Version, command, exitCode, elapsed)
+                + Environment.NewLine);
 
-            using var stream = new FileStream(
-                path,
-                FileMode.Append,
-                FileAccess.Write,
-                FileShare.ReadWrite);
-
-            stream.Write(Encoding.UTF8.GetBytes(line));
+            var callsPath = Path.Combine(directory, "cli-calls.jsonl");
+            Rotate(callsPath, MaxCallsFileBytes);
+            Append(
+                callsPath,
+                FormatRecord(timestamp, Program.Version, command, exitCode, elapsed, jsonOutput, jsonRequested, jsonTruncated)
+                + Environment.NewLine);
         }
         catch
         {
@@ -51,6 +61,31 @@ internal static class CliAudit
         TimeSpan elapsed)
     {
         return $"{timestamp:yyyy-MM-dd HH:mm:ss zzz}\t{version}\t{NormalizeCommand(command)}\texit={exitCode}\t{elapsed.TotalMilliseconds:0}ms";
+    }
+
+    internal static string FormatRecord(
+        DateTimeOffset timestamp,
+        string version,
+        string? command,
+        int exitCode,
+        TimeSpan elapsed,
+        string? jsonOutput,
+        bool jsonRequested,
+        bool jsonTruncated)
+    {
+        var normalized = NormalizeCommand(command);
+
+        return new StringBuilder(256 + (jsonOutput?.Length ?? 0))
+            .Append("{\"time\":").Append(Output.Str(Output.Iso(timestamp)))
+            .Append(",\"version\":").Append(Output.Str(version))
+            .Append(",\"command\":").Append(Output.Str(normalized))
+            .Append(",\"exit\":").Append(Output.Num(exitCode))
+            .Append(",\"ms\":").Append(Output.Num((long)elapsed.TotalMilliseconds))
+            .Append(",\"jsonRequested\":").Append(Output.Bool(jsonRequested))
+            .Append(",\"jsonTruncated\":").Append(Output.Bool(jsonTruncated))
+            .Append(",\"json\":").Append(Output.Str(jsonOutput))
+            .Append('}')
+            .ToString();
     }
 
     private static string NormalizeCommand(string? command)
@@ -84,7 +119,18 @@ internal static class CliAudit
         return value is "1" or "true" or "TRUE";
     }
 
-    private static void Rotate(string path)
+    private static void Append(string path, string content)
+    {
+        using var stream = new FileStream(
+            path,
+            FileMode.Append,
+            FileAccess.Write,
+            FileShare.ReadWrite);
+
+        stream.Write(Encoding.UTF8.GetBytes(content));
+    }
+
+    private static void Rotate(string path, long maxBytes)
     {
         if (!File.Exists(path))
         {
@@ -93,7 +139,7 @@ internal static class CliAudit
 
         try
         {
-            if (new FileInfo(path).Length >= MaxFileBytes)
+            if (new FileInfo(path).Length >= maxBytes)
             {
                 File.Move(path, path + ".1", true);
             }

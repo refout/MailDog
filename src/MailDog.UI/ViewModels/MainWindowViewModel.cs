@@ -858,6 +858,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public string CliUsageLogDisplayPath
         => Path.Combine(ProductPaths.DisplayDataDirectory, "logs", "cli-usage.log");
 
+    public string CliCallsLogDisplayPath
+        => Path.Combine(ProductPaths.DisplayDataDirectory, "logs", "cli-calls.jsonl");
+
     [ObservableProperty]
     private string _cliCopyStatus = string.Empty;
 

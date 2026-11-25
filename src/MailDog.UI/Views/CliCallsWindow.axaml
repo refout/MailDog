@@ -1,0 +1,85 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MailDog.UI.ViewModels"
+        xmlns:services="using:MailDog.UI.Services"
+        x:Class="MailDog.UI.Views.CliCallsWindow"
+        x:DataType="vm:CliCallsViewModel"
+        Title="CLI 调用记录"
+        Width="1040"
+        Height="700"
+        MinWidth="720"
+        MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource MailDogBrushSurfaceSolid}">
+  <Grid Margin="24" RowDefinitions="Auto,*,Auto" RowSpacing="14">
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="4">
+        <TextBlock Text="CLI 调用记录" FontSize="22" FontWeight="SemiBold" />
+        <TextBlock Text="最近 100 条调用。带 --json 的命令会保存当时的 JSON 输出，方便回看；不带 --json 的只保留摘要。"
+                   Classes="caption"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+      <Button Grid.Column="1"
+              Content="刷新"
+              Command="{Binding RefreshCommand}"
+              VerticalAlignment="Top"
+              AutomationProperties.Name="刷新 CLI 调用记录" />
+    </Grid>
+
+    <Grid Grid.Row="1" ColumnDefinitions="340,*" ColumnSpacing="16">
+      <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
+              BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="6">
+        <Grid>
+          <ListBox ItemsSource="{Binding Calls}"
+                   SelectedItem="{Binding SelectedCall}"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   Padding="4">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="services:CliCallRecord">
+                <StackPanel Spacing="2" Margin="4,3">
+                  <TextBlock Text="{Binding Command}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Summary}" Classes="caption" TextWrapping="Wrap" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <TextBlock Text="{Binding EmptyMessage}"
+                     Classes="caption"
+                     Margin="24"
+                     TextWrapping="Wrap"
+                     VerticalAlignment="Center"
+                     HorizontalAlignment="Center"
+                     IsVisible="{Binding !HasCalls}" />
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="1"
+              Background="{DynamicResource MailDogBrushSurfaceSubtle}"
+              BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="16">
+        <Grid RowDefinitions="Auto,*" RowSpacing="10">
+          <StackPanel Spacing="2">
+            <TextBlock Text="{Binding SelectedMeta}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding FilePathDisplay}" Classes="caption" TextWrapping="Wrap" />
+          </StackPanel>
+          <ScrollViewer Grid.Row="1">
+            <SelectableTextBlock Text="{Binding SelectedJson}"
+                                 FontSize="13"
+                                 TextWrapping="Wrap" />
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <TextBlock Grid.Row="2"
+               Text="JSON 输出可能包含邮件正文、地址等隐私内容；单条最多保留约 20 万字符，超出会截断。"
+               Classes="caption"
+               TextWrapping="Wrap" />
+  </Grid>
+</Window>

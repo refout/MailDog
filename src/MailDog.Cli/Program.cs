@@ -13,26 +13,52 @@ internal static class Program
     private const int ExitUnavailable = 3;
     private const int ExitRefused = 4;
     private const int ExitUsage = 5;
+    private const int MaxCapturedChars = 200_000;
 
     public static async Task<int> Main(string[] args)
     {
         var started = Stopwatch.StartNew();
         string? command = null;
+        var jsonRequested = false;
 
-        var exitCode = await RunAsync(args, value => command = value).ConfigureAwait(false);
-        CliAudit.Record(command, exitCode, started.Elapsed);
+        Console.OutputEncoding = Encoding.UTF8;
+
+        var originalOut = Console.Out;
+        var tee = new TeeTextWriter(originalOut, MaxCapturedChars);
+        Console.SetOut(tee);
+
+        int exitCode;
+
+        try
+        {
+            exitCode = await RunAsync(args, (value, json) =>
+            {
+                command = value;
+                jsonRequested = json;
+            }).ConfigureAwait(false);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        CliAudit.Record(
+            command,
+            exitCode,
+            started.Elapsed,
+            jsonRequested ? tee.Captured : null,
+            jsonRequested,
+            jsonRequested && tee.Truncated);
 
         return exitCode;
     }
 
-    private static async Task<int> RunAsync(string[] args, Action<string?> onCommand)
+    private static async Task<int> RunAsync(string[] args, Action<string?, bool> onCommand)
     {
-        Console.OutputEncoding = Encoding.UTF8;
-
         try
         {
             var arguments = Arguments.Parse(args);
-            onCommand(arguments.Command);
+            onCommand(arguments.Command, arguments.Json);
 
             if (arguments.Command is null
                 || arguments.Command is "help"

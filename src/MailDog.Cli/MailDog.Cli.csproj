@@ -15,6 +15,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\MailDog.Contracts\MailDog.Contracts.csproj" />
+    <ProjectReference Include="..\MailDog.Html\MailDog.Html.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.CommandLine" />
