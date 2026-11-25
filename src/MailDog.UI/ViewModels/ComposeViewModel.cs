@@ -1131,6 +1131,29 @@ public sealed partial class ComposeViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// 把 mailto 带进来的纯文本正文放在签名上方，同时生成富文本编辑器使用的 HTML。
+    /// 只改 BodyText 的话编辑器仍显示旧 BodyHtml，正文会看起来没被填上。
+    /// </summary>
+    public void SetExternalBody(string text)
+    {
+        var normalized = text.Replace("\r\n", "\n").Replace('\r', '\n').Trim();
+
+        if (normalized.Length == 0)
+        {
+            return;
+        }
+
+        var html = string.Join(
+            string.Empty,
+            normalized.Split('\n').Select(line => string.IsNullOrWhiteSpace(line)
+                ? "<p><br/></p>"
+                : "<p>" + WebUtility.HtmlEncode(line) + "</p>"));
+
+        BodyText = normalized + "\n\n" + BodyText.TrimStart('\n');
+        BodyHtml = html + (BodyHtml ?? string.Empty);
+    }
+
     private void ApplySignature()
     {
         if (string.IsNullOrWhiteSpace(_signature))

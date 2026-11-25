@@ -2411,7 +2411,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var fields = ParseMailto(uri);
+        var fields = MailtoParser.Parse(uri);
 
         if (fields is null)
         {
@@ -2431,7 +2431,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         compose.CcText = fields.GetValueOrDefault("cc", string.Empty);
         compose.BccText = fields.GetValueOrDefault("bcc", string.Empty);
         compose.SubjectText = fields.GetValueOrDefault("subject", string.Empty);
-        compose.BodyText = fields.GetValueOrDefault("body", string.Empty);
+        compose.SetExternalBody(fields.GetValueOrDefault("body", string.Empty));
 
         MountCompose(compose);
     }
@@ -2459,40 +2459,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             StatusMessage = $"打开 .eml 失败：{GetErrorMessage(exception)}";
         }
-    }
-
-    private static Dictionary<string, string>? ParseMailto(string uri)
-    {
-        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed)
-            || !string.Equals(parsed.Scheme, "mailto", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var to = Uri.UnescapeDataString(parsed.AbsolutePath.TrimStart('/'));
-        values["to"] = to;
-
-        foreach (var pair in parsed.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var parts = pair.Split('=', 2);
-
-            if (parts.Length != 2)
-            {
-                continue;
-            }
-
-            var key = Uri.UnescapeDataString(parts[0]).ToLowerInvariant();
-            var value = Uri.UnescapeDataString(parts[1].Replace("+", " ", StringComparison.Ordinal));
-
-            if (key is "to" or "cc" or "bcc" or "subject" or "body")
-            {
-                var previous = values.GetValueOrDefault(key);
-                values[key] = previous is { Length: > 0 } ? $"{previous},{value}" : value;
-            }
-        }
-
-        return values;
     }
 
     [RelayCommand]
