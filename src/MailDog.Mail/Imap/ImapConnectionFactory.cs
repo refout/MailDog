@@ -1,3 +1,4 @@
+using System.Net.Security;
 using MailDog.Mail.Accounts;
 using MailDog.Mail.Auth;
 using MailDog.Mail.Storage;
@@ -9,14 +10,28 @@ namespace MailDog.Mail.Imap;
 /// <summary>建立并认证一个 IMAP 连接（同步会话与 IDLE 监听共用）。</summary>
 internal static class ImapConnectionFactory
 {
-    public static async Task<ImapClient> ConnectAsync(
+    public static Task<ImapClient> ConnectAsync(
         AccountRecord account,
         AccountService accounts,
         IAccessTokenProvider tokens,
         CancellationToken cancellationToken)
+        => ConnectAsync(account, accounts, tokens, null, cancellationToken);
+
+    public static async Task<ImapClient> ConnectAsync(
+        AccountRecord account,
+        AccountService accounts,
+        IAccessTokenProvider tokens,
+        RemoteCertificateValidationCallback? certificateValidator,
+        CancellationToken cancellationToken)
     {
         var config = accounts.GetServerConfig(account);
         var client = new ImapClient { Timeout = 30000 };
+
+        if (certificateValidator is not null)
+        {
+            client.ServerCertificateValidationCallback = certificateValidator;
+        }
+
         var socketOptions = config.ImapStartTls
             ? SecureSocketOptions.StartTls
             : SecureSocketOptions.SslOnConnect;

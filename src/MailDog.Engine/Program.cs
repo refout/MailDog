@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using MailDog.Contracts.Messages;
 using MailDog.Engine.Hosting;
 using MailDog.Mail.Storage;
 using MailKit.Net.Imap;
@@ -31,6 +32,29 @@ internal static class Program
         if (args.Contains("--test-notify", StringComparer.OrdinalIgnoreCase))
         {
             return RunNotificationTest();
+        }
+
+        if (args.Contains("--register-integration", StringComparer.OrdinalIgnoreCase))
+        {
+            MailDog.Engine.Tray.WindowsIntegration.RegisterAll();
+            var jumpListIndex = Array.FindIndex(
+                args,
+                argument => argument.Equals("--test-jumplist", StringComparison.OrdinalIgnoreCase));
+            if (jumpListIndex >= 0 && jumpListIndex + 1 < args.Length
+                && long.TryParse(args[jumpListIndex + 1], out var messageId))
+            {
+                MailDog.Engine.Tray.WindowsIntegration.AddRecent(new AddRecentRequest
+                {
+                    MessageId = messageId,
+                    AccountId = "integration-test",
+                    FolderId = 1,
+                    Subject = "MailDog integration test"
+                });
+            }
+
+            // SendTo / JumpList 快捷方式在后台任务里写，命令行验收等它们落盘。
+            Thread.Sleep(TimeSpan.FromSeconds(5));
+            return 0;
         }
 
         var databasePath = GetArgument(args, "--db") ?? SqliteStore.DefaultDatabasePath;

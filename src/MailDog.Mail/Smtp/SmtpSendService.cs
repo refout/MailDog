@@ -1,3 +1,4 @@
+using System.Net.Security;
 using System.Net.Sockets;
 using MailDog.Contracts.Messages;
 using MailDog.Mail.Accounts;
@@ -33,18 +34,21 @@ public sealed class SmtpSendService
     private readonly IAccessTokenProvider _tokens;
     private readonly ImapSyncService? _imap;
     private readonly string _attachmentRoot;
+    private readonly RemoteCertificateValidationCallback? _certificateValidator;
 
     public SmtpSendService(
         SqliteStore store,
         AccountService accounts,
         IAccessTokenProvider tokens,
         string dataDirectory,
-        ImapSyncService? imap = null)
+        ImapSyncService? imap = null,
+        RemoteCertificateValidationCallback? certificateValidator = null)
     {
         _store = store;
         _accounts = accounts;
         _tokens = tokens;
         _imap = imap;
+        _certificateValidator = certificateValidator;
         _attachmentRoot = Path.Combine(dataDirectory, "outbox");
         Directory.CreateDirectory(_attachmentRoot);
 
@@ -275,6 +279,11 @@ public sealed class SmtpSendService
             : SecureSocketOptions.SslOnConnect;
 
         using var client = new SmtpClient { Timeout = 30000 };
+        if (_certificateValidator is not null)
+        {
+            client.ServerCertificateValidationCallback = _certificateValidator;
+        }
+
         await client.ConnectAsync(config.SmtpHost, config.SmtpPort, socketOptions, cancellationToken)
             .ConfigureAwait(false);
         await client.AuthenticateAsync(email, secret, cancellationToken).ConfigureAwait(false);
@@ -292,6 +301,11 @@ public sealed class SmtpSendService
             : SecureSocketOptions.SslOnConnect;
 
         using var client = new SmtpClient { Timeout = 30000 };
+        if (_certificateValidator is not null)
+        {
+            client.ServerCertificateValidationCallback = _certificateValidator;
+        }
+
         await client.ConnectAsync(
             config.SmtpHost,
             config.SmtpPort,

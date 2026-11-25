@@ -1,4 +1,6 @@
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using MailDog.Contracts.Dto;
 using MailDog.Contracts.Messages;
@@ -22,14 +24,20 @@ public sealed class ImapSyncService : IAsyncDisposable
     private readonly SqliteStore _store;
     private readonly AccountService _accounts;
     private readonly IAccessTokenProvider _tokens;
+    private readonly RemoteCertificateValidationCallback? _certificateValidator;
     private readonly Dictionary<string, Session> _sessions = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _sessionsGate = new(1, 1);
 
-    public ImapSyncService(SqliteStore store, AccountService accounts, IAccessTokenProvider tokens)
+    public ImapSyncService(
+        SqliteStore store,
+        AccountService accounts,
+        IAccessTokenProvider tokens,
+        RemoteCertificateValidationCallback? certificateValidator = null)
     {
         _store = store;
         _accounts = accounts;
         _tokens = tokens;
+        _certificateValidator = certificateValidator;
     }
 
     public event Action<NewMailEvent>? NewMail;
@@ -1383,7 +1391,7 @@ public sealed class ImapSyncService : IAsyncDisposable
         }
 
         session.Client = await ImapConnectionFactory
-            .ConnectAsync(account, _accounts, _tokens, cancellationToken)
+            .ConnectAsync(account, _accounts, _tokens, _certificateValidator, cancellationToken)
             .ConfigureAwait(false);
     }
 
