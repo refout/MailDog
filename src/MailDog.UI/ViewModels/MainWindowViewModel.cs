@@ -130,9 +130,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public string RuntimeText => $".NET {RuntimeVersion}";
 
-    /// <summary>检查更新时的状态文案；初始提示尚未检查。</summary>
+    /// <summary>检查更新时的状态文案；未检查时不显示。</summary>
     [ObservableProperty]
-    private string _updateStatusText = "尚未检查更新。";
+    [NotifyPropertyChangedFor(nameof(IsUpdateStatusVisible))]
+    private string _updateStatusText = string.Empty;
+
+    public bool IsUpdateStatusVisible => !string.IsNullOrWhiteSpace(UpdateStatusText);
 
     /// <summary>有可用新版本时，关于页才显示下载按钮。</summary>
     [ObservableProperty]
@@ -3257,7 +3260,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         IsUpdateBusy = true;
         HasUpdateAvailable = false;
-        UpdateStatusText = "正在检查新版本…";
+        UpdateStatusText = "正在检查更新…";
 
         try
         {
@@ -3267,7 +3270,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             if (result.Error is { } error)
             {
                 // 检查失败只说一句，不弹窗、不反复重试。
-                UpdateStatusText = $"这次没查到更新：{error}";
+                UpdateStatusText = $"检查更新失败：{error}";
                 return;
             }
 
@@ -3279,8 +3282,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
             var canInstall = UpdateService.IsInstalledLayout() && result.InstallerUrl is not null;
             UpdateActionText = canInstall ? "下载并安装" : "去下载页";
-            UpdateStatusText = $"发现新版本 {result.LatestVersion}，可以下载安装。";
+            UpdateStatusText = $"发现新版本 {result.LatestVersion}。";
             HasUpdateAvailable = true;
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText = $"检查更新失败：{ex.Message}";
         }
         finally
         {
@@ -3313,16 +3320,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (path is null)
             {
-                UpdateStatusText = "下载或校验失败，安装包已丢弃，可以到发布页手动下载。";
+                UpdateStatusText = "下载或校验失败，请到发布页手动下载。";
                 return;
             }
 
-            UpdateStatusText = "正在安装，装完 MailDog 会自己重新启动…";
+            UpdateStatusText = "正在安装，完成后会自动重新启动…";
             var installed = await _updates.RunInstallerAsync(path);
 
             if (!installed)
             {
-                UpdateStatusText = "安装没有完成，可以到发布页手动下载。";
+                UpdateStatusText = "安装没有完成，请到发布页手动下载。";
                 return;
             }
 
@@ -3334,7 +3341,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch
         {
-            UpdateStatusText = "更新过程出错，可以到发布页手动下载。";
+            UpdateStatusText = "更新失败，请到发布页手动下载。";
         }
         finally
         {

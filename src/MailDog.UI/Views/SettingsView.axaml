@@ -1168,10 +1168,27 @@
                               <TextBlock Text="{Binding VersionText}"
                                          Classes="caption"
                                          VerticalAlignment="Center" />
-                              <Button Content="检查更新"
-                                      Classes="sm"
+                              <Button Classes="link"
                                       Command="{Binding CheckUpdateCommand}"
-                                      IsEnabled="{Binding !IsUpdateBusy}" />
+                                      IsEnabled="{Binding !IsUpdateBusy}"
+                                      AutomationProperties.Name="检查更新">
+                                <TextBlock Text="检查更新" TextDecorations="Underline" />
+                              </Button>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        IsVisible="{Binding IsUpdateStatusVisible}">
+                              <TextBlock Text="{Binding UpdateStatusText}"
+                                         Classes="caption"
+                                         TextWrapping="Wrap"
+                                         VerticalAlignment="Center" />
+                              <Button Classes="link"
+                                      Command="{Binding RunUpdateActionCommand}"
+                                      IsVisible="{Binding HasUpdateAvailable}"
+                                      IsEnabled="{Binding !IsUpdateBusy}"
+                                      AutomationProperties.Name="下载更新">
+                                <TextBlock Text="{Binding UpdateActionText}" TextDecorations="Underline" />
+                              </Button>
                             </StackPanel>
                           </StackPanel>
                         </Grid>
@@ -1300,10 +1317,12 @@
                             <TextBlock Text="使用中遇到问题，可在项目主页提交 Issue。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
-                            <Button Content="打开项目主页"
+                            <Button Classes="link"
                                     Command="{Binding OpenProjectPageCommand}"
-                                    Padding="16,0"
-                                    HorizontalAlignment="Left" />
+                                    HorizontalAlignment="Left"
+                                    AutomationProperties.Name="打开项目主页">
+                              <TextBlock Text="打开项目主页" TextDecorations="Underline" />
+                            </Button>
                             <TextBlock Text="版权所有 © 2026 MailDog。Windows 与 .NET 是 Microsoft Corporation 的商标或注册商标。"
                                        Classes="caption"
                                        TextWrapping="Wrap"

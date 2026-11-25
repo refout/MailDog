@@ -76,6 +76,25 @@
     <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
   </Style>
 
+  <!-- 链接按钮：无底色、无边框，只保留文字链接外观 -->
+  <Style Selector="Button.link">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushAccentBase}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource MailDogBrushAccentHover}" />
+  </Style>
+  <Style Selector="Button.link:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource MailDogBrushAccentPressed}" />
+  </Style>
+
   <!-- 危险操作 -->
   <Style Selector="Button.danger">
     <Setter Property="Background" Value="Transparent" />
