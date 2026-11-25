@@ -30,7 +30,7 @@ Get-Command maildog -ErrorAction SilentlyContinue
 - **给程序读就加 `--json`**：每行一个对象；给人看的表格只在需要整块展示时用。
 - **只读命令随时可用**：`accounts`、`folders`、`list`、`search`、`show`、`attachment`。
 - **写命令必须先征得同意**：`draft`、`mark`、`move`、`send`。默认不带 `--confirm` 只打印预览，可以先把预览给用户看；他明确说"发/存/标/移"之后才加 `--confirm` 重跑。
-- **不要把整封信倒进对话**：默认截断 2000 字符；正文可能含验证码、账单、地址，只引用与问题相关的片段。
+- **不要把整封信倒进对话**：CLI 默认返回全文，需要控制长度就显式加 `--max-chars 2000`；正文可能含验证码、账单、地址，只引用与问题相关的片段。
 - 输出里不会有口令或令牌；用户问密码时直接说 CLI 读不到也不该读。
 - CLI 会在本机 `logs/cli-calls.jsonl` 留下调用摘要；带 `--json` 时连当时的 JSON 输出（可能含邮件正文）一起保存，单条最多约 20 万字符。只引用与当前问题相关的片段，不要主动整段复述。
 
@@ -54,22 +54,21 @@ maildog search "发票" --json --limit 20
 maildog search "boss@example.com" --json --limit 5
 maildog search "账单" --account <账号> --folder inbox --json
 
-# 读一封：头信息 + 正文；纯文本优先，HTML-only 邮件自动转成可读文本
+# 读一封：头信息 + 原文正文；HTML 和纯文本都原样返回，默认全文
 maildog show <邮件 id> --json
 maildog show <邮件 id> --headers --json
 maildog show <邮件 id> --max-chars 8000 --json
 
-# HTML-only 邮件要看原始 HTML（--html 默认不截断；--json 会多一个 html 字段）
+# 人读时想看原始 HTML 就加 --html（--json 始终同时返回 text 与 html 两个原文）
 maildog show <邮件 id> --html
 maildog show <邮件 id> --html --json
-maildog show <邮件 id> --html --max-chars 0 --json
 
 # 附件落盘：序号来自 show 的 attachments[].index（0 起）
 maildog attachment <邮件 id> <附件序号> --out "$env:TEMP\maildog-att" --json
 ```
 
 `list` / `search` 字段：`{id,account,folder,from,fromAddress,subject,date,unread,flagged,hasAttachments,size,preview}`。
-`show` 字段：`{id,subject,from,fromAddress,to,cc,date,truncated,fromCache,text,textSource,html?,attachments[{index,fileName,mimeType,size,inline}]}`。`textSource` 为 `plain` / `html` / `none`：为 `html` 时 `text` 是从 HTML 转来的可读文本；要原始 HTML 加 `--html`，`--json` 下才有 `html` 字段。
+`show` 字段：`{id,subject,from,fromAddress,to,cc,date,truncated,fromCache,text,html,attachments[{index,fileName,mimeType,size,inline}]}`。`text` 是原始纯文本，`html` 是原始 HTML，两者都可能为 `null`，CLI 不做 HTML 转文本；默认全文，只有显式 `--max-chars` 才截断。人读默认优先纯文本，纯文本缺失时直接打印原始 HTML；`--html` 强制看 HTML。
 
 ## 3. 写命令（先预览，再 `--confirm`）
 
@@ -123,6 +122,6 @@ maildog cancel <outboxId>... --json
 
 - "今天有哪些邮件？" → `list --json --limit 30`，按 `date` 挑今天，按发件人 + 主题分条列，不贴正文。
 - "找一下发票/账单" → `search "发票" --json`，多了按日期倒序列前几条，让用户挑 id。
-- "这封说了什么？" → `show <id> --max-chars 2000 --json`，三到五句概括，保留金额、日期、截止时间。纯文本为空时 CLI 会自动从 HTML 转文本（`textSource=html`）；仍读不到再加 `--html --json` 看原始 HTML。
+- "这封说了什么？" → `show <id> --max-chars 2000 --json`，三到五句概括，保留金额、日期、截止时间。`text` 为空时看 `html` 原文，CLI 不做转换；不要凭空改写 HTML 内容。
 - "把附件发我" → `attachment <id> <index> --out ... --json`，给出路径。
 - "帮我回一封" → 先 `show` 原文，写好后先 `send` dry-run 给用户确认，再 `--confirm`。

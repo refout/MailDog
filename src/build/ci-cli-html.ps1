@@ -1,5 +1,5 @@
 # CLI HTML-only 集成测试：种子库里第 2 封的 text_plain 为 NULL，只保留 HTML。
-# 验证 show 默认从 HTML 转文本、--html 输出原始 HTML、--json 的 textSource/html 字段。
+# 验证 show 原样返回 HTML/纯文本：--html 输出原始 HTML、--json 同时带 text/html。
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 
@@ -27,9 +27,8 @@ try {
     $show = & $cli show 2 --json --no-start
     if ($LASTEXITCODE -ne 0) { throw "show --json 退出 $LASTEXITCODE" }
     $body = $show | ConvertFrom-Json
-    if ($body.textSource -ne 'html') { throw "textSource 应为 html，实际 $($body.textSource)：$show" }
-    if ($body.text -notmatch 'HTML only') { throw "默认正文没有从 HTML 转出来：$show" }
-    if ($body.PSObject.Properties.Name -contains 'html') { throw "没加 --html 时 JSON 不应带 html 字段：$show" }
+    if ($null -ne $body.text) { throw "HTML-only 邮件的 text 应为 null，实际 $($body.text)：$show" }
+    if ($body.html -notmatch '<b>HTML</b>') { throw "JSON 没有原始 HTML：$show" }
 
     $html = & $cli show 2 --html --json --no-start
     if ($LASTEXITCODE -ne 0) { throw "show --html --json 退出 $LASTEXITCODE" }
@@ -39,8 +38,8 @@ try {
     $human = & $cli show 2 --no-start
     if ($LASTEXITCODE -ne 0) { throw "show 退出 $LASTEXITCODE" }
     $humanText = $human -join "`n"
-    if ($humanText -notmatch '从 HTML 正文转换') { throw "人类可读输出没有说明 HTML 回退：$humanText" }
-    if ($humanText -notmatch 'HTML only') { throw "人类可读输出没有正文：$humanText" }
+    if ($humanText -notmatch '以下是原始 HTML 正文') { throw "人类可读输出没有说明原始 HTML：$humanText" }
+    if ($humanText -notmatch '<b>HTML</b>') { throw "人类可读输出没有原始 HTML：$humanText" }
 
     $raw = & $cli show 2 --html --no-start
     if ($LASTEXITCODE -ne 0) { throw "show --html 退出 $LASTEXITCODE" }
