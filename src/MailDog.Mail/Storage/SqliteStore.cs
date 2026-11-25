@@ -1211,6 +1211,7 @@ public sealed class SqliteStore : IDisposable
             SaveSentCopy = !values.TryGetValue("saveSentCopy", out var saveSentCopy) || saveSentCopy != "0",
             Signature = values.GetValueOrDefault("signature") ?? string.Empty,
             AccountSignatures = SettingsJson.DeserializeAccountSignatures(values.GetValueOrDefault("accountSignatures")),
+            AccountIdentities = SettingsJson.DeserializeAccountIdentities(values.GetValueOrDefault("accountIdentities")),
             Templates = SettingsJson.DeserializeTemplates(values.GetValueOrDefault("templates")),
             AccountNotificationSounds = SettingsJson.DeserializeAccountNotificationSounds(
                 values.GetValueOrDefault("accountNotificationSounds")),
@@ -1255,6 +1256,7 @@ public sealed class SqliteStore : IDisposable
             UpsertSetting(transaction, "saveSentCopy", settings.SaveSentCopy ? "1" : "0");
             UpsertSetting(transaction, "signature", settings.Signature);
             UpsertSetting(transaction, "accountSignatures", SettingsJson.SerializeAccountSignatures(settings.AccountSignatures));
+            UpsertSetting(transaction, "accountIdentities", SettingsJson.SerializeAccountIdentities(settings.AccountIdentities));
             UpsertSetting(transaction, "templates", SettingsJson.SerializeTemplates(settings.Templates));
             UpsertSetting(transaction, "accountNotificationSounds",
                 SettingsJson.SerializeAccountNotificationSounds(settings.AccountNotificationSounds));
@@ -1604,11 +1606,11 @@ public sealed class SqliteStore : IDisposable
                     INSERT INTO outbox
                         (account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
                          message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
-                         is_markdown, body_html)
+                         is_markdown, body_html, from_address, from_name)
                     VALUES
                         ($accountId, $toAddrs, $ccAddrs, $bccAddrs, $subject, $bodyText, $inReplyTo,
                          $messageId, $status, $attempts, $nextAttemptUtc, $lastError, $createdUtc, $sentUtc,
-                         $isMarkdown, $bodyHtml)
+                         $isMarkdown, $bodyHtml, $fromAddress, $fromName)
                     RETURNING id;
                     """;
                 command.Parameters.AddWithValue("$accountId", record.AccountId);
@@ -1627,6 +1629,8 @@ public sealed class SqliteStore : IDisposable
                 command.Parameters.AddWithValue("$sentUtc", record.SentUtc is { } sent ? ToDb(sent) : DBNull.Value);
                 command.Parameters.AddWithValue("$isMarkdown", record.IsMarkdown ? 1 : 0);
                 command.Parameters.AddWithValue("$bodyHtml", (object?)record.BodyHtml ?? DBNull.Value);
+                command.Parameters.AddWithValue("$fromAddress", record.FromAddress);
+                command.Parameters.AddWithValue("$fromName", record.FromName);
                 id = Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
             }
 
@@ -1662,7 +1666,7 @@ public sealed class SqliteStore : IDisposable
                 command.CommandText = """
                     SELECT id, account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
                            message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
-                           is_markdown, body_html
+                           is_markdown, body_html, from_address, from_name
                     FROM outbox WHERE id = $id;
                     """;
                 command.Parameters.AddWithValue("$id", id);
@@ -1690,7 +1694,7 @@ public sealed class SqliteStore : IDisposable
                 command.CommandText = """
                     SELECT id, account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
                            message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
-                           is_markdown, body_html
+                           is_markdown, body_html, from_address, from_name
                     FROM outbox
                     WHERE status IN ('pending', 'sending', 'failed')
                     ORDER BY created_utc DESC
@@ -1731,7 +1735,7 @@ public sealed class SqliteStore : IDisposable
                 command.CommandText = """
                     SELECT id, account_id, to_addrs, cc_addrs, bcc_addrs, subject, body_text, in_reply_to,
                            message_id, status, attempts, next_attempt_utc, last_error, created_utc, sent_utc,
-                           is_markdown, body_html
+                           is_markdown, body_html, from_address, from_name
                     FROM outbox
                     WHERE status = 'pending' AND next_attempt_utc <= $now
                     ORDER BY next_attempt_utc
@@ -1963,7 +1967,9 @@ public sealed class SqliteStore : IDisposable
             reader.IsDBNull(14) ? null : FromDb(reader.GetString(14)),
             [],
             reader.GetInt32(15) != 0,
-            reader.IsDBNull(16) ? null : reader.GetString(16));
+            reader.IsDBNull(16) ? null : reader.GetString(16),
+            reader.GetString(17),
+            reader.GetString(18));
 
     private OutboxAttachmentRecord[] LoadOutboxAttachments(long outboxId)
     {
@@ -2501,6 +2507,15 @@ public sealed class SqliteStore : IDisposable
 
                 CREATE INDEX IF NOT EXISTS ix_message_tags_tag ON message_tags(tag_id);
                 PRAGMA user_version = 11;
+                """);
+        }
+
+        if (version < 12)
+        {
+            Execute("""
+                ALTER TABLE outbox ADD COLUMN from_address TEXT NOT NULL DEFAULT '';
+                ALTER TABLE outbox ADD COLUMN from_name TEXT NOT NULL DEFAULT '';
+                PRAGMA user_version = 12;
                 """);
         }
     }

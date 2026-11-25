@@ -12,6 +12,7 @@ public sealed partial class AttachmentViewModel : ObservableObject, IDisposable
     private readonly Func<AttachmentViewModel, Task> _download;
     private readonly Func<AttachmentViewModel, Task>? _preview;
     private readonly Func<AttachmentViewModel, Task<AttachmentBytesDto>>? _loadBytes;
+    private readonly Action<AttachmentViewModel>? _selectionChanged;
 
     public AttachmentViewModel(
         long messageId,
@@ -19,7 +20,8 @@ public sealed partial class AttachmentViewModel : ObservableObject, IDisposable
         AttachmentDto attachment,
         Func<AttachmentViewModel, Task> download,
         Func<AttachmentViewModel, Task>? preview = null,
-        Func<AttachmentViewModel, Task<AttachmentBytesDto>>? loadBytes = null)
+        Func<AttachmentViewModel, Task<AttachmentBytesDto>>? loadBytes = null,
+        Action<AttachmentViewModel>? selectionChanged = null)
     {
         MessageId = messageId;
         Index = index;
@@ -30,6 +32,7 @@ public sealed partial class AttachmentViewModel : ObservableObject, IDisposable
         _download = download;
         _preview = preview;
         _loadBytes = loadBytes;
+        _selectionChanged = selectionChanged;
     }
 
     public long MessageId { get; }
@@ -47,12 +50,19 @@ public sealed partial class AttachmentViewModel : ObservableObject, IDisposable
     public bool IsImage => MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
         && !MimeType.Contains("svg", StringComparison.OrdinalIgnoreCase);
 
+    public string SelectAutomationName => $"选择附件 {FileName}";
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasPreviewImage))]
     private Bitmap? _previewImage;
 
     [ObservableProperty]
     private bool _isPreviewLoading;
+
+    [ObservableProperty]
+    private bool _isSelected;
+
+    partial void OnIsSelectedChanged(bool value) => _selectionChanged?.Invoke(this);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasPreviewError))]
@@ -181,9 +191,19 @@ public sealed partial class ReaderViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasAttachments))]
     private AttachmentViewModel[] _attachments = [];
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelectedAttachments))]
+    private int _selectedAttachmentCount;
+
+    public bool HasAttachments => Attachments.Length > 0;
+
+    public bool HasSelectedAttachments => SelectedAttachmentCount > 0;
+
     public bool HasNotice => !string.IsNullOrEmpty(Notice);
 
-    /// <summary>由主视图模型注入：保存附件到用户选择的路径。</summary>
+    /// <summary>由主视图模型注入：批量保存选中的或全部附件。</summary>
+    public Func<IReadOnlyList<AttachmentViewModel>, Task>? SaveAttachments { get; set; }
+
     public Func<AttachmentViewModel, Task>? DownloadAttachment { get; set; }
 
     public Func<AttachmentViewModel, Task>? PreviewAttachment { get; set; }
@@ -192,8 +212,6 @@ public sealed partial class ReaderViewModel : ObservableObject
     public Func<AttachmentViewModel, Task<AttachmentBytesDto>>? LoadAttachmentBytes { get; set; }
 
     public bool HasError => !string.IsNullOrEmpty(Error);
-
-    public bool HasAttachments => Attachments.Length > 0;
 
     public bool HasSelection => IsLoading || !string.IsNullOrEmpty(Subject);
 
@@ -228,7 +246,46 @@ public sealed partial class ReaderViewModel : ObservableObject
         }
 
         Attachments = [];
+        SelectedAttachmentCount = 0;
     }
+
+    private void OnAttachmentSelectionChanged(AttachmentViewModel attachment)
+    {
+        SelectedAttachmentCount = Attachments.Count(item => item.IsSelected);
+    }
+
+    [RelayCommand]
+    private void SelectAllAttachments()
+    {
+        foreach (var attachment in Attachments)
+        {
+            attachment.IsSelected = true;
+        }
+    }
+
+    [RelayCommand]
+    private void ClearAttachmentSelection()
+    {
+        foreach (var attachment in Attachments)
+        {
+            attachment.IsSelected = false;
+        }
+    }
+
+    [RelayCommand]
+    private Task SaveSelectedAttachmentsAsync()
+    {
+        var selected = Attachments.Where(item => item.IsSelected).ToArray();
+        return selected.Length == 0
+            ? Task.CompletedTask
+            : SaveAttachments?.Invoke(selected) ?? Task.CompletedTask;
+    }
+
+    [RelayCommand]
+    private Task SaveAllAttachmentsAsync()
+        => Attachments.Length == 0
+            ? Task.CompletedTask
+            : SaveAttachments?.Invoke(Attachments) ?? Task.CompletedTask;
 
     public void Apply(
         MailBodyDto body,
@@ -252,8 +309,11 @@ public sealed partial class ReaderViewModel : ObservableObject
                 attachment,
                 DownloadAttachment ?? (_ => Task.CompletedTask),
                 PreviewAttachment,
-                LoadAttachmentBytes))
+                LoadAttachmentBytes,
+                OnAttachmentSelectionChanged))
             .ToArray();
+
+        SelectedAttachmentCount = 0;
 
         foreach (var attachment in Attachments.Where(attachment => attachment.IsImage))
         {

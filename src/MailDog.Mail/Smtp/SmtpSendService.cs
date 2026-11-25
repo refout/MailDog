@@ -67,10 +67,16 @@ public sealed class SmtpSendService
         _ = MailComposer.ParseAddresses(request.To, "收件人");
         _ = MailComposer.ParseAddresses(request.Cc, "抄送");
         _ = MailComposer.ParseAddresses(request.Bcc, "密送");
+        var settings = _store.GetSettings();
+        var identity = MailIdentityResolver.Resolve(
+            account,
+            settings,
+            request.FromAddress,
+            request.FromName);
         var copies = CopyAttachments(request.AttachmentPaths);
         var messageId = MimeUtils.GenerateMessageId();
         var now = DateTimeOffset.UtcNow;
-        var delaySeconds = Math.Clamp(_store.GetSettings().SendDelaySeconds, 0, 30);
+        var delaySeconds = Math.Clamp(settings.SendDelaySeconds, 0, 30);
 
         long outboxId;
         try
@@ -93,7 +99,9 @@ public sealed class SmtpSendService
                 SentUtc: null,
                 Attachments: copies,
                 IsMarkdown: request.IsMarkdown,
-                BodyHtml: request.BodyHtml);
+                BodyHtml: request.BodyHtml,
+                FromAddress: identity.Address,
+                FromName: identity.DisplayName);
 
             outboxId = _store.InsertOutbox(record, copies);
         }
@@ -166,7 +174,9 @@ public sealed class SmtpSendService
                 record.MessageId,
                 attachments,
                 record.IsMarkdown,
-                bodyHtml: record.BodyHtml);
+                bodyHtml: record.BodyHtml,
+                fromAddress: record.FromAddress,
+                fromName: record.FromName);
 
             await SendViaSmtpAsync(account, message, cancellationToken).ConfigureAwait(false);
 
@@ -300,7 +310,19 @@ public sealed class SmtpSendService
                 cancellationToken).ConfigureAwait(false);
         }
 
-        await client.SendAsync(message, cancellationToken).ConfigureAwait(false);
+        var recipients = message.To.Mailboxes.Select(mailbox => mailbox.Address)
+            .Concat(message.Cc.Mailboxes.Select(mailbox => mailbox.Address))
+            .Concat(message.Bcc.Mailboxes.Select(mailbox => mailbox.Address))
+            .Select(address => new MailboxAddress(string.Empty, address))
+            .ToArray();
+
+        // 信封发件人始终使用登录账户，Header From 可以是服务商已验证的别名。
+        // 很多 SMTP 服务器会用信封地址做 SPF/DMARC 校验，直接拿别名当 MAIL FROM 会被拒。
+        var sendRequest = new SmtpSendRequest(
+            message,
+            new MailboxAddress(account.DisplayName, account.Email),
+            recipients);
+        await client.SendAsync(sendRequest, cancellationToken).ConfigureAwait(false);
         await client.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
     }
 

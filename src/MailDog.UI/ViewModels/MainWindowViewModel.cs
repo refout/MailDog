@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Net.Mail;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -66,6 +67,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         Reader.DownloadAttachment = DownloadAttachmentAsync;
         Reader.PreviewAttachment = OpenAttachmentAsync;
         Reader.LoadAttachmentBytes = LoadAttachmentBytesAsync;
+        Reader.SaveAttachments = SaveAttachmentsAsync;
         Accounts.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasAccounts));
@@ -631,6 +633,28 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private readonly Dictionary<string, string> _accountSignatures = new(StringComparer.Ordinal);
     private bool _suppressSignatureSync;
+
+    private readonly List<AccountIdentityDto> _accountIdentities = [];
+
+    public ObservableCollection<AccountIdentityViewModel> AccountIdentities { get; } = [];
+
+    public bool HasAccountIdentities => AccountIdentities.Count > 0;
+
+    [ObservableProperty]
+    private string _newIdentityAddress = string.Empty;
+
+    [ObservableProperty]
+    private string _newIdentityName = string.Empty;
+
+    [ObservableProperty]
+    private string _newIdentitySignature = string.Empty;
+
+    [ObservableProperty]
+    private string? _identityHint;
+
+    public bool HasIdentityHint => !string.IsNullOrWhiteSpace(IdentityHint);
+
+    partial void OnIdentityHintChanged(string? value) => OnPropertyChanged(nameof(HasIdentityHint));
 
     private readonly Dictionary<string, string> _accountNotificationSounds = new(StringComparer.Ordinal);
     private bool _suppressAccountSoundSync;
@@ -2599,7 +2623,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 draft.AccountId,
                 accountSignatures: BuildAccountSignatures(),
                 templates: BuildTemplateDtos(),
-                contacts: _contacts);
+                contacts: _contacts,
+                identities: BuildAccountIdentities());
             MountCompose(compose);
         }
         catch (Exception exception)
@@ -2653,7 +2678,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             signature: SignatureText,
             accountSignatures: BuildAccountSignatures(),
             templates: BuildTemplateDtos(),
-            contacts: _contacts);
+            contacts: _contacts,
+            identities: BuildAccountIdentities());
 
         compose.ToText = fields.GetValueOrDefault("to", string.Empty);
         compose.CcText = fields.GetValueOrDefault("cc", string.Empty);
@@ -2728,7 +2754,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             accountSignatures: BuildAccountSignatures(),
             templates: BuildTemplateDtos(),
             initialTemplate: initialTemplate,
-            contacts: _contacts);
+            contacts: _contacts,
+            identities: BuildAccountIdentities());
 
         MountCompose(compose);
     }
@@ -2825,7 +2852,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = "保存附件",
-                SuggestedFileName = attachment.FileName,
+                SuggestedFileName = AttachmentFileNames.Sanitize(attachment.FileName),
                 DefaultExtension = Path.GetExtension(attachment.FileName).TrimStart('.'),
                 ShowOverwritePrompt = true
             });
@@ -2855,23 +2882,156 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async Task OpenAttachmentAsync(AttachmentViewModel attachment)
+    private static string AttachmentCacheDirectory()
+        => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MailDog",
+            "attachments");
+
+    /// <summary>批量保存到用户选择的文件夹；同名附件自动加序号，不覆盖已有文件。</summary>
+    private async Task SaveAttachmentsAsync(IReadOnlyList<AttachmentViewModel> attachments)
     {
-        if (!IsConnected)
+        if (!IsConnected || attachments.Count == 0)
+        {
+            return;
+        }
+
+        var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+        if (window is null)
         {
             return;
         }
 
         try
         {
-            var directory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "MailDog",
-                "attachments");
+            var folders = await window.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "保存附件",
+                AllowMultiple = false
+            });
+            var directory = folders.Count == 0 ? null : folders[0].TryGetLocalPath();
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(directory);
+            var reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var saved = 0;
+            var errors = new List<string>();
+            foreach (var attachment in attachments)
+            {
+                var path = AttachmentFileNames.CreateUniquePath(directory, attachment.FileName, reserved);
+                try
+                {
+                    await _engine.RequestAsync<AttachmentSavedResponse>(
+                        IpcMessageTypes.DownloadAttachment,
+                        new DownloadAttachmentRequest
+                        {
+                            MessageId = attachment.MessageId,
+                            Index = attachment.Index,
+                            DestinationPath = path
+                        },
+                        TimeSpan.FromSeconds(120));
+                    saved++;
+                }
+                catch (Exception exception)
+                {
+                    errors.Add($"{attachment.FileName}: {GetErrorMessage(exception)}");
+                }
+            }
+
+            if (saved == attachments.Count)
+            {
+                HasError = false;
+                StatusMessage = $"已保存 {saved} 个附件到 {directory}。";
+                return;
+            }
+
+            HasError = true;
+            var detail = errors.Count == 0 ? string.Empty : $"（{errors[0]}）";
+            StatusMessage = $"已保存 {saved}/{attachments.Count} 个附件{detail}";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+    }
+
+    /// <summary>拖出附件：先落到固定的本地缓存目录，再交给拖放层生成文件对象。</summary>
+    public async Task<IReadOnlyList<string>> PrepareAttachmentDragFilesAsync(
+        IReadOnlyList<AttachmentViewModel> attachments)
+    {
+        if (!IsConnected || attachments.Count == 0)
+        {
+            return [];
+        }
+
+        var directory = AttachmentCacheDirectory();
+        Directory.CreateDirectory(directory);
+        var paths = new List<string>();
+        var errors = new List<string>();
+        foreach (var attachment in attachments)
+        {
+            var path = Path.Combine(
+                directory,
+                AttachmentFileNames.Sanitize($"{attachment.MessageId}-{attachment.Index}-{attachment.FileName}"));
+            try
+            {
+                await _engine.RequestAsync<AttachmentSavedResponse>(
+                    IpcMessageTypes.DownloadAttachment,
+                    new DownloadAttachmentRequest
+                    {
+                        MessageId = attachment.MessageId,
+                        Index = attachment.Index,
+                        DestinationPath = path
+                    },
+                    TimeSpan.FromSeconds(120));
+                paths.Add(path);
+            }
+            catch (Exception exception)
+            {
+                errors.Add($"{attachment.FileName}: {GetErrorMessage(exception)}");
+            }
+        }
+
+        if (paths.Count == 0)
+        {
+            HasError = true;
+            StatusMessage = errors.Count == 0
+                ? "没有可拖出的附件。"
+                : $"附件准备失败：{errors[0]}";
+        }
+        else
+        {
+            HasError = false;
+            StatusMessage = $"已准备 {paths.Count} 个附件，可拖到资源管理器。";
+        }
+
+        return paths;
+    }
+
+    private Task OpenAttachmentAsync(AttachmentViewModel attachment)
+    {
+        if (!IsConnected)
+        {
+            return Task.CompletedTask;
+        }
+
+        return OpenAttachmentCoreAsync(attachment);
+    }
+
+    private async Task OpenAttachmentCoreAsync(AttachmentViewModel attachment)
+    {
+        try
+        {
+            var directory = AttachmentCacheDirectory();
             Directory.CreateDirectory(directory);
 
-            var fileName = Path.GetFileName(attachment.FileName);
-            var path = Path.Combine(directory, $"{attachment.MessageId}-{attachment.Index}-{fileName}");
+            var path = Path.Combine(
+                directory,
+                AttachmentFileNames.Sanitize($"{attachment.MessageId}-{attachment.Index}-{attachment.FileName}"));
 
             var response = await _engine.RequestAsync<AttachmentSavedResponse>(
                 IpcMessageTypes.DownloadAttachment,
@@ -3423,6 +3583,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                     Signature = pair.Value
                 })
                 .ToArray(),
+            AccountIdentities = _accountIdentities.ToArray(),
             Templates = Templates
                 .Select(item => item.Template)
                 .ToArray(),
@@ -3880,12 +4041,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _suppressSignatureSync = true;
             AccountSignatureText = string.Empty;
             _suppressSignatureSync = false;
+            RebuildIdentitySettings();
             return;
         }
 
         _suppressSignatureSync = true;
         AccountSignatureText = _accountSignatures.GetValueOrDefault(value.Id) ?? string.Empty;
         _suppressSignatureSync = false;
+        RebuildIdentitySettings();
     }
 
     partial void OnAccountSignatureTextChanged(string value)
@@ -3897,6 +4060,160 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         _accountSignatures[SelectedSignatureAccount.Id] = value;
         QueueSettingsSave();
+    }
+
+    private void RebuildIdentitySettings()
+    {
+        AccountIdentities.Clear();
+        var account = SelectedSignatureAccount ?? Accounts.FirstOrDefault();
+        if (account is null)
+        {
+            OnPropertyChanged(nameof(HasAccountIdentities));
+            return;
+        }
+
+        foreach (var identity in _accountIdentities.Where(item =>
+                     string.Equals(item.AccountId, account.Id, StringComparison.Ordinal)))
+        {
+            AccountIdentities.Add(new AccountIdentityViewModel(
+                identity,
+                account.Email,
+                SaveIdentity,
+                DeleteIdentity));
+        }
+
+        OnPropertyChanged(nameof(HasAccountIdentities));
+    }
+
+    private bool IsIdentityAddressAvailable(string address, string? ignoredId)
+    {
+        if (SelectedSignatureAccount is null
+            || string.Equals(address, SelectedSignatureAccount.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return !_accountIdentities.Any(item =>
+            string.Equals(item.AccountId, SelectedSignatureAccount.Id, StringComparison.Ordinal)
+            && !string.Equals(item.Id, ignoredId, StringComparison.Ordinal)
+            && string.Equals(item.Address, address, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool TryNormalizeIdentityAddress(string text, out string address)
+    {
+        address = text.Trim();
+        if (address.Length == 0 || !MailAddress.TryCreate(address, out var parsed))
+        {
+            return false;
+        }
+
+        address = parsed.Address;
+        return true;
+    }
+
+    [RelayCommand]
+    private void AddIdentity()
+    {
+        if (SelectedSignatureAccount is null)
+        {
+            IdentityHint = "请先选择账户。";
+            return;
+        }
+
+        if (!TryNormalizeIdentityAddress(NewIdentityAddress, out var address))
+        {
+            IdentityHint = "请填写有效的别名邮箱地址。";
+            return;
+        }
+
+        if (!IsIdentityAddressAvailable(address, null))
+        {
+            IdentityHint = "该地址与账户主地址或已有别名重复。";
+            return;
+        }
+
+        var identity = new AccountIdentityDto
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            AccountId = SelectedSignatureAccount.Id,
+            Address = address,
+            DisplayName = NewIdentityName.Trim(),
+            Signature = NewIdentitySignature.Replace("\r\n", "\n").TrimEnd()
+        };
+        _accountIdentities.Add(identity);
+        RebuildIdentitySettings();
+        NewIdentityAddress = string.Empty;
+        NewIdentityName = string.Empty;
+        NewIdentitySignature = string.Empty;
+        IdentityHint = $"已添加发信身份 {identity.Address}。";
+        QueueSettingsSave();
+    }
+
+    private void SaveIdentity(AccountIdentityViewModel row)
+    {
+        if (SelectedSignatureAccount is null
+            || !string.Equals(row.AccountId, SelectedSignatureAccount.Id, StringComparison.Ordinal))
+        {
+            IdentityHint = "账户已切换，请重新打开这条发信身份。";
+            return;
+        }
+
+        if (!TryNormalizeIdentityAddress(row.Address, out var address))
+        {
+            IdentityHint = "请填写有效的别名邮箱地址。";
+            return;
+        }
+
+        if (!IsIdentityAddressAvailable(address, row.Id))
+        {
+            IdentityHint = "该地址与账户主地址或已有别名重复。";
+            return;
+        }
+
+        var index = _accountIdentities.FindIndex(item =>
+            string.Equals(item.Id, row.Id, StringComparison.Ordinal));
+        var updated = new AccountIdentityDto
+        {
+            Id = row.Id,
+            AccountId = row.AccountId,
+            Address = address,
+            DisplayName = row.DisplayName.Trim(),
+            Signature = row.Signature.Replace("\r\n", "\n").TrimEnd()
+        };
+        if (index >= 0)
+        {
+            _accountIdentities[index] = updated;
+        }
+        else
+        {
+            _accountIdentities.Add(updated);
+        }
+
+        RebuildIdentitySettings();
+        IdentityHint = $"已保存发信身份 {address}。";
+        QueueSettingsSave();
+    }
+
+    private void DeleteIdentity(AccountIdentityViewModel row)
+    {
+        _accountIdentities.RemoveAll(item => string.Equals(item.Id, row.Id, StringComparison.Ordinal));
+        RebuildIdentitySettings();
+        IdentityHint = $"已删除发信身份 {row.Address}。";
+        QueueSettingsSave();
+    }
+
+    private IReadOnlyList<AccountIdentityDto> BuildAccountIdentities()
+    {
+        if (Accounts.Count == 0)
+        {
+            return _accountIdentities.ToArray();
+        }
+
+        var activeAccountIds = Accounts.Select(account => account.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        return _accountIdentities
+            .Where(identity => activeAccountIds.Contains(identity.AccountId))
+            .ToArray();
     }
 
     private void RebuildAccountSoundSettings()
@@ -4256,6 +4573,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 TimeSpan.FromSeconds(30));
 
             account.IsDeleteConfirmVisible = false;
+            _accountIdentities.RemoveAll(identity =>
+                string.Equals(identity.AccountId, account.Id, StringComparison.Ordinal));
 
             if (activeFolderDeleted)
             {
@@ -4263,6 +4582,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             }
 
             await LoadAccountsAsync();
+            QueueSettingsSave();
 
             if (Accounts.Count == 0)
             {
@@ -5698,6 +6018,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 }
             }
 
+            _accountIdentities.Clear();
+            foreach (var identity in _settings.AccountIdentities)
+            {
+                if (!string.IsNullOrWhiteSpace(identity.AccountId)
+                    && !string.IsNullOrWhiteSpace(identity.Address))
+                {
+                    _accountIdentities.Add(identity);
+                }
+            }
+
             _accountNotificationSounds.Clear();
             foreach (var item in _settings.AccountNotificationSounds)
             {
@@ -5846,6 +6176,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         RebuildAccountSoundSettings();
+        RebuildIdentitySettings();
     }
 
     /// <summary>加载所有账户的文件夹，构建左侧两级树与统一文件夹计数。</summary>

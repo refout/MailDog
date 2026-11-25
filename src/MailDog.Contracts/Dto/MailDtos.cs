@@ -108,6 +108,11 @@ public sealed class DraftContentDto
 {
     public long MessageId { get; init; }
 
+    /// <summary>草稿保存时使用的发信身份地址；旧草稿为空。</summary>
+    public string FromAddress { get; init; } = string.Empty;
+
+    public string FromName { get; init; } = string.Empty;
+
     public string To { get; init; } = string.Empty;
 
     public string Cc { get; init; } = string.Empty;

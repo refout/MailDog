@@ -114,6 +114,9 @@ public sealed class AppSettingsDto
     /// <summary>按账户覆盖的签名；账户没有配置时回退到 <see cref="Signature"/>。</summary>
     public IReadOnlyList<AccountSignatureDto> AccountSignatures { get; init; } = [];
 
+    /// <summary>同一账户下可选的别名发信身份；账户本身的邮箱地址始终可用。</summary>
+    public IReadOnlyList<AccountIdentityDto> AccountIdentities { get; init; } = [];
+
     /// <summary>用户保存的邮件模板；正文支持 {{date}} 等变量。</summary>
     public IReadOnlyList<MailTemplateDto> Templates { get; init; } = [];
 
@@ -142,6 +145,24 @@ public sealed class AccountSignatureDto
 {
     public string AccountId { get; init; } = string.Empty;
 
+    public string Signature { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// 同一账户由同一 SMTP 服务器发出的备用发信地址。地址必须已在邮箱服务商处验证，
+/// 否则服务器会拒绝发信。
+/// </summary>
+public sealed class AccountIdentityDto
+{
+    public string Id { get; init; } = string.Empty;
+
+    public string AccountId { get; init; } = string.Empty;
+
+    public string Address { get; init; } = string.Empty;
+
+    public string DisplayName { get; init; } = string.Empty;
+
+    /// <summary>该身份的签名；空字符串表示继续使用账户签名或全局签名。</summary>
     public string Signature { get; init; } = string.Empty;
 }
 

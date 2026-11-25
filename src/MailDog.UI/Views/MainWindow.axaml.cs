@@ -1061,6 +1061,79 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void OnAttachmentDragHandlePressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control { DataContext: AttachmentViewModel attachment } control)
+        {
+            return;
+        }
+
+        if (e.Pointer.Type == PointerType.Mouse
+            && !e.GetCurrentPoint(control).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        await StartAttachmentDragAsync(e, [attachment]);
+    }
+
+    private async void OnAttachmentDragSelectedPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.Pointer.Type == PointerType.Mouse
+            && !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        var selected = _viewModel.Reader.Attachments
+            .Where(attachment => attachment.IsSelected)
+            .ToArray();
+        if (selected.Length == 0)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        await StartAttachmentDragAsync(e, selected);
+    }
+
+    private async Task StartAttachmentDragAsync(
+        PointerPressedEventArgs trigger,
+        IReadOnlyList<AttachmentViewModel> attachments)
+    {
+        try
+        {
+            var paths = await _viewModel.PrepareAttachmentDragFilesAsync(attachments);
+            if (paths.Count == 0)
+            {
+                return;
+            }
+
+            var dataTransfer = new DataTransfer();
+            foreach (var path in paths)
+            {
+                var file = await StorageProvider.TryGetFileFromPathAsync(path);
+                if (file is not null)
+                {
+                    dataTransfer.Add(DataTransferItem.CreateFile(file));
+                }
+            }
+
+            if (dataTransfer.Items.Count == 0)
+            {
+                return;
+            }
+
+            await DragDrop.DoDragDropAsync(trigger, dataTransfer, DragDropEffects.Copy);
+        }
+        catch (Exception exception)
+        {
+            _viewModel.HasError = true;
+            _viewModel.StatusMessage = $"拖出附件失败：{exception.Message}";
+        }
+    }
+
     private void OnReaderPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ReaderViewModel.HtmlDocument))

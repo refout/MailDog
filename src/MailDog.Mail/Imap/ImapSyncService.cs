@@ -548,6 +548,8 @@ public sealed class ImapSyncService : IAsyncDisposable
                 return new DraftContentDto
                 {
                     MessageId = messageId,
+                    FromAddress = mime.From.Mailboxes.FirstOrDefault()?.Address ?? string.Empty,
+                    FromName = mime.From.Mailboxes.FirstOrDefault()?.Name ?? string.Empty,
                     To = JoinAddresses(mime.To),
                     Cc = JoinAddresses(mime.Cc),
                     Bcc = JoinAddresses(mime.Bcc),
@@ -583,6 +585,11 @@ public sealed class ImapSyncService : IAsyncDisposable
     {
         var account = _accounts.GetRecord(request.AccountId)
             ?? throw new KeyNotFoundException("账户不存在。");
+        var identity = MailIdentityResolver.Resolve(
+            account,
+            _store.GetSettings(),
+            request.FromAddress,
+            request.FromName);
 
         MailComposer.ParseAddresses(request.To, "收件人");
 
@@ -620,7 +627,9 @@ public sealed class ImapSyncService : IAsyncDisposable
                 attachments,
                 request.IsMarkdown,
                 requireRecipients: false,
-                bodyHtml: request.BodyHtml);
+                bodyHtml: request.BodyHtml,
+                fromAddress: identity.Address,
+                fromName: identity.DisplayName);
 
             var folder = session.Client!.GetFolder(drafts.FullName);
             await folder.AppendAsync(

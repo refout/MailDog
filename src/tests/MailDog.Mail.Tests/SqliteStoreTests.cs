@@ -53,6 +53,17 @@ public sealed class SqliteStoreTests : IDisposable
             [
                 new AccountSignatureDto { AccountId = "account-1", Signature = "账户签名" }
             ],
+            AccountIdentities =
+            [
+                new AccountIdentityDto
+                {
+                    Id = "identity-1",
+                    AccountId = "account-1",
+                    Address = "alias@example.com",
+                    DisplayName = "别名显示",
+                    Signature = "别名签名"
+                }
+            ],
             AccountNotificationSounds =
             [
                 new AccountNotificationSoundDto { AccountId = "account-1", Sound = "reminder" },
@@ -105,6 +116,12 @@ public sealed class SqliteStoreTests : IDisposable
         var signature = Assert.Single(loaded.AccountSignatures);
         Assert.Equal("account-1", signature.AccountId);
         Assert.Equal("账户签名", signature.Signature);
+
+        var identity = Assert.Single(loaded.AccountIdentities);
+        Assert.Equal("identity-1", identity.Id);
+        Assert.Equal("alias@example.com", identity.Address);
+        Assert.Equal("别名显示", identity.DisplayName);
+        Assert.Equal("别名签名", identity.Signature);
 
         Assert.Collection(
             loaded.AccountNotificationSounds,
@@ -437,7 +454,9 @@ public sealed class SqliteStoreTests : IDisposable
             null,
             [],
             IsMarkdown: true,
-            BodyHtml: "<p>富文本</p>");
+            BodyHtml: "<p>富文本</p>",
+            FromAddress: "alias@example.com",
+            FromName: "别名显示");
 
         var id = _store.InsertOutbox(record,
         [
@@ -449,6 +468,8 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.Equal("<outbox@example.com>", loaded.MessageId);
         Assert.True(loaded.IsMarkdown);
         Assert.Equal("<p>富文本</p>", loaded.BodyHtml);
+        Assert.Equal("alias@example.com", loaded.FromAddress);
+        Assert.Equal("别名显示", loaded.FromName);
         Assert.Single(loaded.Attachments);
 
         var due = _store.GetDueOutbox(now.AddSeconds(1), 5);

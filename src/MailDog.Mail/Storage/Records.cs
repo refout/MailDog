@@ -90,7 +90,9 @@ public sealed record OutboxRecord(
     DateTimeOffset? SentUtc,
     IReadOnlyList<OutboxAttachmentRecord> Attachments,
     bool IsMarkdown = false,
-    string? BodyHtml = null);
+    string? BodyHtml = null,
+    string FromAddress = "",
+    string FromName = "");
 
 public sealed record OutboxAttachmentRecord(
     long Id,

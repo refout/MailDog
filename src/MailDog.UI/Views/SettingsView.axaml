@@ -744,6 +744,92 @@
                                    VerticalContentAlignment="Top"
                                    PlaceholderText="留空则使用默认签名" />
                         </StackPanel>
+                        <StackPanel Spacing="8" IsVisible="{Binding HasAccounts}">
+                          <TextBlock Text="发信身份（别名）" Classes="section" />
+                          <TextBlock Text="同一个账户可以添加多个已在邮箱服务商处验证的别名地址。发信仍使用该账户的 SMTP 登录，只替换邮件头里的发件人与签名；服务商不允许的别名会被拒绝。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                          <ItemsControl ItemsSource="{Binding AccountIdentities}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:AccountIdentityViewModel">
+                                <Border BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                        BorderThickness="0,0,0,1"
+                                        Padding="0,10"
+                                        Margin="0,0,0,4">
+                                  <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                      <TextBox Text="{Binding Address, Mode=TwoWay}"
+                                               PlaceholderText="别名邮箱地址"
+                                               />
+                                      <TextBox Grid.Column="1"
+                                               Text="{Binding DisplayName, Mode=TwoWay}"
+                                               PlaceholderText="显示名（可留空）"
+                                               />
+                                    </Grid>
+                                    <TextBox Text="{Binding Signature, Mode=TwoWay}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             MinHeight="52"
+                                             MaxHeight="110"
+                                             VerticalContentAlignment="Top"
+                                             PlaceholderText="该身份的签名；留空则使用账户签名"
+                                             />
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                      <Button Content="保存"
+                                              Command="{Binding SaveCommand}"
+
+                                              AutomationProperties.Name="保存发信身份" />
+                                      <Button Content="删除"
+                                              Command="{Binding DeleteCommand}"
+
+                                              AutomationProperties.Name="删除发信身份" />
+                                      <TextBlock Text="{Binding Label}"
+                                                 Classes="caption"
+                                                 VerticalAlignment="Center" />
+                                    </StackPanel>
+                                  </StackPanel>
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <TextBlock Text="当前账户还没有别名身份；账户主地址始终可以直接发信。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap"
+                                     IsVisible="{Binding !HasAccountIdentities}" />
+                          <Border BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                  BorderThickness="1"
+                                  CornerRadius="6"
+                                  Padding="12">
+                            <StackPanel Spacing="8">
+                              <TextBlock Text="添加别名身份" Classes="caption" />
+                              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <TextBox Text="{Binding NewIdentityAddress, Mode=TwoWay}"
+                                         PlaceholderText="别名邮箱地址" />
+                                <TextBox Grid.Column="1"
+                                         Text="{Binding NewIdentityName, Mode=TwoWay}"
+                                         PlaceholderText="显示名（可留空）" />
+                              </Grid>
+                              <TextBox Text="{Binding NewIdentitySignature, Mode=TwoWay}"
+                                       AcceptsReturn="True"
+                                       TextWrapping="Wrap"
+                                       MinHeight="52"
+                                       MaxHeight="110"
+                                       VerticalContentAlignment="Top"
+                                       PlaceholderText="该身份的签名（可留空）" />
+                              <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button Classes="primary"
+                                        Content="添加身份"
+                                        Command="{Binding AddIdentityCommand}"
+                                        AutomationProperties.Name="添加发信身份" />
+                                <TextBlock Text="{Binding IdentityHint}"
+                                           Classes="caption"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           IsVisible="{Binding HasIdentityHint}" />
+                              </StackPanel>
+                            </StackPanel>
+                          </Border>
+                        </StackPanel>
                         <StackPanel Spacing="8">
                           <TextBlock Text="默认邮件签名" Classes="section" />
                           <TextBlock Text="新写、回复和转发时自动插入到正文下方；留空则不插入。账户没有单独签名时使用这里的内容。"
@@ -820,14 +906,14 @@
                                               VerticalAlignment="Center">
                                     <Button Classes="icon sm subtle"
                                             Click="OnMoveAccountUpClick"
-                                            IsEnabled="{Binding !IsDeleting}"
+
                                             ToolTip.Tip="上移"
                                             AutomationProperties.Name="上移账户">
                                       <ic:FluentIcon Icon="ArrowUp" IconSize="Size16" />
                                     </Button>
                                     <Button Classes="icon sm subtle"
                                             Click="OnMoveAccountDownClick"
-                                            IsEnabled="{Binding !IsDeleting}"
+
                                             ToolTip.Tip="下移"
                                             AutomationProperties.Name="下移账户">
                                       <ic:FluentIcon Icon="ArrowDown" IconSize="Size16" />
@@ -837,26 +923,26 @@
                                             Content="重新授权"
                                             Click="OnReauthorizeAccountClick"
                                             IsVisible="{Binding CanReauthorize}"
-                                            IsEnabled="{Binding !IsDeleting}"
+
                                             AutomationProperties.Name="重新授权账户" />
                                     <Button Classes="subtle"
                                             Padding="8,0"
                                             Content="设为默认"
                                             Click="OnSetDefaultAccountClick"
                                             IsVisible="{Binding !IsDefault}"
-                                            IsEnabled="{Binding !IsDeleting}"
+
                                             AutomationProperties.Name="设为默认发信账户" />
                                     <Button Classes="subtle"
                                             Padding="8,0"
                                             Content="编辑"
                                             Click="OnEditAccountClick"
-                                            IsEnabled="{Binding !IsDeleting}"
+
                                             AutomationProperties.Name="编辑账户" />
                                     <Button Classes="danger"
                                             Padding="8,0"
                                             Content="删除"
                                             Click="OnDeleteAccountClick"
-                                            IsEnabled="{Binding !IsDeleting}"
+
                                             AutomationProperties.Name="删除账户" />
                                   </StackPanel>
                                 </Grid>
@@ -882,11 +968,11 @@
                                                 HorizontalAlignment="Right">
                                       <Button Content="取消"
                                               Click="OnCancelDeleteAccountClick"
-                                              IsEnabled="{Binding !IsDeleting}" />
+                                              />
                                       <Button Content="确认删除"
                                               Classes="danger"
                                               Click="OnConfirmDeleteAccountClick"
-                                              IsEnabled="{Binding !IsDeleting}" />
+                                              />
                                     </StackPanel>
                                   </StackPanel>
                                 </Border>

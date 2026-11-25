@@ -40,6 +40,115 @@ public sealed class ComposeAccount
             : $"{DisplayName} <{Email}>";
 }
 
+/// <summary>撰写窗口里可选的一个发信地址；账户主地址永远是第一项。</summary>
+public sealed class ComposeIdentity
+{
+    public ComposeIdentity(
+        string id,
+        string accountId,
+        string address,
+        string displayName,
+        string signature,
+        bool isAccountDefault)
+    {
+        Id = id;
+        AccountId = accountId;
+        Address = address;
+        DisplayName = displayName;
+        Signature = signature;
+        IsAccountDefault = isAccountDefault;
+    }
+
+    public string Id { get; }
+
+    public string AccountId { get; }
+
+    public string Address { get; }
+
+    public string DisplayName { get; }
+
+    /// <summary>仅别名专属签名；空字符串表示回退账户签名或全局签名。</summary>
+    public string Signature { get; }
+
+    public bool IsAccountDefault { get; }
+
+    public string Label => string.IsNullOrWhiteSpace(DisplayName)
+        || string.Equals(DisplayName.Trim(), Address, StringComparison.OrdinalIgnoreCase)
+            ? Address
+            : $"{DisplayName} <{Address}>";
+}
+
+public static class ComposeIdentityResolver
+{
+    public static IReadOnlyList<ComposeIdentity> BuildForAccount(
+        ComposeAccount? account,
+        IReadOnlyList<AccountIdentityDto>? identities)
+    {
+        if (account is null)
+        {
+            return [];
+        }
+
+        var result = new List<ComposeIdentity>
+        {
+            new(
+                $"account:{account.Id}",
+                account.Id,
+                account.Email,
+                account.DisplayName,
+                string.Empty,
+                true)
+        };
+
+        foreach (var identity in identities ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(identity.AccountId)
+                || !string.Equals(identity.AccountId, account.Id, StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(identity.Address))
+            {
+                continue;
+            }
+
+            var address = identity.Address.Trim();
+            if (address.Length == 0
+                || string.Equals(address, account.Email, StringComparison.OrdinalIgnoreCase)
+                || result.Any(item => string.Equals(item.Address, address, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            result.Add(new ComposeIdentity(
+                string.IsNullOrWhiteSpace(identity.Id)
+                    ? $"identity:{account.Id}:{address}"
+                    : identity.Id,
+                account.Id,
+                address,
+                identity.DisplayName?.Trim() ?? string.Empty,
+                identity.Signature ?? string.Empty,
+                false));
+        }
+
+        return result;
+    }
+
+    public static ComposeIdentity? FindPreferred(
+        IReadOnlyList<ComposeIdentity> identities,
+        string? address)
+    {
+        if (!string.IsNullOrWhiteSpace(address))
+        {
+            var match = identities.FirstOrDefault(item =>
+                string.Equals(item.Address, address.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return identities.FirstOrDefault();
+    }
+}
+
 public sealed partial class RecipientChipViewModel : ObservableObject
 {
     private readonly Action<RecipientChipViewModel> _remove;
@@ -156,6 +265,7 @@ public sealed partial class ComposeViewModel : ObservableObject
     private readonly EngineClient _engine;
     private readonly MailBodyDto? _original;
     private readonly IReadOnlyList<AccountSignatureDto> _accountSignatures;
+    private readonly IReadOnlyList<AccountIdentityDto> _identitySettings;
     private readonly IReadOnlyList<ContactSuggestionDto> _contacts;
     private string _signature;
     private readonly string _defaultSignature;
@@ -168,6 +278,7 @@ public sealed partial class ComposeViewModel : ObservableObject
     private string? _signaturePrefixHtml;
     private string? _signaturePrefixText;
     private bool _initializing = true;
+    private bool _suppressIdentityChange;
 
     public ComposeViewModel(
         EngineClient engine,
@@ -180,11 +291,13 @@ public sealed partial class ComposeViewModel : ObservableObject
         IReadOnlyList<AccountSignatureDto>? accountSignatures = null,
         IReadOnlyList<MailTemplateDto>? templates = null,
         MailTemplateDto? initialTemplate = null,
-        IReadOnlyList<ContactSuggestionDto>? contacts = null)
+        IReadOnlyList<ContactSuggestionDto>? contacts = null,
+        IReadOnlyList<AccountIdentityDto>? identities = null)
     {
         _engine = engine;
         _original = original;
         _accountSignatures = accountSignatures ?? [];
+        _identitySettings = identities ?? [];
         _signature = signature?.Trim() ?? string.Empty;
         _defaultSignature = _signature;
         _contacts = contacts ?? [];
@@ -195,7 +308,8 @@ public sealed partial class ComposeViewModel : ObservableObject
             || (original is not null && string.Equals(account.Email, original.FromAddress, StringComparison.OrdinalIgnoreCase))
             || (draftAccountId is null && original is null))
             ?? Accounts.FirstOrDefault();
-        _signature = ResolveSignature(SelectedAccount?.Id);
+        RefreshIdentities(SelectedAccount, draft?.FromAddress);
+        _signature = ResolveSignature(SelectedAccount?.Id, SelectedIdentity);
 
         Templates = new ObservableCollection<ComposeTemplateViewModel>(
             (templates ?? [])
@@ -266,8 +380,15 @@ public sealed partial class ComposeViewModel : ObservableObject
 
     public ObservableCollection<ComposeAccount> Accounts { get; }
 
+    public ObservableCollection<ComposeIdentity> Identities { get; } = [];
+
+    public bool HasIdentities => Identities.Count > 0;
+
     [ObservableProperty]
     private ComposeAccount? _selectedAccount;
+
+    [ObservableProperty]
+    private ComposeIdentity? _selectedIdentity;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
@@ -737,12 +858,17 @@ public sealed partial class ComposeViewModel : ObservableObject
 
     private MailTemplateContext BuildTemplateContext()
         => MailTemplateRenderer.CreateContext(
-            SelectedAccount?.DisplayName ?? string.Empty,
-            SelectedAccount?.Email ?? string.Empty,
+            SelectedIdentity?.DisplayName ?? SelectedAccount?.DisplayName ?? string.Empty,
+            SelectedIdentity?.Address ?? SelectedAccount?.Email ?? string.Empty,
             SubjectText);
 
-    private string ResolveSignature(string? accountId)
+    private string ResolveSignature(string? accountId, ComposeIdentity? identity)
     {
+        if (identity is not null && !string.IsNullOrWhiteSpace(identity.Signature))
+        {
+            return identity.Signature.Trim();
+        }
+
         var configured = _accountSignatures.FirstOrDefault(item =>
             !string.IsNullOrWhiteSpace(item.AccountId)
             && string.Equals(item.AccountId, accountId, StringComparison.Ordinal));
@@ -752,6 +878,26 @@ public sealed partial class ComposeViewModel : ObservableObject
             : _defaultSignature;
     }
 
+    private void RefreshIdentities(ComposeAccount? account, string? preferredAddress)
+    {
+        _suppressIdentityChange = true;
+        try
+        {
+            Identities.Clear();
+            foreach (var identity in ComposeIdentityResolver.BuildForAccount(account, _identitySettings))
+            {
+                Identities.Add(identity);
+            }
+
+            SelectedIdentity = ComposeIdentityResolver.FindPreferred(Identities, preferredAddress);
+            OnPropertyChanged(nameof(HasIdentities));
+        }
+        finally
+        {
+            _suppressIdentityChange = false;
+        }
+    }
+
     partial void OnSelectedAccountChanged(ComposeAccount? value)
     {
         if (_initializing)
@@ -759,7 +905,22 @@ public sealed partial class ComposeViewModel : ObservableObject
             return;
         }
 
-        var next = ResolveSignature(value?.Id);
+        RefreshIdentities(value, null);
+        ApplySignatureChange(ResolveSignature(value?.Id, SelectedIdentity));
+    }
+
+    partial void OnSelectedIdentityChanged(ComposeIdentity? value)
+    {
+        if (_initializing || _suppressIdentityChange)
+        {
+            return;
+        }
+
+        ApplySignatureChange(ResolveSignature(SelectedAccount?.Id, value));
+    }
+
+    private void ApplySignatureChange(string next)
+    {
         if (string.Equals(next, _signature, StringComparison.Ordinal))
         {
             return;
@@ -1190,6 +1351,8 @@ public sealed partial class ComposeViewModel : ObservableObject
         => new()
         {
             AccountId = SelectedAccount!.Id,
+            FromAddress = SelectedIdentity?.Address ?? SelectedAccount.Email,
+            FromName = SelectedIdentity?.DisplayName ?? SelectedAccount.DisplayName,
             To = ToRecipientsValue.Trim(),
             Cc = CcRecipientsValue.Trim(),
             Bcc = BccRecipientsValue.Trim(),
@@ -1205,6 +1368,8 @@ public sealed partial class ComposeViewModel : ObservableObject
         => new()
         {
             AccountId = SelectedAccount!.Id,
+            FromAddress = SelectedIdentity?.Address ?? SelectedAccount.Email,
+            FromName = SelectedIdentity?.DisplayName ?? SelectedAccount.DisplayName,
             To = ToRecipientsValue.Trim(),
             Cc = CcRecipientsValue.Trim(),
             Bcc = BccRecipientsValue.Trim(),

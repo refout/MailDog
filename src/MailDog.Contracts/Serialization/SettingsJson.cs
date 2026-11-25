@@ -75,4 +75,26 @@ public static class SettingsJson
             return [];
         }
     }
+
+    public static string SerializeAccountIdentities(IReadOnlyList<AccountIdentityDto> identities)
+        => JsonSerializer.Serialize(
+            (identities ?? []).ToArray(),
+            IpcJsonContext.Default.AccountIdentityDtoArray);
+
+    public static IReadOnlyList<AccountIdentityDto> DeserializeAccountIdentities(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(json, IpcJsonContext.Default.AccountIdentityDtoArray) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 }

@@ -35,17 +35,32 @@
       <TextBlock Text="发件人"
                  Classes="caption"
                  VerticalAlignment="Center" />
-      <ComboBox Grid.Column="1"
-                ItemsSource="{Binding Accounts}"
-                SelectedItem="{Binding SelectedAccount, Mode=TwoWay}"
-                IsEnabled="{Binding CanEdit}"
-                HorizontalAlignment="Stretch">
-        <ComboBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:ComposeAccount">
-            <TextBlock Text="{Binding Label}" />
-          </DataTemplate>
-        </ComboBox.ItemTemplate>
-      </ComboBox>
+      <Grid Grid.Column="1" ColumnDefinitions="*,*" ColumnSpacing="8">
+        <ComboBox ItemsSource="{Binding Accounts}"
+                  SelectedItem="{Binding SelectedAccount, Mode=TwoWay}"
+                  IsEnabled="{Binding CanEdit}"
+                  HorizontalAlignment="Stretch"
+                  ToolTip.Tip="选择发信账户">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ComposeAccount">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <ComboBox Grid.Column="1"
+                  ItemsSource="{Binding Identities}"
+                  SelectedItem="{Binding SelectedIdentity, Mode=TwoWay}"
+                  IsEnabled="{Binding CanEdit}"
+                  HorizontalAlignment="Stretch"
+                  ToolTip.Tip="选择该账户的备用发信地址（别名）"
+                  AutomationProperties.Name="发信身份">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ComposeIdentity">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+      </Grid>
     </Grid>
 
     <Grid Grid.Row="2" ColumnDefinitions="64,*">

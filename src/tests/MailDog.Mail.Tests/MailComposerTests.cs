@@ -130,6 +130,77 @@ public sealed class MailComposerTests : IDisposable
     }
 
     [Fact]
+    public void BuildsFromAliasWhenProvided()
+    {
+        var account = new AccountRecord(
+            "acc-1",
+            MailProvider.QQ,
+            "sender@example.com",
+            "主地址",
+            "password",
+            "secret",
+            DateTimeOffset.UtcNow,
+            null,
+            AccountStatus.Ok,
+            null);
+
+        using var message = MailComposer.Build(
+            account,
+            "to@example.com",
+            string.Empty,
+            string.Empty,
+            "别名发信",
+            "正文",
+            null,
+            "<alias@example.com>",
+            [],
+            fromAddress: "alias@example.com",
+            fromName: "别名显示");
+
+        var from = Assert.Single(message.From.Mailboxes);
+        Assert.Equal("alias@example.com", from.Address);
+        Assert.Equal("别名显示", from.Name);
+    }
+
+    [Fact]
+    public void ResolvesConfiguredAliasAndRejectsUnknownAddress()
+    {
+        var account = new AccountRecord(
+            "acc-1",
+            MailProvider.QQ,
+            "sender@example.com",
+            "主地址",
+            "password",
+            "secret",
+            DateTimeOffset.UtcNow,
+            null,
+            AccountStatus.Ok,
+            null);
+        var settings = new AppSettingsDto
+        {
+            AccountIdentities =
+            [
+                new AccountIdentityDto
+                {
+                    Id = "alias-1",
+                    AccountId = "acc-1",
+                    Address = "alias@example.com",
+                    DisplayName = "别名显示",
+                    Signature = "别名签名"
+                }
+            ]
+        };
+
+        var resolved = MailIdentityResolver.Resolve(account, settings, " ALIAS@example.com ");
+        Assert.Equal("alias@example.com", resolved.Address);
+        Assert.Equal("别名显示", resolved.DisplayName);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => MailIdentityResolver.Resolve(account, settings, "other@example.com"));
+        Assert.Contains("未配置", exception.Message);
+    }
+
+    [Fact]
     public void DraftCanHaveNoRecipients()
     {
         var account = new AccountRecord(

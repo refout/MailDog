@@ -22,7 +22,9 @@ public static class MailComposer
         IReadOnlyList<MailAttachment> attachments,
         bool isMarkdown = false,
         bool requireRecipients = true,
-        string? bodyHtml = null)
+        string? bodyHtml = null,
+        string? fromAddress = null,
+        string? fromName = null)
     {
         var message = new MimeMessage
         {
@@ -31,7 +33,13 @@ public static class MailComposer
             MessageId = messageId
         };
 
-        message.From.Add(new MailboxAddress(account.DisplayName, account.Email));
+        var address = string.IsNullOrWhiteSpace(fromAddress) ? account.Email : fromAddress.Trim();
+        var name = string.IsNullOrWhiteSpace(fromName)
+            ? string.Equals(address, account.Email, StringComparison.OrdinalIgnoreCase)
+                ? account.DisplayName
+                : address
+            : fromName.Trim();
+        message.From.Add(new MailboxAddress(name, address));
         AddAddresses(message.To, ParseAddresses(to, "收件人"));
         AddAddresses(message.Cc, ParseAddresses(cc, "抄送"));
         AddAddresses(message.Bcc, ParseAddresses(bcc, "密送"));

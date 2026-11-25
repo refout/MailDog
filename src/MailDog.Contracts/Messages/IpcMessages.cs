@@ -265,6 +265,12 @@ public sealed class SendMailRequest : Ipc.IIpcMessage
 {
     public string AccountId { get; init; } = string.Empty;
 
+    /// <summary>发信身份地址；空字符串表示账户主地址。必须是账户主地址或已配置的别名。</summary>
+    public string FromAddress { get; init; } = string.Empty;
+
+    /// <summary>发信人显示名；空字符串表示使用账户或身份的配置。</summary>
+    public string FromName { get; init; } = string.Empty;
+
     public string To { get; init; } = string.Empty;
 
     public string Cc { get; init; } = string.Empty;
@@ -316,6 +322,12 @@ public static class SendStatuses
 public sealed class SaveDraftRequest : Ipc.IIpcMessage
 {
     public string AccountId { get; init; } = string.Empty;
+
+    /// <summary>发信身份地址；空字符串表示账户主地址。</summary>
+    public string FromAddress { get; init; } = string.Empty;
+
+    /// <summary>发信人显示名；空字符串表示使用账户或身份的配置。</summary>
+    public string FromName { get; init; } = string.Empty;
 
     public string To { get; init; } = string.Empty;
 
