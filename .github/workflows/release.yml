@@ -28,6 +28,8 @@ jobs:
             os: windows-latest
           - runtime: linux-x64
             os: ubuntu-latest
+          - runtime: linux-arm64
+            os: ubuntu-24.04-arm
 
     steps:
       - name: Checkout
@@ -39,7 +41,7 @@ jobs:
           dotnet-version: '11.0.x'
 
       - name: Install Linux AOT prerequisites
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
       - name: Resolve version
@@ -67,7 +69,7 @@ jobs:
         run: ./src/build/package.ps1 -Version '${{ steps.version.outputs.version }}' -Runtime ${{ matrix.runtime }}
 
       - name: Publish and package (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         shell: bash
         run: ./src/build/package-linux.sh ${{ matrix.runtime }} '${{ steps.version.outputs.version }}'
 

@@ -190,6 +190,14 @@ internal static class Schema
 
         builder.Append(',');
         builder.Append(Command(
+            "open",
+            "打开主窗口；Linux 桌面没有托盘或界面被关闭时用它把 UI 叫回来",
+            [],
+            [],
+            "{\"opened\":true}"));
+
+        builder.Append(',');
+        builder.Append(Command(
             "quit",
             "让后台 Engine 正常收尾并退出；Linux 无托盘时用它停止后台收信",
             [],

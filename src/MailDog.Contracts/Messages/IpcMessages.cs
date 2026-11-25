@@ -776,6 +776,10 @@ public sealed class ShutdownRequest : Ipc.IIpcMessage
 {
 }
 
+public sealed class OpenUiRequest : Ipc.IIpcMessage
+{
+}
+
 public sealed class GetAccountHealthRequest : Ipc.IIpcMessage
 {
 }

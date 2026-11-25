@@ -50,6 +50,7 @@ jobs:
           if ($schema.tool -ne 'maildog') { throw "schema.tool 应为 maildog，实际 $($schema.tool)" }
           if ($schema.commands.name -notcontains 'send') { throw 'schema 里缺少 send' }
           if ($schema.commands.name -notcontains 'move') { throw 'schema 里缺少 move' }
+          if ($schema.commands.name -notcontains 'open') { throw 'schema 里缺少 open' }
           if ($schema.exitCodes.'5' -notmatch '参数') { throw 'schema 退出码说明不对' }
 
           & $exe help | Out-Null

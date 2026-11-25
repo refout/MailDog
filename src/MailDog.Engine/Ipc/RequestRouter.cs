@@ -47,6 +47,9 @@ public sealed class RequestRouter
     /// <summary>由 EngineHost 注入：请求正常退出后台进程。</summary>
     public Action? ShutdownRequested { get; set; }
 
+    /// <summary>由 EngineHost 注入：CLI 或外部调用要求打开主窗口。</summary>
+    public Action? OpenUiRequested { get; set; }
+
     /// <summary>由 EngineHost 注入：第二个进程带 --activate 启动时，把 URI 交给常驻进程。</summary>
     public Action<string>? ActivationRequested { get; set; }
 
@@ -466,6 +469,10 @@ public sealed class RequestRouter
 
             case ShutdownRequest:
                 ShutdownRequested?.Invoke();
+                return new OkResponse();
+
+            case OpenUiRequest:
+                OpenUiRequested?.Invoke();
                 return new OkResponse();
 
             case GetAccountHealthRequest:

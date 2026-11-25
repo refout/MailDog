@@ -25,8 +25,8 @@ if [[ -z "$version" ]]; then
     exit 1
 fi
 
-if [[ "$runtime" == "linux-arm64" ]]; then
-    echo "linux-arm64 需要 ARM64 交叉编译工具链，当前脚本只保证 linux-x64。" >&2
+if [[ "$runtime" == "linux-arm64" && "$(uname -m)" != "aarch64" ]]; then
+    echo "linux-arm64 需要原生 ARM64 主机（GitHub 的 ubuntu-24.04-arm）；当前是 $(uname -m)。" >&2
     exit 1
 fi
 

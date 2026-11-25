@@ -797,9 +797,29 @@ internal static class Commands
         return affected > 0 ? 0 : 2;
     }
 
-    /// <summary>让后台 Engine 正常收尾退出，Linux 无托盘时用它代替“右键退出”。</summary>
-    public static async Task<int> QuitAsync(IpcClient client, Arguments args, CancellationToken cancellationToken)
+    /// <summary>打开主窗口；桌面没有托盘时用它从终端把界面叫回来。</summary>
+    public static async Task<int> OpenUiAsync(IpcClient client, Arguments args, CancellationToken cancellationToken)
     {
+        await client.RequestAsync<OkResponse>(
+            IpcMessageTypes.OpenUi,
+            new OpenUiRequest(),
+            TimeSpan.FromSeconds(10),
+            cancellationToken).ConfigureAwait(false);
+
+        if (args.Json)
+        {
+            Console.WriteLine("{\"opened\":true}");
+        }
+        else
+        {
+            Console.WriteLine("已请求 MailDog 打开主窗口。");
+        }
+
+        return 0;
+    }
+
+    /// <summary>让后台 Engine 正常收尾退出，Linux 无托盘时用它代替“右键退出”。</summary>
+    public static async Task<int> QuitAsync(IpcClient client, Arguments args, CancellationToken cancellationToken)    {
         await client.RequestAsync<OkResponse>(
             IpcMessageTypes.Shutdown,
             new ShutdownRequest(),

@@ -118,6 +118,8 @@ maildog cancel <outboxId>... --json
 
 不确定参数或字段时跑 `maildog schema --json`（真实输出为准，不要凭记忆）。连不上 Engine 时 CLI 会自动拉起；脚本里想只连不拉，加 `--no-start`。
 
+Linux 桌面没有托盘、或用户把界面关了又要回来时，用 `maildog open` 叫回主窗口；要停止后台收信时用 `maildog quit`，不要直接杀进程。
+
 ## 6. 典型问答
 
 - "今天有哪些邮件？" → `list --json --limit 30`，按 `date` 挑今天，按发件人 + 主题分条列，不贴正文。

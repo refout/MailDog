@@ -123,6 +123,7 @@ namespace MailDog.Contracts.Serialization;
 [JsonSerializable(typeof(PendingNavigationResponse))]
 [JsonSerializable(typeof(AccountChangedEvent))]
 [JsonSerializable(typeof(ShutdownRequest))]
+[JsonSerializable(typeof(OpenUiRequest))]
 [JsonSerializable(typeof(ActivateRequest))]
 [JsonSerializable(typeof(AddRecentRequest))]
 [JsonSerializable(typeof(GetAccountHealthRequest))]

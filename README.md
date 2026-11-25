@@ -40,7 +40,7 @@ Windows 和 Linux 上把 QQ 邮箱和 Outlook 收进同一个窗口的桌面邮�
 - **命令行 `maildog`**：`accounts` / `folders` / `list` / `search` / `show` / `attachment` 只读查询，`draft` / `send` / `mark` / `move` 写操作默认只预览，加 `--confirm` 才执行；`show` 直接返回原始正文，`text` 与 `html` 原样并列，不做格式转换，需要时用 `--max-chars` 截断；`maildog schema --json` 供脚本和助手自描述，Engine 没开时会自动拉起。CLI 不预装，在设置 → 工具 → 命令行工具里下载，下载后自动解压到安装目录，并同时带 `maildog-cli` Skill；解压成功后工具页会直接显示给智能体的说明，可选中复制或点「复制全部」，也可以在「查看调用记录」里回看带 `--json` 的调用结果。
 - **看过的信存在本机**：邮件头、正文都存进本地的 SQLite，断网、邮箱服务器抽风时照样能翻能搜。
 - **陌生邮件的排版动不了你的窗口**：HTML 正文只保留安全的那部分，远程图片默认不加载，某封信格式坏了就退回纯文字。
-- **关掉窗口也能收信**：Windows 下右下角托盘的小图标一直看着邮箱，未读数是图标上的红点；Linux 下 Engine 无窗口常驻，界面关掉后继续同步，要停后台用关于页“退出后台”，或下载 CLI 后运行 `maildog quit`。
+- **关掉窗口也能收信**：Windows 下右下角托盘的小图标一直看着邮箱，未读数是图标上的红点；Linux 下 Engine 无窗口常驻，界面关掉后继续同步，没有托盘宿主时用 `maildog open` 重新打开界面、用 `maildog quit` 停止后台。
 - **开机就能接着收**：设置页“启动”可以开关登录系统时自动启动；Windows 写入当前用户启动项，Linux 写入 `~/.config/autostart`，关闭后移除，不影响账户和邮件数据。
 - **只专注邮件**：日历、联系人、待办、记事本模块已移除，左侧只保留账户、文件夹与设置，界面始终停留在邮件列表和阅读区。
 - **发信前先看一眼附件**：正文里写了“见附件”却没带文件，或者附件太大时，发送前会拦一下让你确认，不会硬拦。
@@ -56,10 +56,11 @@ Windows 和 Linux 上把 QQ 邮箱和 Outlook 收进同一个窗口的桌面邮�
 | `MailDog-0.3.4-win-x64.zip` | Windows 64 位便携版，解压双击 `MailDog.UI.exe` |
 | `MailDog-0.3.4-win-arm64.zip` | Windows Arm 版便携包 |
 | `MailDog-0.3.4-linux-x64.tar.gz` | Linux x64 包，解压后运行 `MailDog.UI` |
+| `MailDog-0.3.4-linux-arm64.tar.gz` | Linux ARM64 包，需在 ARM64 桌面运行 |
 
-都在 [Releases](https://github.com/refout/MailDog/releases/latest) 里。Windows 要求 Windows 10 1809+ 或 Windows 11；Windows 10 需要先有 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（Windows 11 已内置）。Linux 目前提供 x64 包，需要 glibc 与 X11/Wayland 桌面，通知依赖 `notify-send`（`libnotify-bin`）；想点击通知跳回邮件需要 `notify-send` 0.8+ 与支持 action 的通知守护进程，0.7 及更早版本只弹通知。
+都在 [Releases](https://github.com/refout/MailDog/releases/latest) 里。Windows 要求 Windows 10 1809+ 或 Windows 11；Windows 10 需要先有 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（Windows 11 已内置）。Linux 提供 x64 与 arm64 包，需要 glibc 与 X11/Wayland 桌面，通知依赖 `notify-send`（`libnotify-bin`）；想点击通知跳回邮件需要 `notify-send` 0.8+ 与支持 action 的通知守护进程，0.7 及更早版本只弹通知。
 
-Linux 版现阶段的能力边界：托盘图标依赖桌面环境的 StatusNotifier 宿主（KDE 自带，GNOME 默认要装扩展），看不到图标时关掉界面 Engine 仍继续后台收信；要停止请用关于页的“退出后台”，或下载 CLI 后运行 `maildog quit`（不要直接 `kill -9`，否则发件箱和 WAL 可能来不及收尾）；HTML 正文走 WebKitGTK 4.1，系统没装 `libwebkit2gtk-4.1-0` 时自动退回纯文本；通知点击依赖 `notify-send` 0.8+ 的 action 支持；锁屏判断通过 `gdbus` 查询 GNOME/KDE 屏保，查不到时按未锁屏处理；新库凭据优先存进 `secret-tool` 管理的系统钥匙串，检测不到 Secret Service 时回退到数据目录内 0600 权限的随机密钥；旧版本已经生成的密钥文件会继续沿用，避免已有账户失效。
+Linux 版现阶段的能力边界：托盘图标依赖桌面环境的 StatusNotifier 宿主（KDE 自带，GNOME 默认要装扩展），没有托盘时界面仍可正常使用，关掉界面 Engine 仍继续后台收信，用随包 CLI 运行 `maildog open` 重新打开界面，用 `maildog quit` 停止后台（不要直接 `kill -9`，否则发件箱和 WAL 可能来不及收尾）；HTML 正文走 WebKitGTK 4.1，系统没装 `libwebkit2gtk-4.1-0` 时自动退回纯文本；通知点击依赖 `notify-send` 0.8+ 的 action 支持；锁屏判断通过 `gdbus` 查询 GNOME/KDE 屏保，查不到时按未锁屏处理；新库凭据优先存进 `secret-tool` 管理的系统钥匙串，检测不到 Secret Service 时回退到数据目录内 0600 权限的随机密钥；旧版本已经生成的密钥文件会继续沿用，避免已有账户失效。
 
 - **QQ 邮箱**：在 QQ 邮箱网页端开启 IMAP/SMTP，生成**授权码**（不是登录密码）填进去。
 - **Outlook**：点“使用浏览器登录”，应用已内置 Entra 公共客户端（公共客户端 ID 不属于机密）。想换成自己注册的应用，设环境变量 `MAILDOG_ENTRA_CLIENT_ID`。
@@ -86,7 +87,7 @@ maildog attachment 35211 1 --out D:\tmp
 maildog send --account me@example.com --to you@example.com --subject "周报" --text "见附件" --attach D:\周报.pdf
 ```
 
-不会自动修改 PATH，也不会写系统目录；卸载 MailDog 不会删除你解压出来的 CLI。写命令（`draft` / `send` / `mark` / `move` / `cancel`）默认只打印预览，确认无误再加 `--confirm` 才真正执行；Linux 无托盘时用 `maildog quit` 让后台正常退出；`send` 会返回撤销窗口，用 `maildog cancel <outboxId>` 撤回；`send` 发送前会查附件，命中提醒时退出码 `6`，确认后加 `--force-send` 强发。`maildog schema` 输出全部命令、开关、输出字段与退出码的 JSON。命令都通过命名管道交给后台 Engine，自己不碰数据库；Engine 没开着会自动拉起来。
+不会自动修改 PATH，也不会写系统目录；卸载 MailDog 不会删除你解压出来的 CLI。写命令（`draft` / `send` / `mark` / `move` / `cancel`）默认只打印预览，确认无误再加 `--confirm` 才真正执行；Linux 无托盘时用 `maildog open` 重新打开界面、用 `maildog quit` 让后台正常退出；`send` 会返回撤销窗口，用 `maildog cancel <outboxId>` 撤回；`send` 发送前会查附件，命中提醒时退出码 `6`，确认后加 `--force-send` 强发。`maildog schema` 输出全部命令、开关、输出字段与退出码的 JSON。命令都通过命名管道交给后台 Engine，自己不碰数据库；Engine 没开着会自动拉起来。
 
 CLI 每次调用会往数据目录的 `logs/cli-usage.log` 追加一行：时间、版本、命令名、退出码、耗时；不记参数值、邮箱、主题、正文或令牌。单文件超过 512 KB 时轮转为 `cli-usage.log.1`；设 `MAILDOG_NO_CLI_AUDIT=1` 可关闭。
 
@@ -129,11 +130,14 @@ pwsh -File src/build/package.ps1 -Runtime win-x64 -Installer
 Linux：
 
 ```bash
-# 产物：dist/MailDog-<版本>-linux-x64.tar.gz
+# 产物：dist/MailDog-<版本>-linux-<架构>.tar.gz
 ./src/build/package-linux.sh linux-x64
+
+# Linux ARM64 必须在 ARM64 主机上构建（CI 用 ubuntu-24.04-arm）
+./src/build/package-linux.sh linux-arm64
 ```
 
-版本号默认读 `src/Directory.Build.props`，可用 `-Version 1.2.3` 覆盖。推 `v*` 标签会触发 [release 流水线](.github/workflows/release.yml)，构建 win-x64 / win-arm64 压缩包、x64 安装包与 linux-x64 tar.gz 并创建 Release。
+版本号默认读 `src/Directory.Build.props`，可用 `-Version 1.2.3` 覆盖。推 `v*` 标签会触发 [release 流水线](.github/workflows/release.yml)，构建 win-x64 / win-arm64 压缩包、x64 安装包与 linux-x64 / linux-arm64 tar.gz 并创建 Release。
 
 ### 运行
 
@@ -152,7 +156,7 @@ Engine 支持 `--db <路径>` 换库、`--console` 附着终端输出、`--probe
 
 ## 技术构成
 
-- **Engine**：MailKit（IMAP）+ SQLite 索引 + Windows Win32 托盘 / Linux 无托盘常驻 + OAuth2 PKCE + 命名管道服务，按需拉起 UI，UI 关闭后继续驻留；Linux 收到 `shutdown` IPC 后正常收尾退出。
+- **Engine**：MailKit（IMAP）+ SQLite 索引 + Windows Win32 托盘 / Linux 按桌面能力提供托盘或纯后台常驻 + OAuth2 PKCE + 命名管道服务，按需拉起 UI，UI 关闭后继续驻留；Linux 收到 `shutdown` IPC 后正常收尾退出。
 - **UI**：Avalonia 12 + Fluent Design + Windows 上 NativeWebView 渲染 HTML、Linux 上纯文本阅读，关窗即退。
 
 | 维度 | 决策 |
@@ -203,11 +207,18 @@ dist/
 │   ├── MailDog/
 │   │   ├── MailDog.Engine
 │   │   ├── MailDog.UI
-│   │   ├── MailDog.Cli
 │   │   ├── libSkiaSharp.so
 │   │   ├── libHarfBuzzSharp.so
-│   │   └── maildog
+│   │   └── cli/MailDog-cli.tar.gz
 │   └── MailDog-<版本>-linux-x64.tar.gz
+├── linux-arm64/
+│   ├── MailDog/
+│   │   ├── MailDog.Engine
+│   │   ├── MailDog.UI
+│   │   ├── libSkiaSharp.so
+│   │   ├── libHarfBuzzSharp.so
+│   │   └── cli/MailDog-cli.tar.gz
+│   └── MailDog-<版本>-linux-arm64.tar.gz
 └── MailDog-<版本>-win-x64-setup.exe
 ```
 
@@ -238,7 +249,7 @@ dist/
 | 13 | 命令行 `MailDog.Cli`：查账号/文件夹/搜索/读信/取附件，写命令需确认，`--json` 与 `schema` 自描述供脚本与助手调用（MCP 方案已取消；解析层用 `System.CommandLine` 2.0.15） | ✅ 已随 v0.2.0 发布；v0.3.0 完成解析层迁移，命令、输出与退出码不变 |
 | 14 | 本地规则过滤器（发件人/主题匹配 → 标已读/加旗标/静音通知，设置页可增删启停）、延迟发送 + 撤销、附件防漏提醒 | ✅ 已随 v0.2.0 发布（2026-11-24，见 `docs/PLAN.md`） |
 | 15 | Windows 集成（mailto / 默认邮件程序 / SendTo / 拖入 .eml / JumpList）、诊断包、账号健康面板 | ✅ v0.3.0；Windows 注册表与 SendTo/JumpList 待实机验收 |
-| 16 | Linux x64：Engine 双目标、XDG 数据目录与 autostart、AES-GCM/系统钥匙串凭据、WebKitGTK HTML 与纯文本回退、托盘/协议激活、锁屏隐私、`notify-send` 通知与点击、`maildog quit` 退出（CLI 可选下载）、tar.gz 打包与 CI | ✅ v0.3.0；Linux arm64 未做 |
+| 16 | Linux x64：Engine 双目标、XDG 数据目录与 autostart、AES-GCM/系统钥匙串凭据、WebKitGTK HTML 与纯文本回退、托盘/协议激活、锁屏隐私、`notify-send` 通知与点击、`maildog quit` 退出（CLI 可选下载）、tar.gz 打包与 CI | ✅ v0.3.0（x64）；arm64 由阶段 23 补上 |
 | — | v0.3.1–v0.3.4：CLI 下载自动解压、说明复制、原文正文、调用记录与界面查看 | ✅ 已发布（2026-11-25） |
 | 17 | Agent 权限边界：CLI 只读模式、按命令授权、发送/草稿待确认队列、调用记录保留期与正文脱敏查看 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage17.md`） |
 | 18 | 定时发送与稍后提醒：指定时间发信、Snooze 到点回到未读、发送失败的选择性重试 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage18.md`） |
@@ -246,7 +257,7 @@ dist/
 | 20 | 大邮箱与存储：未缓存正文按需拉取、后台补全文索引、附件缓存配额与自动淘汰、数据库压缩 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage20.md`） |
 | 21 | 规则增强：自动移动到文件夹、对历史邮件回溯应用、规则试运行与命中预览 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage21.md`） |
 | 22 | 迁移与互操作：mbox/eml 批量导入、全量导出、Thunderbird/Outlook 迁移指引 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage22.md` 与 `docs/migration.md`） |
-| 23 | 平台扩展：Linux arm64；macOS 仅在真实需求出现后评估；Linux 无托盘宿主时的兜底入口 | 待做（P2） |
+| 23 | 平台扩展：Linux arm64；macOS 仅在真实需求出现后评估；Linux 无托盘宿主时的兜底入口 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage23.md` 与 `docs/platform-evaluation.md`；macOS 结论为暂不发布） |
 | 24 | 质量工程：真实 QQ/Outlook 账号冒烟矩阵、假 IMAP/SMTP 端到端、Windows 注册表/SendTo/JumpList 实机验收、升级回滚测试 | 待做（P1，与阶段 9/10 一起收口） |
 | 25 | 批量操作补全：选择模式支持批量归档、移动、删除、标记垃圾邮件，以及对当前搜索结果全选执行 | ✅ 已完成（批量移动限同一账户；跨账户会提示） |
 | 26 | 邮件模板与快速回复：常用回复保存、简单变量（收件人/主题/日期）、按账户绑定签名 | ✅ 已完成（变量：`{{date}}`/`{{time}}`/`{{account}}`/`{{email}}`/`{{subject}}`） |
@@ -272,8 +283,8 @@ dist/
 - 备份只包含本地数据库，不包含日志、原生缓存和已经落盘的 outbox 附件；恢复需要完全退出 MailDog 后重新启动。
 - 账户编辑不改邮箱地址和登录方式；换邮箱需要重新添加账户。QQ / 自定义账户不支持 Outlook 的重新授权按钮。
 - Engine 是 `WinExe`，从终端带 `--probe` / `--console` 启动时会附着父控制台。
-- 只有 Windows x64 / arm64 与 Linux x64，没有 32 位，也没有 mac 版。
-- Linux 版没有托盘图标，关闭界面后 Engine 留在后台，用关于页“退出后台”停止（下载 CLI 后也可以用 `maildog quit`）；正文优先用 WebKitGTK 渲染 HTML，缺库时退回纯文本；通知点击需要 `notify-send` 0.8+ 与支持 action 的守护进程，否则只弹通知；新库凭据在 Secret Service 可用时进系统钥匙串，否则回退本机密钥；旧版本生成过密钥文件的库继续用文件密钥。
+- 只有 Windows x64 / arm64 与 Linux x64 / arm64，没有 32 位，也没有 mac 版。
+- Linux 托盘取决于桌面环境；没有托盘时界面照常可用，关闭后用 `maildog open` 重新打开界面，用关于页“退出后台”或 `maildog quit` 停止后台；正文优先用 WebKitGTK 渲染 HTML，缺库时退回纯文本；通知点击需要 `notify-send` 0.8+ 与支持 action 的守护进程，否则只弹通知；新库凭据在 Secret Service 可用时进系统钥匙串，否则回退本机密钥；旧版本生成过密钥文件的库继续用文件密钥。
 
 ## 许可
 

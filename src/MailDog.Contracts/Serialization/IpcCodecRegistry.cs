@@ -114,6 +114,7 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.PendingNavigation, IpcJsonContext.Default.PendingNavigationResponse);
         Register(IpcMessageTypes.AccountChanged, IpcJsonContext.Default.AccountChangedEvent);
         Register(IpcMessageTypes.Shutdown, IpcJsonContext.Default.ShutdownRequest);
+        Register(IpcMessageTypes.OpenUi, IpcJsonContext.Default.OpenUiRequest);
         Register(IpcMessageTypes.Activate, IpcJsonContext.Default.ActivateRequest);
         Register(IpcMessageTypes.AddRecent, IpcJsonContext.Default.AddRecentRequest);
         Register(IpcMessageTypes.GetAccountHealth, IpcJsonContext.Default.GetAccountHealthRequest);

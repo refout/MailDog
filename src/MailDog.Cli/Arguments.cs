@@ -21,7 +21,7 @@ internal sealed class Arguments
     [
         "accounts", "folders", "list", "search", "show", "attachment",
         "draft", "send", "mark", "move", "cancel", "snooze", "pending", "approve", "deny",
-        "quit", "schema", "help"
+        "quit", "open", "schema", "help"
     ];
 
     private static readonly string[] BooleanNames =

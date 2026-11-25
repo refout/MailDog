@@ -113,6 +113,11 @@ public sealed class EngineHost : IAsyncDisposable
             await Task.Delay(250).ConfigureAwait(false);
             _tray?.Quit();
         });
+        _router.OpenUiRequested = () => _ = Task.Run(async () =>
+        {
+            await Task.Delay(250).ConfigureAwait(false);
+            OpenUi();
+        });
         _sync.Diagnostic += message => _log.Warn(message);
         _smtp.Diagnostic += message => _log.Warn(message);
         _outbox.Diagnostic += message => _log.Info(message);

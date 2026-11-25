@@ -1922,7 +1922,7 @@
                                 IsVisible="{Binding IsLinuxPlatform}">
                           <StackPanel Spacing="10">
                             <TextBlock Text="后台进程" Classes="section" />
-                            <TextBlock Text="Linux 的托盘入口取决于桌面环境；关闭窗口后后台仍会继续收信。要彻底退出，用下面的按钮，或下载 CLI 后运行 maildog quit。"
+                            <TextBlock Text="Linux 的托盘入口取决于桌面环境；没有托盘时界面仍可正常使用。关闭窗口后后台继续收信，用随包 CLI 运行 maildog open 可重新打开界面，运行 maildog quit 可停止后台。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
                             <Button Content="退出后台"

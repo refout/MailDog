@@ -33,6 +33,7 @@ internal static class Usage
           pending                                 列出本地待确认队列（不连接 Engine）
           approve <待确认 id>                     执行队列里的草稿或发送请求
           deny <待确认 id>                        拒绝并删除队列项
+          open                                    打开主窗口（Linux 无托盘或界面被关闭时用）
           quit                                    让后台 Engine 正常退出（Linux 无托盘时用）
 
         待确认队列：

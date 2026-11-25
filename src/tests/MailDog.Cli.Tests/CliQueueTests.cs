@@ -101,6 +101,21 @@ public sealed class CliQueueTests
         Assert.Equal(42, engine.LastSnooze.MessageId);
     }
 
+    [Fact]
+    public async Task OpenUiIsForwardedToEngine()
+    {
+        var pipeName = $"MailDog.Test.{Guid.NewGuid():N}";
+        await using var engine = new FakeEngine(pipeName);
+        await using var client = await IpcClient.TryConnectAsync(TimeSpan.FromSeconds(5), CancellationToken.None, pipeName);
+
+        Assert.NotNull(client);
+        await client.HelloAsync("test", CancellationToken.None);
+
+        var args = Arguments.Parse(["open", "--json"]);
+        Assert.Equal(0, await Commands.OpenUiAsync(client, args, CancellationToken.None));
+        Assert.Contains(IpcMessageTypes.OpenUi, engine.RequestTypes);
+    }
+
     private sealed class FakeEngine : IAsyncDisposable
     {
         private readonly CancellationTokenSource _cts = new();
@@ -181,6 +196,13 @@ public sealed class CliQueueTests
                             request,
                             IpcMessageTypes.Ok,
                             new OkResponse { Affected = 1 },
+                            IpcJsonContext.Default.OkResponse);
+                        break;
+                    case IpcMessageTypes.OpenUi:
+                        await ReplyAsync(
+                            request,
+                            IpcMessageTypes.Ok,
+                            new OkResponse(),
                             IpcJsonContext.Default.OkResponse);
                         break;
                     default:
