@@ -139,12 +139,10 @@ public sealed class UpdateService
             return null;
         }
 
-        var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MailDog",
-            "updates");
+        var directory = UpdatesDirectory;
 
         Directory.CreateDirectory(directory);
+        CleanupDownloadedInstallers(directory);
 
         var fileName = $"MailDog-{Sanitize(result.LatestVersion)}-win-x64-setup.exe";
         var path = Path.Combine(directory, fileName);
@@ -222,7 +220,11 @@ public sealed class UpdateService
             return false;
         }
 
-        // 安装包与界面同目录，装完直接启新版本；当前进程随后退出。
+        // 安装成功，安装包已经没用了；如果这里删不掉（界面会被安装器先关掉），
+        // 下次启动的 CleanupDownloadedInstallers 会补删。
+        TryDelete(installerPath);
+
+        // 新版本与旧界面同目录，装完直接启新版本；当前进程随后退出。
         var uiPath = Path.Combine(AppContext.BaseDirectory, ProductPaths.UiExecutableName);
 
         if (File.Exists(uiPath))
@@ -231,6 +233,48 @@ public sealed class UpdateService
         }
 
         return true;
+    }
+
+    public static string UpdatesDirectory
+        => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MailDog",
+            "updates");
+
+    /// <summary>清掉已经安装过的更新包；启动时和下次下载前各跑一次，避免 updates 目录越积越多。</summary>
+    public static int CleanupDownloadedInstallers(string? directory = null, string? keepPath = null)
+    {
+        var removed = 0;
+
+        try
+        {
+            var target = directory ?? UpdatesDirectory;
+
+            if (!Directory.Exists(target))
+            {
+                return 0;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(target, "*-setup.exe"))
+            {
+                if (keepPath is not null
+                    && string.Equals(Path.GetFullPath(file), Path.GetFullPath(keepPath), StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (TryDelete(file))
+                {
+                    removed++;
+                }
+            }
+        }
+        catch
+        {
+            // 清理失败不能挡住界面启动；下次下载或下次启动再试。
+        }
+
+        return removed;
     }
 
     public static string ReleasePageUrl => ReleasesPage;
@@ -302,7 +346,7 @@ public sealed class UpdateService
         return 0;
     }
 
-    private static void TryDelete(string path)
+    private static bool TryDelete(string path)
     {
         try
         {
@@ -310,10 +354,13 @@ public sealed class UpdateService
             {
                 File.Delete(path);
             }
+
+            return true;
         }
         catch
         {
-            // 删不掉就留着，下次下载会覆盖。
+            // 删不掉就留着，下次下载或下次启动会再试。
+            return false;
         }
     }
 }
