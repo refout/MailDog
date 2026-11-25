@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.1</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.2</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,9 +67,26 @@
 
     <article class="release">
       <div class="release-top">
-        <h2>v0.3.1</h2>
+        <h2>v0.3.2</h2>
         <span class="date">2026-11-25</span>
         <span class="latest">最新</span>
+      </div>
+      <p class="summary">更新包装完就删，CLI 下载后能一键复制给智能体，并留下最小调用记录。</p>
+      <ul>
+        <li><b>更新包不囤积</b>：安装器成功退出后立刻删除下载的安装包；界面被安装器先关掉、当场删不掉时，下次启动在连接后台之前补删。</li>
+        <li><b>复制给智能体</b>：设置 → 工具 → 命令行工具新增「复制给智能体」，把安装目录、压缩包、解压后的 CLI/启动脚本/Skill 路径和写命令约束一起放到剪贴板。</li>
+        <li><b>CLI 调用记录</b>：每次调用只往数据目录的 <code>logs/cli-usage.log</code> 追加时间、版本、命令名、退出码和耗时，不记参数、邮箱、主题、正文或令牌；512 KB 轮转，可用 <code>MAILDOG_NO_CLI_AUDIT=1</code> 关闭。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.3.2" target="_blank" rel="noopener">下载 v0.3.2</a>
+        <a href="https://github.com/refout/MailDog/compare/v0.3.1...v0.3.2" target="_blank" rel="noopener">对比 v0.3.1</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.3.1</h2>
+        <span class="date">2026-11-25</span>
       </div>
       <p class="summary">CLI 下载从关于页挪到设置「工具」，点击后直接保存到软件安装目录，不再弹文件选择框。</p>
       <ul>
