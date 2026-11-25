@@ -63,9 +63,7 @@ public sealed class StorageMaintenanceService
     public StorageSummaryDto GetSummary()
     {
         var counts = _store.GetStorageCounts();
-        var databaseBytes = FileBytes(_databasePath)
-                             + FileBytes(_databasePath + "-wal")
-                             + FileBytes(_databasePath + "-shm");
+        var databaseBytes = DatabaseBytes();
         var logBytes = DirectoryBytes(_logDirectory);
         var attachmentBytes = DirectoryBytes(_attachmentCacheDirectory);
         var outboxBytes = DirectoryBytes(_outboxDirectory);
@@ -115,6 +113,15 @@ public sealed class StorageMaintenanceService
         {
             CleanDirectory(_tempDirectory, result);
             parts.Add("临时文件");
+        }
+
+        if (request.CompactDatabase)
+        {
+            var before = DatabaseBytes();
+            _store.Compact();
+            var after = DatabaseBytes();
+            result.FreedBytes += Math.Max(0, before - after);
+            parts.Add("数据库压缩");
         }
 
         return new StorageCleanupResultDto
@@ -200,6 +207,11 @@ public sealed class StorageMaintenanceService
             result.SkippedFiles++;
         }
     }
+
+    private long DatabaseBytes()
+        => FileBytes(_databasePath)
+           + FileBytes(_databasePath + "-wal")
+           + FileBytes(_databasePath + "-shm");
 
     private static long FileBytes(string path)
     {

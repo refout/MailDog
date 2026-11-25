@@ -2945,6 +2945,49 @@ public sealed class SqliteStore : IDisposable
         return builder.ToString().Trim();
     }
 
+    /// <summary>补齐缺失的全文索引行；用于升级或异常退出后的后台修复。</summary>
+    public int BackfillSearchIndex()
+    {
+        lock (_gate)
+        {
+            using var transaction = _connection.BeginTransaction();
+            using var command = _connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT INTO message_fts (message_id, subject, sender, recipients, body)
+                SELECT m.id, m.subject, m.from_name || ' ' || m.from_addr,
+                       m.to_addrs || ' ' || m.cc_addrs, COALESCE(b.text_plain, '')
+                FROM messages m
+                LEFT JOIN bodies b ON b.message_row_id = m.id
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM message_fts f
+                    WHERE CAST(f.message_id AS INTEGER) = m.id
+                )
+                RETURNING message_id;
+                """;
+            var added = 0;
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    added++;
+                }
+            }
+
+            transaction.Commit();
+            return added;
+        }
+    }
+
+    /// <summary>压缩数据库：先截断 WAL，再执行 VACUUM 回收空洞。</summary>
+    public void Compact()
+    {
+        lock (_gate)
+        {
+            Execute("PRAGMA wal_checkpoint(TRUNCATE); VACUUM;");
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)

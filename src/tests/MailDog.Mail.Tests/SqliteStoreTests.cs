@@ -869,6 +869,38 @@ public sealed class SqliteStoreTests : IDisposable
     }
 
     [Fact]
+    public void SearchIndexBackfillAndCompactAreSafeToRun()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+        _store.UpsertFolders(account.Id,
+        [
+            new FolderRecord(0, account.Id, "INBOX", "收件箱", FolderRole.Inbox, 7, 0, 0, 0)
+        ]);
+        var folder = Assert.Single(_store.GetFolders(account.Id));
+        var now = DateTimeOffset.UtcNow;
+
+        _store.UpsertMessages(account.Id, folder.Id,
+        [
+            new MessageRecord(0, account.Id, folder.Id, 82, "backfill", "索引测试", "Bob", "bob@example.com",
+                "me@example.com", string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_databasePath}"))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM message_fts;";
+            command.ExecuteNonQuery();
+        }
+
+        Assert.Equal(1, _store.BackfillSearchIndex());
+        _store.Compact();
+
+        Assert.True(File.Exists(_databasePath));
+    }
+
+    [Fact]
     public void SnoozeHidesMessageThenWakesUnread()
     {
         var account = CreateAccount();

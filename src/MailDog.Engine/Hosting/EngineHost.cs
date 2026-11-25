@@ -949,6 +949,19 @@ public sealed class EngineHost : IAsyncDisposable
 
     private async Task SchedulerLoopAsync(CancellationToken cancellationToken)
     {
+        try
+        {
+            var indexed = _store.BackfillSearchIndex();
+            if (indexed > 0)
+            {
+                _log.Info($"后台补齐全文索引 {indexed} 条。");
+            }
+        }
+        catch (Exception exception)
+        {
+            _log.Warn($"补齐全文索引失败：{exception.Message}");
+        }
+
         PruneCacheIfDue();
         WakeDueSnoozes();
         await SyncAllAsync(cancellationToken).ConfigureAwait(false);

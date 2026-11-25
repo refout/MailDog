@@ -3173,6 +3173,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             }
         }
 
+        AttachmentCacheQuota.Enforce(directory, AttachmentCacheQuota.DefaultLimitBytes, paths);
+
         if (paths.Count == 0)
         {
             HasError = true;
@@ -5771,6 +5773,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private Task CleanTempFilesAsync()
         => CleanStorageAsync(new CleanStorageRequest { CleanTempFiles = true });
+
+    [RelayCommand]
+    private Task CompactDatabaseAsync()
+        => CleanStorageAsync(new CleanStorageRequest { CompactDatabase = true });
 
     [RelayCommand]
     private void OpenFolder(string? path)

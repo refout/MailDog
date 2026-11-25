@@ -95,6 +95,15 @@ public sealed class StorageMaintenanceServiceTests : IDisposable
     }
 
     [Fact]
+    public void CompactDatabaseRunsAndKeepsDatabase()
+    {
+        var result = _service.Clean(new CleanStorageRequest { CompactDatabase = true });
+
+        Assert.Contains("数据库压缩", result.Message);
+        Assert.True(File.Exists(_paths.DatabasePath));
+    }
+
+    [Fact]
     public void CleanWithoutFlagsDoesNothing()
     {
         WriteFile(Path.Combine(_paths.AttachmentCacheDirectory, "a.txt"), 10);

@@ -1326,7 +1326,7 @@
 
                         <StackPanel Spacing="10">
                             <TextBlock Text="清理" Classes="section" />
-                            <TextBlock Text="只清理可再生缓存，不会删除数据库、草稿、旗标邮件或待发送邮件；当前日志文件会保留。"
+                            <TextBlock Text="只清理可再生缓存，不会删除数据库、草稿、旗标邮件或待发送邮件；当前日志文件会保留。拖出的附件缓存超过 512 MB 时自动淘汰最旧文件；压缩数据库会短暂锁住数据库并回收已删除邮件的空洞空间。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
                             <WrapPanel>
@@ -1340,6 +1340,10 @@
                                       Margin="0,0,8,8" />
                               <Button Content="清理临时文件"
                                       Command="{Binding CleanTempFilesCommand}"
+                                      IsEnabled="{Binding !IsStorageBusy}"
+                                      Margin="0,0,8,8" />
+                              <Button Content="压缩数据库"
+                                      Command="{Binding CompactDatabaseCommand}"
                                       IsEnabled="{Binding !IsStorageBusy}"
                                       Margin="0,0,0,8" />
                             </WrapPanel>

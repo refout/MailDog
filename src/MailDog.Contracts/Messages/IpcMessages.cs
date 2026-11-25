@@ -515,6 +515,9 @@ public sealed class CleanStorageRequest : Ipc.IIpcMessage
     public bool CleanLogs { get; init; }
 
     public bool CleanTempFiles { get; init; }
+
+    /// <summary>执行 VACUUM 并把 WAL 截断，压缩数据库文件。</summary>
+    public bool CompactDatabase { get; init; }
 }
 
 public sealed class StorageCleanupResponse : Ipc.IIpcMessage
