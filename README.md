@@ -213,7 +213,7 @@ dist/
 
 - 三个可执行文件都是自包含单文件，不需要 .NET 运行时；UI 必须和 Engine 在同一目录才能自动拉起后台。
 - Windows 的 SQLite / Skia / HarfBuzz / ANGLE 原生库嵌在 exe 里，首次启动解到 `%LOCALAPPDATA%\MailDog\native\`；Linux 的 `libSkiaSharp.so`、`libHarfBuzzSharp.so` 随包放在可执行文件旁边，SQLite 仍在首次启动解到数据目录。
-- Windows UI 优先用 ANGLE 渲染，这样云母 / 亚克力材质和透明窗口才生效；加载失败自动回退 Skia 软件渲染。WebView2 有自己的 GPU 进程。Linux UI 用 Skia，邮件正文只走纯文本。
+- Windows UI 优先用 ANGLE 渲染，这样云母 / 亚克力材质和透明窗口才生效；加载失败自动回退 Skia 软件渲染。WebView2 有自己的 GPU 进程。Linux UI 用 Skia，正文优先用 WebKitGTK 渲染 HTML，缺库时退回纯文本。
 - 关掉 UI 后 `MailDog.UI` 和 `msedgewebview2` 全部退出，Engine 在后台继续驻留；Linux 版退出界面后 Engine 也会留在后台，需要停止时用关于页“退出后台”，或下载 CLI 后运行 `maildog quit`。
 
 ## 路线图
@@ -237,6 +237,15 @@ dist/
 | 14 | 本地规则过滤器（发件人/主题匹配 → 标已读/加旗标/静音通知，设置页可增删启停）、延迟发送 + 撤销、附件防漏提醒 | ✅ 已随 v0.2.0 发布（2026-11-24，见 `docs/PLAN.md`） |
 | 15 | Windows 集成（mailto / 默认邮件程序 / SendTo / 拖入 .eml / JumpList）、诊断包、账号健康面板 | ✅ v0.3.0；Windows 注册表与 SendTo/JumpList 待实机验收 |
 | 16 | Linux x64：Engine 双目标、XDG 数据目录与 autostart、AES-GCM/系统钥匙串凭据、WebKitGTK HTML 与纯文本回退、托盘/协议激活、锁屏隐私、`notify-send` 通知与点击、`maildog quit` 退出（CLI 可选下载）、tar.gz 打包与 CI | ✅ v0.3.0；Linux arm64 未做 |
+| — | v0.3.1–v0.3.4：CLI 下载自动解压、说明复制、原文正文、调用记录与界面查看 | ✅ 已发布（2026-11-25） |
+| 17 | Agent 权限边界：CLI 只读模式、按命令授权、发送/草稿待确认队列、调用记录保留期与正文脱敏查看 | 待做（P0） |
+| 18 | 定时发送与稍后提醒：指定时间发信、Snooze 到点回到未读、发送失败的选择性重试 | 待做（P1） |
+| 19 | 收件箱治理：一键退订、屏蔽发件人、标记垃圾邮件并记住规则 | 待做（P1） |
+| 20 | 大邮箱与存储：未缓存正文按需拉取、后台补全文索引、附件缓存配额与自动淘汰、数据库压缩 | 待做（P1） |
+| 21 | 规则增强：自动移动到文件夹、对历史邮件回溯应用、规则试运行与命中预览 | 待做（P1/P2） |
+| 22 | 迁移与互操作：mbox/eml 批量导入、全量导出、Thunderbird/Outlook 迁移指引 | 待做（P2） |
+| 23 | 平台扩展：Linux arm64；macOS 仅在真实需求出现后评估；Linux 无托盘宿主时的兜底入口 | 待做（P2） |
+| 24 | 质量工程：真实 QQ/Outlook 账号冒烟矩阵、假 IMAP/SMTP 端到端、Windows 注册表/SendTo/JumpList 实机验收、升级回滚测试 | 待做（P1，与阶段 9/10 一起收口） |
 | — | 远期不做：HTTP/SOCKS5 代理、S/MIME/PGP、多语言界面 | ⛔ 已记结论，见 `docs/PLAN.md` |
 
 
@@ -254,7 +263,7 @@ dist/
 - 账户编辑不改邮箱地址和登录方式；换邮箱需要重新添加账户。QQ / 自定义账户不支持 Outlook 的重新授权按钮。
 - Engine 是 `WinExe`，从终端带 `--probe` / `--console` 启动时会附着父控制台。
 - 只有 Windows x64 / arm64 与 Linux x64，没有 32 位，也没有 mac 版。
-- Linux 版没有托盘图标，关闭界面后 Engine 留在后台，用关于页“退出后台”停止（下载 CLI 后也可以用 `maildog quit`）；正文以纯文本显示；通知点击需要 `notify-send` 0.8+ 与支持 action 的守护进程，否则只弹通知；新库凭据在 Secret Service 可用时进系统钥匙串，否则回退本机密钥；旧版本生成过密钥文件的库继续用文件密钥。
+- Linux 版没有托盘图标，关闭界面后 Engine 留在后台，用关于页“退出后台”停止（下载 CLI 后也可以用 `maildog quit`）；正文优先用 WebKitGTK 渲染 HTML，缺库时退回纯文本；通知点击需要 `notify-send` 0.8+ 与支持 action 的守护进程，否则只弹通知；新库凭据在 Secret Service 可用时进系统钥匙串，否则回退本机密钥；旧版本生成过密钥文件的库继续用文件密钥。
 
 ## 许可
 
