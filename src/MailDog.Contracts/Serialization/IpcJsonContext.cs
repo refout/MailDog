@@ -45,6 +45,8 @@ namespace MailDog.Contracts.Serialization;
 [JsonSerializable(typeof(MessageBodyResponse))]
 [JsonSerializable(typeof(MoveMessageRequest))]
 [JsonSerializable(typeof(DeleteMessageRequest))]
+[JsonSerializable(typeof(MoveMessagesRequest))]
+[JsonSerializable(typeof(DeleteMessagesRequest))]
 [JsonSerializable(typeof(DownloadAttachmentRequest))]
 [JsonSerializable(typeof(ReadAttachmentRequest))]
 [JsonSerializable(typeof(AttachmentBytesResponse))]
@@ -114,6 +116,8 @@ namespace MailDog.Contracts.Serialization;
 [JsonSerializable(typeof(AttachmentDto))]
 [JsonSerializable(typeof(MailListPage))]
 [JsonSerializable(typeof(AppSettingsDto))]
+[JsonSerializable(typeof(AccountSignatureDto))]
+[JsonSerializable(typeof(MailTemplateDto))]
 [JsonSerializable(typeof(OAuthTokenResponse))]
 [JsonSerializable(typeof(OAuthTokenError))]
 internal partial class IpcJsonContext : JsonSerializerContext

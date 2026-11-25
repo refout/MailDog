@@ -168,9 +168,25 @@ public sealed class RequestRouter
                 await _sync.MoveMessageAsync(request.MessageId, request.TargetFolderId, cancellationToken).ConfigureAwait(false);
                 return new OkResponse { Affected = 1 };
 
+            case MoveMessagesRequest request:
+                foreach (var messageId in request.MessageIds)
+                {
+                    await _sync.MoveMessageAsync(messageId, request.TargetFolderId, cancellationToken).ConfigureAwait(false);
+                }
+
+                return new OkResponse { Affected = request.MessageIds.Length };
+
             case DeleteMessageRequest request:
                 await _sync.DeleteMessageAsync(request.MessageId, request.Permanent, cancellationToken).ConfigureAwait(false);
                 return new OkResponse { Affected = 1 };
+
+            case DeleteMessagesRequest request:
+                foreach (var messageId in request.MessageIds)
+                {
+                    await _sync.DeleteMessageAsync(messageId, request.Permanent, cancellationToken).ConfigureAwait(false);
+                }
+
+                return new OkResponse { Affected = request.MessageIds.Length };
 
             case DownloadAttachmentRequest request:
             {

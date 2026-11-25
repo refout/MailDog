@@ -594,6 +594,43 @@
                         <ic:FluentIcon Icon="Flag" IconSize="Size16" />
                       </MenuItem.Icon>
                     </MenuItem>
+                    <Separator />
+                    <MenuItem Header="批量归档"
+                              Command="{Binding BatchArchiveCommand}"
+                              IsEnabled="{Binding HasCheckedMessages}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="Archive" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="批量移动到"
+                              ItemsSource="{Binding BatchMoveTargets}"
+                              IsEnabled="{Binding HasBatchMoveTargets}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="Folder" IconSize="Size16" />
+                      </MenuItem.Icon>
+                      <MenuItem.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MoveTargetViewModel">
+                          <MenuItem Header="{Binding Name}"
+                                    Command="{Binding Command}"
+                                    CommandParameter="{Binding FolderId}" />
+                        </DataTemplate>
+                      </MenuItem.ItemTemplate>
+                    </MenuItem>
+                    <MenuItem Header="标记为垃圾邮件"
+                              Command="{Binding BatchMarkJunkCommand}"
+                              IsEnabled="{Binding HasCheckedMessages}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="Warning" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="批量删除"
+                              Command="{Binding BatchDeleteCommand}"
+                              IsEnabled="{Binding HasCheckedMessages}">
+                      <MenuItem.Icon>
+                        <ic:FluentIcon Icon="Delete" IconSize="Size16" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
                     <MenuItem Header="清除选择"
                               Command="{Binding ClearCheckedMessagesCommand}"
                               IsEnabled="{Binding HasCheckedMessages}">
@@ -977,6 +1014,22 @@
                       ToolTip.Tip="全部回复"
                       AutomationProperties.Name="全部回复">
                 <ic:FluentIcon Icon="ArrowReplyAll" IconSize="Size16" />
+              </Button>
+              <Button Classes="icon toolbar"
+                      IsVisible="{Binding HasQuickReplyTargets}"
+                      ToolTip.Tip="快速回复模板"
+                      AutomationProperties.Name="快速回复模板">
+                <ic:FluentIcon Icon="Comment" IconSize="Size16" />
+                <Button.Flyout>
+                  <MenuFlyout Placement="BottomEdgeAlignedLeft"
+                              ItemsSource="{Binding QuickReplyTargets}">
+                    <MenuFlyout.ItemTemplate>
+                      <DataTemplate x:DataType="vm:QuickReplyTargetViewModel">
+                        <MenuItem Header="{Binding Name}" Command="{Binding ReplyCommand}" />
+                      </DataTemplate>
+                    </MenuFlyout.ItemTemplate>
+                  </MenuFlyout>
+                </Button.Flyout>
               </Button>
               <Button Command="{Binding ForwardCommand}"
                       Classes="icon toolbar"

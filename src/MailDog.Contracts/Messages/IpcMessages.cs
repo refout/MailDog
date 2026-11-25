@@ -382,6 +382,20 @@ public sealed class SetFlagBatchRequest : Ipc.IIpcMessage
     public bool Value { get; init; }
 }
 
+public sealed class MoveMessagesRequest : Ipc.IIpcMessage
+{
+    public long[] MessageIds { get; init; } = [];
+
+    public long TargetFolderId { get; init; }
+}
+
+public sealed class DeleteMessagesRequest : Ipc.IIpcMessage
+{
+    public long[] MessageIds { get; init; } = [];
+
+    public bool Permanent { get; init; }
+}
+
 public sealed class SyncAccountRequest : Ipc.IIpcMessage
 {
     public string? AccountId { get; init; }

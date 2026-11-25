@@ -111,8 +111,35 @@ public sealed class AppSettingsDto
     /// <summary>纯文本邮件签名，新写、回复和转发时插入正文。</summary>
     public string Signature { get; init; } = string.Empty;
 
+    /// <summary>按账户覆盖的签名；账户没有配置时回退到 <see cref="Signature"/>。</summary>
+    public IReadOnlyList<AccountSignatureDto> AccountSignatures { get; init; } = [];
+
+    /// <summary>用户保存的邮件模板；正文支持 {{date}} 等变量。</summary>
+    public IReadOnlyList<MailTemplateDto> Templates { get; init; } = [];
+
     /// <summary>发送前的等待秒数，给出撤销窗口；0 表示立即发送。</summary>
     public int SendDelaySeconds { get; init; } = 10;
 
     public string RenderMode { get; init; } = "html";
+}
+
+public sealed class AccountSignatureDto
+{
+    public string AccountId { get; init; } = string.Empty;
+
+    public string Signature { get; init; } = string.Empty;
+}
+
+public sealed class MailTemplateDto
+{
+    public string Id { get; init; } = string.Empty;
+
+    public string Name { get; init; } = string.Empty;
+
+    public string Subject { get; init; } = string.Empty;
+
+    public string Body { get; init; } = string.Empty;
+
+    /// <summary>出现在阅读页“快速回复”菜单中，用回复模式直接带出正文。</summary>
+    public bool IsQuickReply { get; init; }
 }

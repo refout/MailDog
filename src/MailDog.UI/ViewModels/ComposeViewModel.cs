@@ -131,20 +131,43 @@ public sealed partial class ComposeAttachmentViewModel : ObservableObject
     }
 }
 
+public sealed partial class ComposeTemplateViewModel : ObservableObject
+{
+    private readonly Action<ComposeTemplateViewModel> _insert;
+
+    public ComposeTemplateViewModel(MailTemplateDto template, Action<ComposeTemplateViewModel> insert)
+    {
+        Template = template;
+        _insert = insert;
+    }
+
+    public MailTemplateDto Template { get; }
+
+    public string Name => string.IsNullOrWhiteSpace(Template.Name) ? "未命名模板" : Template.Name;
+
+    [RelayCommand]
+    private void Insert() => _insert(this);
+}
+
 public sealed partial class ComposeViewModel : ObservableObject
 {
     private const long MaxAttachmentBytes = 25 * 1024 * 1024;
 
     private readonly EngineClient _engine;
     private readonly MailBodyDto? _original;
-    private readonly string _signature;
+    private readonly IReadOnlyList<AccountSignatureDto> _accountSignatures;
     private readonly IReadOnlyList<ContactSuggestionDto> _contacts;
+    private string _signature;
+    private readonly string _defaultSignature;
     private long? _draftMessageId;
     private bool _sent;
     private bool _draftSaved;
     private bool _updatingRecipientText;
     private string? _signatureOnlyHtml;
     private string? _signatureOnlyText;
+    private string? _signaturePrefixHtml;
+    private string? _signaturePrefixText;
+    private bool _initializing = true;
 
     public ComposeViewModel(
         EngineClient engine,
@@ -154,11 +177,16 @@ public sealed partial class ComposeViewModel : ObservableObject
         DraftContentDto? draft = null,
         string? draftAccountId = null,
         string? signature = null,
+        IReadOnlyList<AccountSignatureDto>? accountSignatures = null,
+        IReadOnlyList<MailTemplateDto>? templates = null,
+        MailTemplateDto? initialTemplate = null,
         IReadOnlyList<ContactSuggestionDto>? contacts = null)
     {
         _engine = engine;
         _original = original;
+        _accountSignatures = accountSignatures ?? [];
         _signature = signature?.Trim() ?? string.Empty;
+        _defaultSignature = _signature;
         _contacts = contacts ?? [];
         Mode = mode;
         Accounts = new ObservableCollection<ComposeAccount>(accounts);
@@ -167,6 +195,12 @@ public sealed partial class ComposeViewModel : ObservableObject
             || (original is not null && string.Equals(account.Email, original.FromAddress, StringComparison.OrdinalIgnoreCase))
             || (draftAccountId is null && original is null))
             ?? Accounts.FirstOrDefault();
+        _signature = ResolveSignature(SelectedAccount?.Id);
+
+        Templates = new ObservableCollection<ComposeTemplateViewModel>(
+            (templates ?? [])
+            .Where(template => !string.IsNullOrWhiteSpace(template.Name))
+            .Select(template => new ComposeTemplateViewModel(template, InsertTemplate)));
 
         WindowTitle = draft is not null
             ? "继续写邮件"
@@ -207,11 +241,24 @@ public sealed partial class ComposeViewModel : ObservableObject
             ApplyOriginal(mode, original);
         }
 
+        if (initialTemplate is not null)
+        {
+            ApplyTemplateBody(initialTemplate, applySubject: string.IsNullOrWhiteSpace(SubjectText));
+        }
+
         if (draft is null)
         {
             ApplySignature();
         }
+
+        _initializing = false;
     }
+
+    public event Action<string>? TemplateInsertRequested;
+
+    public ObservableCollection<ComposeTemplateViewModel> Templates { get; }
+
+    public bool HasTemplates => Templates.Count > 0;
 
     public ComposeMode Mode { get; }
 
@@ -646,6 +693,111 @@ public sealed partial class ComposeViewModel : ObservableObject
         return "<p>"
                + WebUtility.HtmlEncode(BodyText).Replace("\r\n", "\n").Replace("\n", "<br/>")
                + "</p>";
+    }
+
+    private void InsertTemplate(ComposeTemplateViewModel item)
+    {
+        var rendered = MailTemplateRenderer.Render(item.Template.Body, BuildTemplateContext());
+        if (string.IsNullOrWhiteSpace(rendered))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SubjectText))
+        {
+            SubjectText = MailTemplateRenderer.RenderSubject(item.Template, BuildTemplateContext());
+        }
+
+        TemplateInsertRequested?.Invoke(MailTemplateRenderer.ToHtml(rendered));
+        Status = $"已插入模板“{item.Name}”。";
+    }
+
+    private void ApplyTemplateBody(MailTemplateDto template, bool applySubject)
+    {
+        var context = BuildTemplateContext();
+        if (applySubject)
+        {
+            var renderedSubject = MailTemplateRenderer.RenderSubject(template, context);
+            if (!string.IsNullOrWhiteSpace(renderedSubject))
+            {
+                SubjectText = renderedSubject;
+            }
+        }
+
+        var rendered = MailTemplateRenderer.Render(template.Body, context);
+        if (string.IsNullOrWhiteSpace(rendered))
+        {
+            return;
+        }
+
+        var html = MailTemplateRenderer.ToHtml(rendered);
+        BodyHtml = html + (BodyHtml ?? string.Empty);
+        BodyText = rendered + "\n\n" + BodyText.TrimStart('\n');
+    }
+
+    private MailTemplateContext BuildTemplateContext()
+        => MailTemplateRenderer.CreateContext(
+            SelectedAccount?.DisplayName ?? string.Empty,
+            SelectedAccount?.Email ?? string.Empty,
+            SubjectText);
+
+    private string ResolveSignature(string? accountId)
+    {
+        var configured = _accountSignatures.FirstOrDefault(item =>
+            !string.IsNullOrWhiteSpace(item.AccountId)
+            && string.Equals(item.AccountId, accountId, StringComparison.Ordinal));
+
+        return configured is not null
+            ? configured.Signature.Trim()
+            : _defaultSignature;
+    }
+
+    partial void OnSelectedAccountChanged(ComposeAccount? value)
+    {
+        if (_initializing)
+        {
+            return;
+        }
+
+        var next = ResolveSignature(value?.Id);
+        if (string.Equals(next, _signature, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _signature = next;
+        if (Mode == ComposeMode.Draft)
+        {
+            return;
+        }
+
+        if (_signaturePrefixHtml is null)
+        {
+            // 旧账户没有签名时，正文里没有可替换的前缀，直接补上新账户签名。
+            if (BodyHtml is not null || BodyText.Length > 0)
+            {
+                ApplySignature();
+            }
+
+            return;
+        }
+
+        if (BodyHtml is null || !BodyHtml.StartsWith(_signaturePrefixHtml, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        BodyHtml = BodyHtml[_signaturePrefixHtml.Length..];
+        if (_signaturePrefixText is not null && BodyText.StartsWith(_signaturePrefixText, StringComparison.Ordinal))
+        {
+            BodyText = BodyText[_signaturePrefixText.Length..];
+        }
+
+        _signaturePrefixHtml = null;
+        _signaturePrefixText = null;
+        _signatureOnlyHtml = null;
+        _signatureOnlyText = null;
+        ApplySignature();
     }
 
     /// <summary>富文本编辑器回传内容后同步纯文本回退。</summary>
@@ -1158,6 +1310,8 @@ public sealed partial class ComposeViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(_signature))
         {
+            _signaturePrefixHtml = null;
+            _signaturePrefixText = null;
             return;
         }
 
@@ -1169,8 +1323,12 @@ public sealed partial class ComposeViewModel : ObservableObject
                 : "<p>" + WebUtility.HtmlEncode(line) + "</p>"));
 
         // 第一行留空给用户直接输入，签名放在正文下方、引用上方。
-        BodyHtml = "<p>&nbsp;</p>" + signatureHtml + BodyHtml;
-        BodyText = "\n\n" + signature + "\n\n" + BodyText;
+        var prefixHtml = "<p>&nbsp;</p>" + signatureHtml;
+        var prefixText = "\n\n" + signature + "\n\n";
+        BodyHtml = prefixHtml + BodyHtml;
+        BodyText = prefixText + BodyText;
+        _signaturePrefixHtml = prefixHtml;
+        _signaturePrefixText = prefixText;
 
         if (Mode == ComposeMode.New)
         {

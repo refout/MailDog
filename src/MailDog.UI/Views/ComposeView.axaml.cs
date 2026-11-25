@@ -40,14 +40,28 @@ public partial class ComposeView : UserControl
         if (_viewModel is not null)
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            _viewModel.TemplateInsertRequested -= OnTemplateInsertRequested;
         }
 
         _viewModel = DataContext as ComposeViewModel;
         if (_viewModel is not null)
         {
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+            _viewModel.TemplateInsertRequested += OnTemplateInsertRequested;
             LoadCompose(_viewModel);
         }
+    }
+
+    private void OnTemplateInsertRequested(string html)
+    {
+        if (_viewModel?.CanEdit != true || string.IsNullOrWhiteSpace(html))
+        {
+            return;
+        }
+
+        RichEditor.InsertHtml(html);
+        PublishRichBody();
+        RichEditor.Focus();
     }
 
     private void LoadCompose(ComposeViewModel viewModel)

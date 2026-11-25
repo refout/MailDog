@@ -93,6 +93,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool HasMoveTargets => MoveTargets.Count > 0;
 
+    /// <summary>选择模式“移动到”菜单项；只有所选邮件同账户时才可批量移动。</summary>
+    public ObservableCollection<MoveTargetViewModel> BatchMoveTargets { get; } = [];
+
+    public bool HasBatchMoveTargets => BatchMoveTargets.Count > 0;
+
     public ObservableCollection<MailSummaryViewModel> Messages { get; } = [];
 
     public ReaderViewModel Reader { get; } = new();
@@ -581,6 +586,46 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _settingsSaveHint = "所有更改会自动保存";
 
+    public ObservableCollection<MailTemplateViewModel> Templates { get; } = [];
+
+    public ObservableCollection<QuickReplyTargetViewModel> QuickReplyTargets { get; } = [];
+
+    public bool HasTemplates => Templates.Count > 0;
+
+    public bool HasQuickReplyTargets => QuickReplyTargets.Count > 0;
+
+    [ObservableProperty]
+    private string _templateName = string.Empty;
+
+    [ObservableProperty]
+    private string _templateSubject = string.Empty;
+
+    [ObservableProperty]
+    private string _templateBody = string.Empty;
+
+    [ObservableProperty]
+    private bool _templateIsQuickReply;
+
+    [ObservableProperty]
+    private bool _isTemplateEditorOpen;
+
+    [ObservableProperty]
+    private string _templateEditorTitle = "新建模板";
+
+    [ObservableProperty]
+    private string? _templateHint;
+
+    private string? _editingTemplateId;
+
+    [ObservableProperty]
+    private AccountViewModel? _selectedSignatureAccount;
+
+    [ObservableProperty]
+    private string _accountSignatureText = string.Empty;
+
+    private readonly Dictionary<string, string> _accountSignatures = new(StringComparer.Ordinal);
+    private bool _suppressSignatureSync;
+
     [ObservableProperty]
     private StorageSummaryDto? _storageSummary;
 
@@ -642,11 +687,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsToolsSection => SettingsSectionIndex == 7;
 
+    public bool IsTemplatesSection => SettingsSectionIndex == 8;
+
     public bool IsAccountListVisible => IsAccountSection && !ShowAddAccountForm;
 
     public bool IsAddAccountFormVisible => IsAccountSection && ShowAddAccountForm;
 
-    public bool IsAboutSection => SettingsSectionIndex == 8;
+    public bool IsAboutSection => SettingsSectionIndex == 9;
 
     public string StorageDataDirectory => StorageSummary?.DataDirectory ?? "尚未读取";
 
@@ -731,6 +778,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsStorageSection));
         OnPropertyChanged(nameof(IsStartupSection));
         OnPropertyChanged(nameof(IsToolsSection));
+        OnPropertyChanged(nameof(IsTemplatesSection));
         OnPropertyChanged(nameof(IsAccountListVisible));
         OnPropertyChanged(nameof(IsAddAccountFormVisible));
         OnPropertyChanged(nameof(IsAboutSection));
@@ -1601,6 +1649,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasCheckedMessages));
         OnPropertyChanged(nameof(CheckedText));
         OnPropertyChanged(nameof(IsAllChecked));
+        RebuildBatchMoveTargets();
     }
 
     public bool IsFilterAll
@@ -2176,9 +2225,25 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void RemoveMessageFromView(MailSummaryViewModel message)
     {
-        _allMessages.Remove(message);
-        Messages.Remove(message);
-        if (ReferenceEquals(SelectedMessage, message))
+        RemoveMessagesFromView([message]);
+    }
+
+    private void RemoveMessagesFromView(IEnumerable<MailSummaryViewModel> messages)
+    {
+        var removed = messages.ToArray();
+        if (removed.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var message in removed)
+        {
+            _allMessages.Remove(message);
+            Messages.Remove(message);
+            message.IsSelected = false;
+        }
+
+        if (SelectedMessage is { } selected && removed.Contains(selected))
         {
             SelectedMessage = null;
             _currentBody = null;
@@ -2186,6 +2251,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         ApplyFilter();
+        NotifySelectionState();
     }
 
     private void RebuildMoveTargets()
@@ -2214,6 +2280,36 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SelectedMessageInTrash));
         OnPropertyChanged(nameof(SelectedMessageInDrafts));
         OnPropertyChanged(nameof(DeleteActionText));
+        RebuildBatchMoveTargets();
+    }
+
+    private void RebuildBatchMoveTargets()
+    {
+        BatchMoveTargets.Clear();
+
+        var checkedMessages = Messages.Where(message => message.IsSelected).ToArray();
+        var accountIds = checkedMessages.Select(message => message.AccountId)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (accountIds.Length == 1)
+        {
+            var sourceFolderIds = checkedMessages.Select(message => message.FolderId).ToHashSet();
+            var accountId = accountIds[0];
+            var targets = Folders
+                .Where(folder => string.Equals(folder.AccountId, accountId, StringComparison.Ordinal)
+                                 && folder.Role != FolderRole.Drafts
+                                 && !sourceFolderIds.Contains(folder.Id))
+                .OrderBy(folder => folder.Role == FolderRole.Other ? 1 : 0)
+                .ThenBy(folder => folder.Name, StringComparer.CurrentCulture);
+
+            foreach (var folder in targets)
+            {
+                BatchMoveTargets.Add(new MoveTargetViewModel(folder, BatchMoveToFolderCommand));
+            }
+        }
+
+        OnPropertyChanged(nameof(HasBatchMoveTargets));
     }
 
     public void BeginCreateFolder(string accountId)
@@ -2403,6 +2499,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 null,
                 response.Draft,
                 draft.AccountId,
+                accountSignatures: BuildAccountSignatures(),
+                templates: BuildTemplateDtos(),
                 contacts: _contacts);
             MountCompose(compose);
         }
@@ -2455,6 +2553,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ComposeMode.New,
             null,
             signature: SignatureText,
+            accountSignatures: BuildAccountSignatures(),
+            templates: BuildTemplateDtos(),
             contacts: _contacts);
 
         compose.ToText = fields.GetValueOrDefault("to", string.Empty);
@@ -2503,7 +2603,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void Forward() => OpenCompose(ComposeMode.Forward);
 
-    private void OpenCompose(ComposeMode mode)
+    private void OpenCompose(ComposeMode mode) => OpenCompose(mode, null);
+
+    private void OpenCompose(ComposeMode mode, MailTemplateDto? initialTemplate)
     {
         if (Accounts.Count == 0)
         {
@@ -2525,6 +2627,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             mode,
             mode == ComposeMode.New ? null : _currentBody,
             signature: SignatureText,
+            accountSignatures: BuildAccountSignatures(),
+            templates: BuildTemplateDtos(),
+            initialTemplate: initialTemplate,
             contacts: _contacts);
 
         MountCompose(compose);
@@ -2743,6 +2848,241 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private Task UnflagCheckedAsync() => SetCheckedFlagAsync(false);
+
+    [RelayCommand]
+    private async Task BatchArchiveAsync()
+    {
+        var targets = CheckedTargets();
+        if (targets.Length == 0)
+        {
+            return;
+        }
+
+        IsBatchBusy = true;
+        var moved = new List<MailSummaryViewModel>();
+        var missing = new HashSet<string>(StringComparer.Ordinal);
+
+        try
+        {
+            foreach (var group in targets.GroupBy(message => message.AccountId))
+            {
+                var source = _foldersById.GetValueOrDefault(group.First().FolderId);
+                var archive = Folders.FirstOrDefault(folder =>
+                    string.Equals(folder.AccountId, group.Key, StringComparison.Ordinal)
+                    && folder.Role == FolderRole.Archive
+                    && folder.Id != source?.Id);
+
+                if (archive is null)
+                {
+                    missing.Add(group.Key);
+                    continue;
+                }
+
+                var batch = group.Where(message => message.FolderId != archive.Id).ToArray();
+                if (batch.Length == 0)
+                {
+                    continue;
+                }
+
+                await _engine.RequestAsync<OkResponse>(
+                    IpcMessageTypes.MoveMessages,
+                    new MoveMessagesRequest
+                    {
+                        MessageIds = batch.Select(message => message.Id).ToArray(),
+                        TargetFolderId = archive.Id
+                    });
+
+                moved.AddRange(batch);
+            }
+
+            if (moved.Count > 0)
+            {
+                RemoveMessagesFromView(moved);
+                await ReloadCurrentFolderAsync();
+            }
+
+            StatusMessage = moved.Count == 0
+                ? "没有可归档的邮件：所选邮件已在归档，或账户没有归档文件夹。"
+                : missing.Count == 0
+                    ? $"已归档 {moved.Count} 封邮件。"
+                    : $"已归档 {moved.Count} 封邮件；{missing.Count} 个账户没有归档文件夹，已跳过。";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+        finally
+        {
+            IsBatchBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task BatchMarkJunkAsync()
+    {
+        var targets = CheckedTargets();
+        if (targets.Length == 0)
+        {
+            return;
+        }
+
+        IsBatchBusy = true;
+        var moved = new List<MailSummaryViewModel>();
+        var missing = new HashSet<string>(StringComparer.Ordinal);
+
+        try
+        {
+            foreach (var group in targets.GroupBy(message => message.AccountId))
+            {
+                var junk = Folders.FirstOrDefault(folder =>
+                    string.Equals(folder.AccountId, group.Key, StringComparison.Ordinal)
+                    && folder.Role == FolderRole.Junk);
+
+                if (junk is null)
+                {
+                    missing.Add(group.Key);
+                    continue;
+                }
+
+                var batch = group.Where(message => message.FolderId != junk.Id).ToArray();
+                if (batch.Length == 0)
+                {
+                    continue;
+                }
+
+                await _engine.RequestAsync<OkResponse>(
+                    IpcMessageTypes.MoveMessages,
+                    new MoveMessagesRequest
+                    {
+                        MessageIds = batch.Select(message => message.Id).ToArray(),
+                        TargetFolderId = junk.Id
+                    });
+
+                moved.AddRange(batch);
+            }
+
+            if (moved.Count > 0)
+            {
+                RemoveMessagesFromView(moved);
+                await ReloadCurrentFolderAsync();
+            }
+
+            StatusMessage = moved.Count == 0
+                ? "没有可标记的邮件：所选邮件已在垃圾邮件，或账户没有垃圾邮件文件夹。"
+                : missing.Count == 0
+                    ? $"已将 {moved.Count} 封邮件标记为垃圾邮件。"
+                    : $"已标记 {moved.Count} 封邮件；{missing.Count} 个账户没有垃圾邮件文件夹，已跳过。";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+        finally
+        {
+            IsBatchBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task BatchDeleteAsync()
+    {
+        var targets = CheckedTargets();
+        if (targets.Length == 0)
+        {
+            return;
+        }
+
+        IsBatchBusy = true;
+
+        try
+        {
+            foreach (var group in targets.GroupBy(message =>
+                         _foldersById.GetValueOrDefault(message.FolderId)?.Role == FolderRole.Trash))
+            {
+                await _engine.RequestAsync<OkResponse>(
+                    IpcMessageTypes.DeleteMessages,
+                    new DeleteMessagesRequest
+                    {
+                        MessageIds = group.Select(message => message.Id).ToArray(),
+                        Permanent = group.Key
+                    });
+            }
+
+            var permanentCount = targets.Count(message =>
+                _foldersById.GetValueOrDefault(message.FolderId)?.Role == FolderRole.Trash);
+            RemoveMessagesFromView(targets);
+            await ReloadCurrentFolderAsync();
+            StatusMessage = permanentCount == targets.Length
+                ? $"已永久删除 {targets.Length} 封邮件。"
+                : $"已删除 {targets.Length} 封邮件（{permanentCount} 封来自垃圾箱，已永久删除）。";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+        finally
+        {
+            IsBatchBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task BatchMoveToFolderAsync(long targetFolderId)
+    {
+        var targets = CheckedTargets();
+        if (targets.Length == 0)
+        {
+            return;
+        }
+
+        var accountIds = targets.Select(message => message.AccountId).Distinct(StringComparer.Ordinal).ToArray();
+        if (accountIds.Length != 1)
+        {
+            StatusMessage = "批量移动只支持同一个账户的邮件；跨账户请分开选择。";
+            return;
+        }
+
+        var target = Folders.FirstOrDefault(folder => folder.Id == targetFolderId
+            && string.Equals(folder.AccountId, accountIds[0], StringComparison.Ordinal)
+            && folder.Role != FolderRole.Drafts);
+        if (target is null)
+        {
+            StatusMessage = "只能把邮件移动到同一账户的文件夹。";
+            return;
+        }
+
+        var batchMessages = targets.Where(message => message.FolderId != target.Id).ToArray();
+        if (batchMessages.Length == 0)
+        {
+            StatusMessage = "所选邮件已经在目标文件夹。";
+            return;
+        }
+
+        IsBatchBusy = true;
+
+        try
+        {
+            await _engine.RequestAsync<OkResponse>(
+                IpcMessageTypes.MoveMessages,
+                new MoveMessagesRequest
+                {
+                    MessageIds = batchMessages.Select(message => message.Id).ToArray(),
+                    TargetFolderId = target.Id
+                });
+
+            RemoveMessagesFromView(batchMessages);
+            await ReloadCurrentFolderAsync();
+            StatusMessage = $"已把 {batchMessages.Length} 封邮件移动到“{target.Name}”。";
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception);
+        }
+        finally
+        {
+            IsBatchBusy = false;
+        }
+    }
 
     private async Task SetCheckedReadAsync(bool isRead)
     {
@@ -2978,6 +3318,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ShowRemoteImages = ShowRemoteImages,
             SaveSentCopy = SaveSentCopy,
             Signature = SignatureText,
+            AccountSignatures = _accountSignatures
+                .Select(pair => new AccountSignatureDto
+                {
+                    AccountId = pair.Key,
+                    Signature = pair.Value
+                })
+                .ToArray(),
+            Templates = Templates
+                .Select(item => item.Template)
+                .ToArray(),
             SendDelaySeconds = SendDelayIndex switch
             {
                 0 => 0,
@@ -3037,6 +3387,178 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void OpenSettings()
     {
         IsSettingsOpen = true;
+    }
+
+    private IReadOnlyList<AccountSignatureDto> BuildAccountSignatures()
+        => _accountSignatures
+            .Select(pair => new AccountSignatureDto
+            {
+                AccountId = pair.Key,
+                Signature = pair.Value
+            })
+            .ToArray();
+
+    private IReadOnlyList<MailTemplateDto> BuildTemplateDtos()
+        => Templates.Select(item => item.Template).ToArray();
+
+    private void RebuildQuickReplyTargets()
+    {
+        QuickReplyTargets.Clear();
+        foreach (var template in Templates.Where(item => item.IsQuickReply))
+        {
+            QuickReplyTargets.Add(new QuickReplyTargetViewModel(template.Template, QuickReply));
+        }
+
+        OnPropertyChanged(nameof(HasQuickReplyTargets));
+    }
+
+    private void ReloadTemplateList(IReadOnlyList<MailTemplateDto> templates)
+    {
+        Templates.Clear();
+        foreach (var template in templates)
+        {
+            Templates.Add(new MailTemplateViewModel(template, EditTemplate, DeleteTemplate));
+        }
+
+        OnPropertyChanged(nameof(HasTemplates));
+        RebuildQuickReplyTargets();
+    }
+
+    [RelayCommand]
+    private void NewTemplate()
+    {
+        _editingTemplateId = null;
+        TemplateEditorTitle = "新建模板";
+        TemplateName = string.Empty;
+        TemplateSubject = string.Empty;
+        TemplateBody = string.Empty;
+        TemplateIsQuickReply = false;
+        TemplateHint = null;
+        IsTemplateEditorOpen = true;
+    }
+
+    private void EditTemplate(MailTemplateViewModel template)
+    {
+        _editingTemplateId = template.Id;
+        TemplateEditorTitle = "编辑模板";
+        TemplateName = template.Name;
+        TemplateSubject = template.Subject;
+        TemplateBody = template.Body;
+        TemplateIsQuickReply = template.IsQuickReply;
+        TemplateHint = null;
+        IsTemplateEditorOpen = true;
+    }
+
+    private void DeleteTemplate(MailTemplateViewModel template)
+    {
+        Templates.Remove(template);
+        if (string.Equals(_editingTemplateId, template.Id, StringComparison.Ordinal))
+        {
+            IsTemplateEditorOpen = false;
+            _editingTemplateId = null;
+        }
+
+        OnPropertyChanged(nameof(HasTemplates));
+        RebuildQuickReplyTargets();
+        QueueSettingsSave();
+        TemplateHint = $"已删除模板“{template.Name}”。";
+    }
+
+    [RelayCommand]
+    private void CancelTemplateEdit()
+    {
+        IsTemplateEditorOpen = false;
+        _editingTemplateId = null;
+        TemplateHint = null;
+    }
+
+    [RelayCommand]
+    private void SaveTemplate()
+    {
+        var name = TemplateName.Trim();
+        if (name.Length == 0)
+        {
+            TemplateHint = "请填写模板名称。";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(TemplateBody))
+        {
+            TemplateHint = "模板正文不能为空。";
+            return;
+        }
+
+        var id = _editingTemplateId ?? Guid.NewGuid().ToString("N");
+        var updated = new MailTemplateDto
+        {
+            Id = id,
+            Name = name,
+            Subject = TemplateSubject.Trim(),
+            Body = TemplateBody.Replace("\r\n", "\n").TrimEnd(),
+            IsQuickReply = TemplateIsQuickReply
+        };
+
+        var index = Templates.ToList().FindIndex(item => string.Equals(item.Id, id, StringComparison.Ordinal));
+        var viewModel = new MailTemplateViewModel(updated, EditTemplate, DeleteTemplate);
+        if (index >= 0)
+        {
+            Templates[index] = viewModel;
+        }
+        else
+        {
+            Templates.Add(viewModel);
+        }
+
+        IsTemplateEditorOpen = false;
+        _editingTemplateId = null;
+        TemplateHint = $"已保存模板“{name}”。";
+        OnPropertyChanged(nameof(HasTemplates));
+        RebuildQuickReplyTargets();
+        QueueSettingsSave();
+    }
+
+    [RelayCommand]
+    private void QuickReply(QuickReplyTargetViewModel target)
+    {
+        if (IsComposeOpen)
+        {
+            StatusMessage = "请先关闭当前正在撰写的邮件。";
+            return;
+        }
+
+        if (SelectedMessage is null || _currentBody is null)
+        {
+            StatusMessage = "请先打开一封邮件，再使用快速回复。";
+            return;
+        }
+
+        OpenCompose(ComposeMode.Reply, target.Template);
+    }
+
+    partial void OnSelectedSignatureAccountChanged(AccountViewModel? value)
+    {
+        if (value is null)
+        {
+            _suppressSignatureSync = true;
+            AccountSignatureText = string.Empty;
+            _suppressSignatureSync = false;
+            return;
+        }
+
+        _suppressSignatureSync = true;
+        AccountSignatureText = _accountSignatures.GetValueOrDefault(value.Id) ?? string.Empty;
+        _suppressSignatureSync = false;
+    }
+
+    partial void OnAccountSignatureTextChanged(string value)
+    {
+        if (_suppressSignatureSync || SelectedSignatureAccount is null)
+        {
+            return;
+        }
+
+        _accountSignatures[SelectedSignatureAccount.Id] = value;
+        QueueSettingsSave();
     }
 
     [RelayCommand]
@@ -3663,7 +4185,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenAbout()
     {
-        SettingsSectionIndex = 8;
+        SettingsSectionIndex = 9;
         IsSettingsOpen = true;
     }
 
@@ -4537,6 +5059,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ShowRemoteImages = _settings.ShowRemoteImages;
             SaveSentCopy = _settings.SaveSentCopy;
             SignatureText = _settings.Signature ?? string.Empty;
+            _accountSignatures.Clear();
+            foreach (var item in _settings.AccountSignatures)
+            {
+                if (!string.IsNullOrWhiteSpace(item.AccountId))
+                {
+                    _accountSignatures[item.AccountId] = item.Signature;
+                }
+            }
+
+            SelectedSignatureAccount ??= Accounts.FirstOrDefault();
+            ReloadTemplateList(_settings.Templates);
             SendDelayIndex = _settings.SendDelaySeconds switch
             {
                 0 => 0,
@@ -4619,6 +5152,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             SelectedAccount = selectedId is null
                 ? Accounts.FirstOrDefault()
                 : Accounts.FirstOrDefault(account => account.Id == selectedId) ?? Accounts.FirstOrDefault();
+            if (SelectedSignatureAccount is null
+                || !Accounts.Any(account => string.Equals(account.Id, SelectedSignatureAccount.Id, StringComparison.Ordinal)))
+            {
+                SelectedSignatureAccount = Accounts.FirstOrDefault();
+            }
         }
         finally
         {

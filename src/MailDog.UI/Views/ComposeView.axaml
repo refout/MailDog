@@ -398,6 +398,23 @@
         <ic:FluentIcon Icon="Image" IconSize="Size16" />
       </Button>
 
+      <Button Classes="icon toolbar"
+              IsVisible="{Binding HasTemplates}"
+              ToolTip.Tip="插入邮件模板"
+              AutomationProperties.Name="插入邮件模板">
+        <ic:FluentIcon Icon="DocumentText" IconSize="Size16" />
+        <Button.Flyout>
+          <MenuFlyout Placement="BottomEdgeAlignedLeft"
+                      ItemsSource="{Binding Templates}">
+            <MenuFlyout.ItemTemplate>
+              <DataTemplate x:DataType="vm:ComposeTemplateViewModel">
+                <MenuItem Header="{Binding Name}" Command="{Binding InsertCommand}" />
+              </DataTemplate>
+            </MenuFlyout.ItemTemplate>
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+
       <Border Width="1"
               Height="18"
               Margin="4,0,8,0"

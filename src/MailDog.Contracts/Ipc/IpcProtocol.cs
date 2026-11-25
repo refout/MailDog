@@ -46,6 +46,8 @@ public static class IpcMessageTypes
     public const string MessageBody = "messageBody";
     public const string MoveMessage = "moveMessage";
     public const string DeleteMessage = "deleteMessage";
+    public const string MoveMessages = "moveMessages";
+    public const string DeleteMessages = "deleteMessages";
     public const string MarkRead = "markRead";
     public const string MarkReadBatch = "markReadBatch";
     public const string SetFlag = "setFlag";

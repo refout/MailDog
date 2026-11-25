@@ -94,6 +94,71 @@ public sealed class IpcContractTests
     }
 
     [Fact]
+    public void BatchMoveAndDeleteRequestsRoundTrip()
+    {
+        var move = new MoveMessagesRequest
+        {
+            MessageIds = [101, 102],
+            TargetFolderId = 88
+        };
+        var moveEnvelope = IpcCodecRegistry.Create(IpcMessageTypes.MoveMessages, move);
+        var parsedMove = Assert.IsType<MoveMessagesRequest>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(moveEnvelope))));
+        Assert.Equal([101L, 102L], parsedMove.MessageIds);
+        Assert.Equal(88, parsedMove.TargetFolderId);
+
+        var delete = new DeleteMessagesRequest
+        {
+            MessageIds = [201, 202, 203],
+            Permanent = true
+        };
+        var deleteEnvelope = IpcCodecRegistry.Create(IpcMessageTypes.DeleteMessages, delete);
+        var parsedDelete = Assert.IsType<DeleteMessagesRequest>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(deleteEnvelope))));
+        Assert.Equal([201L, 202L, 203L], parsedDelete.MessageIds);
+        Assert.True(parsedDelete.Permanent);
+    }
+
+    [Fact]
+    public void TemplatesAndAccountSignaturesRoundTripInsideSettings()
+    {
+        var settings = new AppSettingsDto
+        {
+            Signature = "默认签名",
+            AccountSignatures =
+            [
+                new AccountSignatureDto { AccountId = "acc-1", Signature = "账户签名" }
+            ],
+            Templates =
+            [
+                new MailTemplateDto
+                {
+                    Id = "t-1",
+                    Name = "客户跟进",
+                    Subject = "关于 {{subject}}",
+                    Body = "您好，{{account}}",
+                    IsQuickReply = true
+                }
+            ]
+        };
+
+        var envelope = IpcCodecRegistry.Create(
+            IpcMessageTypes.UpdateSettings,
+            new UpdateSettingsRequest { Settings = settings });
+        var parsed = Assert.IsType<UpdateSettingsRequest>(
+            IpcCodecRegistry.Read(IpcJson.Deserialize(IpcJson.Serialize(envelope))));
+
+        var signature = Assert.Single(parsed.Settings.AccountSignatures);
+        Assert.Equal("acc-1", signature.AccountId);
+        Assert.Equal("账户签名", signature.Signature);
+
+        var template = Assert.Single(parsed.Settings.Templates);
+        Assert.Equal("客户跟进", template.Name);
+        Assert.Equal("关于 {{subject}}", template.Subject);
+        Assert.True(template.IsQuickReply);
+    }
+
+    [Fact]
     public void OAuthDtosAreCoveredBySourceGeneratedContext()
     {
         Assert.NotNull(IpcJsonContext.Default.GetTypeInfo(typeof(OAuthTokenResponse)));
