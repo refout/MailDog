@@ -10,8 +10,13 @@ public sealed partial class RuleViewModel : ObservableObject
     private readonly Func<RuleViewModel, Task> _save;
     private readonly Func<RuleViewModel, Task> _delete;
 
-    public RuleViewModel(RuleDto rule, Func<RuleViewModel, Task> save, Func<RuleViewModel, Task> delete)
+    public RuleViewModel(
+        RuleDto rule,
+        Func<RuleViewModel, Task> save,
+        Func<RuleViewModel, Task> delete,
+        string? targetFolderName = null)
     {
+        Rule = rule;
         RuleId = rule.Id;
         AccountId = rule.AccountId;
         Field = rule.Field;
@@ -20,11 +25,15 @@ public sealed partial class RuleViewModel : ObservableObject
         Flag = rule.Flag;
         Mute = rule.Mute;
         MoveToJunk = rule.MoveToJunk;
+        TargetFolderId = rule.TargetFolderId;
+        TargetFolderName = targetFolderName;
         Hits = rule.Hits;
         _enabled = rule.Enabled;
         _save = save;
         _delete = delete;
     }
+
+    public RuleDto Rule { get; }
 
     public long RuleId { get; }
 
@@ -41,6 +50,10 @@ public sealed partial class RuleViewModel : ObservableObject
     public bool Mute { get; }
 
     public bool MoveToJunk { get; }
+
+    public long? TargetFolderId { get; }
+
+    public string? TargetFolderName { get; }
 
     public int Hits { get; }
 
@@ -77,7 +90,11 @@ public sealed partial class RuleViewModel : ObservableObject
                 actions.Add("不通知");
             }
 
-            if (MoveToJunk)
+            if (TargetFolderId is not null)
+            {
+                actions.Add($"移入 {TargetFolderName ?? "指定文件夹"}");
+            }
+            else if (MoveToJunk)
             {
                 actions.Add("移入垃圾邮件");
             }
@@ -99,6 +116,7 @@ public sealed partial class RuleViewModel : ObservableObject
             Flag = Flag,
             Mute = Mute,
             MoveToJunk = MoveToJunk,
+            TargetFolderId = TargetFolderId,
             Enabled = Enabled,
             Hits = Hits
         };

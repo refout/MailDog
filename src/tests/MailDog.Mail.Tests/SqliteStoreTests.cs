@@ -824,7 +824,7 @@ public sealed class SqliteStoreTests : IDisposable
         };
 
         var firstId = _store.SaveRule(fromRule);
-        var anyRule = new RuleDto { Field = "any", Pattern = "账单", Flag = true, MoveToJunk = true };
+        var anyRule = new RuleDto { Field = "any", Pattern = "账单", Flag = true, MoveToJunk = true, TargetFolderId = 42 };
         var secondId = _store.SaveRule(anyRule);
 
         var rules = _store.GetRules();
@@ -843,6 +843,7 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.Null(second.AccountId);
         Assert.True(second.Flag);
         Assert.True(second.MoveToJunk);
+        Assert.Equal(42, second.TargetFolderId);
 
         _store.IncrementRuleHits([firstId, firstId, secondId]);
         var afterHits = _store.GetRules();
@@ -898,6 +899,37 @@ public sealed class SqliteStoreTests : IDisposable
         _store.Compact();
 
         Assert.True(File.Exists(_databasePath));
+    }
+
+    [Fact]
+    public void FindRuleMatchesOnlyReturnsMatchingMessagesInAccount()
+    {
+        var account = CreateAccount();
+        _store.UpsertAccount(account);
+        _store.UpsertFolders(account.Id,
+        [
+            new FolderRecord(0, account.Id, "INBOX", "收件箱", FolderRole.Inbox, 7, 0, 0, 0)
+        ]);
+        var folder = Assert.Single(_store.GetFolders(account.Id));
+        var now = DateTimeOffset.UtcNow;
+
+        _store.UpsertMessages(account.Id, folder.Id,
+        [
+            new MessageRecord(0, account.Id, folder.Id, 83, "r1", "月度账单", "Bank", "bank@example.com",
+                "me@example.com", string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched),
+            new MessageRecord(0, account.Id, folder.Id, 84, "r2", "周末活动", "Club", "club@example.com",
+                "me@example.com", string.Empty, now, 10, MailFlags.None, false, string.Empty, BodyStates.NotFetched)
+        ]);
+
+        var matches = _store.FindRuleMatches(new RuleDto
+        {
+            AccountId = account.Id,
+            Field = "subject",
+            Pattern = "账单"
+        });
+
+        Assert.Single(matches);
+        Assert.Equal("月度账单", matches[0].Subject);
     }
 
     [Fact]

@@ -96,6 +96,10 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.RulesList, IpcJsonContext.Default.RulesResponse);
         Register(IpcMessageTypes.SaveRule, IpcJsonContext.Default.SaveRuleRequest);
         Register(IpcMessageTypes.DeleteRule, IpcJsonContext.Default.DeleteRuleRequest);
+        Register(IpcMessageTypes.PreviewRuleMatches, IpcJsonContext.Default.PreviewRuleMatchesRequest);
+        Register(IpcMessageTypes.RuleMatchPreview, IpcJsonContext.Default.RuleMatchPreviewResponse);
+        Register(IpcMessageTypes.ApplyRuleHistory, IpcJsonContext.Default.ApplyRuleHistoryRequest);
+        Register(IpcMessageTypes.RuleHistoryApplied, IpcJsonContext.Default.RuleHistoryApplyResponse);
 
         Register(IpcMessageTypes.NewMail, IpcJsonContext.Default.NewMailEvent);
         Register(IpcMessageTypes.MailChanged, IpcJsonContext.Default.MailChangedEvent);

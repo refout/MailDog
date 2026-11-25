@@ -59,6 +59,9 @@ public sealed class RequestRouter
     /// <summary>由 EngineHost 注入：把打开的邮件加入系统最近列表。</summary>
     public Action<AddRecentRequest>? AddRecent { get; set; }
 
+    /// <summary>由 EngineHost 注入：在后台把规则回溯到历史邮件，返回本次接受的数量。</summary>
+    public Func<long, int, RuleHistoryApplyResultDto>? ApplyRuleHistory { get; set; }
+
     public HelloAck CreateHelloAck()
         => new()
         {
@@ -396,6 +399,39 @@ public sealed class RequestRouter
 
             case DeleteRuleRequest request:
                 return new OkResponse { Affected = _store.DeleteRule(request.Id) ? 1 : 0 };
+
+            case PreviewRuleMatchesRequest request:
+            {
+                var rule = _store.GetRules().FirstOrDefault(item => item.Id == request.RuleId)
+                    ?? throw new KeyNotFoundException("规则不存在。");
+                var matches = _store.FindRuleMatches(rule, 200);
+                var target = rule.TargetFolderId is { } folderId ? _store.GetFolder(folderId) : null;
+                return new RuleMatchPreviewResponse
+                {
+                    Preview = new RuleMatchPreviewDto
+                    {
+                        RuleId = rule.Id,
+                        Matched = matches.Count,
+                        ScanLimit = 200,
+                        TargetFolderName = target?.DisplayName,
+                        Samples = matches.Take(5).Select(item => new RuleMatchSampleDto
+                        {
+                            MessageId = item.Id,
+                            FolderId = item.FolderId,
+                            Subject = item.Subject,
+                            From = $"{item.FromName} <{item.FromAddress}>",
+                            Date = item.Date
+                        }).ToArray()
+                    }
+                };
+            }
+
+            case ApplyRuleHistoryRequest request:
+                return new RuleHistoryApplyResponse
+                {
+                    Result = ApplyRuleHistory?.Invoke(request.RuleId, request.Limit)
+                        ?? new RuleHistoryApplyResultDto { Message = "当前引擎不支持历史回溯。" }
+                };
 
             case TakePendingNavigationRequest:
                 return TakePendingNavigation?.Invoke() ?? new PendingNavigationResponse();

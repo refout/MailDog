@@ -1421,8 +1421,31 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<RuleAccountOption> RuleAccounts { get; } = [];
 
+    public ObservableCollection<FolderViewModel> RuleTargetFolders { get; } = [];
+
     [ObservableProperty]
     private RuleAccountOption? _selectedRuleAccount;
+
+    [ObservableProperty]
+    private FolderViewModel? _newRuleTargetFolder;
+
+    partial void OnSelectedRuleAccountChanged(RuleAccountOption? value)
+    {
+        RuleTargetFolders.Clear();
+        NewRuleTargetFolder = null;
+
+        if (value?.Id is not { } accountId)
+        {
+            return;
+        }
+
+        foreach (var folder in Folders.Where(folder =>
+                     string.Equals(folder.AccountId, accountId, StringComparison.Ordinal)
+                     && folder.Role is not (FolderRole.Sent or FolderRole.Drafts)))
+        {
+            RuleTargetFolders.Add(folder);
+        }
+    }
 
     [ObservableProperty]
     private string _newRulePattern = string.Empty;
@@ -1510,9 +1533,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (!NewRuleMarkRead && !NewRuleFlag && !NewRuleMute && !NewRuleMoveToJunk)
+        if (!NewRuleMarkRead && !NewRuleFlag && !NewRuleMute && !NewRuleMoveToJunk && NewRuleTargetFolder is null)
         {
             RuleHint = "至少选择一个动作";
+            return;
+        }
+
+        if (NewRuleTargetFolder is not null && SelectedRuleAccount?.Id is null)
+        {
+            RuleHint = "移动到文件夹的规则需要先选择具体账号";
             return;
         }
 
@@ -1530,6 +1559,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             Flag = NewRuleFlag,
             Mute = NewRuleMute,
             MoveToJunk = NewRuleMoveToJunk,
+            TargetFolderId = NewRuleTargetFolder?.Id,
             Enabled = true
         };
 
@@ -1544,6 +1574,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             NewRuleFlag = false;
             NewRuleMute = false;
             NewRuleMoveToJunk = false;
+            NewRuleTargetFolder = null;
             RuleHint = "规则已保存，新的来信会立即生效";
             await LoadRulesAsync();
         }
@@ -1564,6 +1595,63 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         catch (Exception exception)
         {
             RuleHint = $"更新规则失败：{exception.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task PreviewRuleAsync(RuleViewModel? rule)
+    {
+        if (rule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await _engine.RequestAsync<RuleMatchPreviewResponse>(
+                IpcMessageTypes.PreviewRuleMatches,
+                new PreviewRuleMatchesRequest { RuleId = rule.RuleId });
+
+            var preview = response.Preview;
+            if (preview.Matched == 0)
+            {
+                RuleHint = "这条规则在当前邮件里没有命中。";
+                return;
+            }
+
+            var samples = preview.Samples
+                .Select((sample, index) => $"{index + 1}. {sample.Date.ToLocalTime():MM-dd} {sample.Subject}")
+                .ToArray();
+            RuleHint = $"命中 {preview.Matched} 封（最多预览 {preview.ScanLimit} 封）"
+                + (preview.TargetFolderName is null ? string.Empty : $"，目标：{preview.TargetFolderName}")
+                + "：" + string.Join("；", samples);
+        }
+        catch (Exception exception)
+        {
+            RuleHint = $"预览失败：{exception.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task ApplyRuleHistoryAsync(RuleViewModel? rule)
+    {
+        if (rule is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await _engine.RequestAsync<RuleHistoryApplyResponse>(
+                IpcMessageTypes.ApplyRuleHistory,
+                new ApplyRuleHistoryRequest { RuleId = rule.RuleId, Limit = 200 },
+                TimeSpan.FromSeconds(30));
+            RuleHint = response.Result.Message;
+            await LoadRulesAsync();
+        }
+        catch (Exception exception)
+        {
+            RuleHint = $"回溯失败：{exception.Message}";
         }
     }
 
@@ -1626,7 +1714,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
         foreach (var rule in response.Items)
         {
-            Rules.Add(new RuleViewModel(rule, SaveRuleAsync, DeleteRuleAsync));
+            var folderName = rule.TargetFolderId is { } folderId
+                ? _foldersById.TryGetValue(folderId, out var folder) ? folder.Name : $"#{folderId}"
+                : null;
+            Rules.Add(new RuleViewModel(rule, SaveRuleAsync, DeleteRuleAsync, folderName));
         }
 
         NotifyRulesChanged();

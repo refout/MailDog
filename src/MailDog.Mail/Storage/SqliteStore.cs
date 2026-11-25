@@ -755,6 +755,45 @@ public sealed class SqliteStore : IDisposable
         };
     }
 
+    /// <summary>按规则扫描历史邮件；调用方用小 limit 做预览，用大 limit 做回溯。</summary>
+    public IReadOnlyList<MessageRecord> FindRuleMatches(RuleDto rule, int limit = 500)
+    {
+        lock (_gate)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = """
+                SELECT id, account_id, folder_id, uid, message_id, subject, from_name, from_addr,
+                       to_addrs, cc_addrs, date_utc, size, flags, has_attachments, preview, body_state,
+                       thread_key
+                FROM messages
+                WHERE ($accountId IS NULL OR account_id = $accountId)
+                ORDER BY date_utc DESC, id DESC
+                LIMIT $limit;
+                """;
+            command.Parameters.AddWithValue(
+                "$accountId",
+                string.IsNullOrWhiteSpace(rule.AccountId) ? DBNull.Value : rule.AccountId);
+            command.Parameters.AddWithValue("$limit", Math.Clamp(limit + 1, 1, 5000));
+
+            var matches = new List<MessageRecord>();
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var message = ReadMessage(reader);
+                if (RuleMatcher.Matches(rule, message.Subject, message.FromName, message.FromAddress))
+                {
+                    matches.Add(message);
+                    if (matches.Count >= limit)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            return matches;
+        }
+    }
+
     public MessageRecord? GetMessage(long messageId)
     {
         lock (_gate)
@@ -1590,7 +1629,7 @@ public sealed class SqliteStore : IDisposable
         {
             using var command = _connection.CreateCommand();
             command.CommandText = """
-                SELECT id, account_id, field, pattern, mark_read, flag, mute, enabled, hits, move_to_junk
+                SELECT id, account_id, field, pattern, mark_read, flag, mute, enabled, hits, move_to_junk, target_folder_id
                 FROM rules
                 ORDER BY id;
                 """;
@@ -1611,7 +1650,8 @@ public sealed class SqliteStore : IDisposable
                     Mute = reader.GetInt32(6) != 0,
                     Enabled = reader.GetInt32(7) != 0,
                     Hits = reader.GetInt32(8),
-                    MoveToJunk = !reader.IsDBNull(9) && reader.GetInt32(9) != 0
+                    MoveToJunk = !reader.IsDBNull(9) && reader.GetInt32(9) != 0,
+                    TargetFolderId = reader.IsDBNull(10) ? null : reader.GetInt64(10)
                 });
             }
 
@@ -1635,7 +1675,7 @@ public sealed class SqliteStore : IDisposable
                     UPDATE rules
                     SET account_id = $accountId, field = $field, pattern = $pattern,
                         mark_read = $markRead, flag = $flag, mute = $mute, enabled = $enabled,
-                        move_to_junk = $moveToJunk
+                        move_to_junk = $moveToJunk, target_folder_id = $targetFolderId
                     WHERE id = $id;
                     """;
                 update.Parameters.AddWithValue("$accountId", (object?)accountId ?? DBNull.Value);
@@ -1645,6 +1685,7 @@ public sealed class SqliteStore : IDisposable
                 update.Parameters.AddWithValue("$flag", rule.Flag ? 1 : 0);
                 update.Parameters.AddWithValue("$mute", rule.Mute ? 1 : 0);
                 update.Parameters.AddWithValue("$moveToJunk", rule.MoveToJunk ? 1 : 0);
+                update.Parameters.AddWithValue("$targetFolderId", (object?)rule.TargetFolderId ?? DBNull.Value);
                 update.Parameters.AddWithValue("$enabled", rule.Enabled ? 1 : 0);
                 update.Parameters.AddWithValue("$id", rule.Id);
                 update.ExecuteNonQuery();
@@ -1653,8 +1694,8 @@ public sealed class SqliteStore : IDisposable
 
             using var insert = _connection.CreateCommand();
             insert.CommandText = """
-                INSERT INTO rules (account_id, field, pattern, mark_read, flag, mute, enabled, hits, created_utc, move_to_junk)
-                VALUES ($accountId, $field, $pattern, $markRead, $flag, $mute, $enabled, 0, $created, $moveToJunk)
+                INSERT INTO rules (account_id, field, pattern, mark_read, flag, mute, enabled, hits, created_utc, move_to_junk, target_folder_id)
+                VALUES ($accountId, $field, $pattern, $markRead, $flag, $mute, $enabled, 0, $created, $moveToJunk, $targetFolderId)
                 RETURNING id;
                 """;
             insert.Parameters.AddWithValue("$accountId", (object?)accountId ?? DBNull.Value);
@@ -1665,6 +1706,7 @@ public sealed class SqliteStore : IDisposable
             insert.Parameters.AddWithValue("$mute", rule.Mute ? 1 : 0);
             insert.Parameters.AddWithValue("$enabled", rule.Enabled ? 1 : 0);
             insert.Parameters.AddWithValue("$moveToJunk", rule.MoveToJunk ? 1 : 0);
+            insert.Parameters.AddWithValue("$targetFolderId", (object?)rule.TargetFolderId ?? DBNull.Value);
             insert.Parameters.AddWithValue("$created", ToDb(DateTimeOffset.UtcNow));
             return Convert.ToInt64(insert.ExecuteScalar(), CultureInfo.InvariantCulture);
         }
@@ -2670,6 +2712,14 @@ public sealed class SqliteStore : IDisposable
             Execute("""
                 ALTER TABLE rules ADD COLUMN move_to_junk INTEGER NOT NULL DEFAULT 0;
                 PRAGMA user_version = 14;
+                """);
+        }
+
+        if (version < 15)
+        {
+            Execute("""
+                ALTER TABLE rules ADD COLUMN target_folder_id INTEGER;
+                PRAGMA user_version = 15;
                 """);
         }
     }

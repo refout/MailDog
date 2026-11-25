@@ -627,7 +627,7 @@
                                         BorderThickness="0,0,0,1"
                                         Padding="0,10"
                                         Margin="0,0,0,2">
-                                  <Grid ColumnDefinitions="*,Auto,Auto">
+                                  <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                                     <StackPanel Spacing="2" VerticalAlignment="Center">
                                       <TextBlock Text="{Binding Title}"
                                                  FontSize="13"
@@ -639,14 +639,30 @@
                                         <TextBlock Text="{Binding HitsLabel}" Classes="caption" />
                                       </StackPanel>
                                     </StackPanel>
-                                    <ToggleSwitch Grid.Column="1"
+                                    <Button Grid.Column="1"
+                                            Content="预览"
+                                            Padding="8,2"
+                                            Margin="0,0,6,0"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).PreviewRuleCommand}"
+                                            CommandParameter="{Binding .}"
+                                            ToolTip.Tip="试运行：只统计命中，不改邮件" />
+                                    <Button Grid.Column="2"
+                                            Content="回溯"
+                                            Padding="8,2"
+                                            Margin="0,0,8,0"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).ApplyRuleHistoryCommand}"
+                                            CommandParameter="{Binding .}"
+                                            ToolTip.Tip="对历史邮件应用这条规则，最多 200 封" />
+                                    <ToggleSwitch Grid.Column="3"
                                                   Margin="0,0,8,0"
                                                   VerticalAlignment="Center"
                                                   IsChecked="{Binding Enabled}"
                                                   OnContent=""
                                                   OffContent=""
                                                   AutomationProperties.Name="启用规则" />
-                                    <Button Grid.Column="2"
+                                    <Button Grid.Column="4"
                                             Classes="icon sm subtle"
                                             Command="{Binding DeleteCommand}"
                                             VerticalAlignment="Center"
@@ -707,6 +723,16 @@
                                           Margin="0,0,16,4"
                                           IsChecked="{Binding NewRuleMoveToJunk}" />
                               </WrapPanel>
+                              <ComboBox ItemsSource="{Binding RuleTargetFolders}"
+                                        SelectedItem="{Binding NewRuleTargetFolder, Mode=TwoWay}"
+                                        PlaceholderText="自动移动到（可选，仅选定账号）"
+                                        HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                  <DataTemplate x:DataType="vm:FolderViewModel">
+                                    <TextBlock Text="{Binding Name}" />
+                                  </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                              </ComboBox>
                               <StackPanel Orientation="Horizontal" Spacing="10">
                                 <Button Classes="primary"
                                         Content="添加规则"

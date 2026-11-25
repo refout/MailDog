@@ -603,6 +603,29 @@ public sealed class DeleteRuleRequest : Ipc.IIpcMessage
     public long Id { get; init; }
 }
 
+public sealed class PreviewRuleMatchesRequest : Ipc.IIpcMessage
+{
+    public long RuleId { get; init; }
+}
+
+public sealed class RuleMatchPreviewResponse : Ipc.IIpcMessage
+{
+    public RuleMatchPreviewDto Preview { get; init; } = new();
+}
+
+public sealed class ApplyRuleHistoryRequest : Ipc.IIpcMessage
+{
+    public long RuleId { get; init; }
+
+    /// <summary>本次最多处理多少封，默认 200，避免一次回溯把连接占满。</summary>
+    public int Limit { get; init; } = 200;
+}
+
+public sealed class RuleHistoryApplyResponse : Ipc.IIpcMessage
+{
+    public RuleHistoryApplyResultDto Result { get; init; } = new();
+}
+
 // 事件
 
 public sealed class NewMailEvent : Ipc.IIpcMessage

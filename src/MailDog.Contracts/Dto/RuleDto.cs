@@ -26,8 +26,48 @@ public sealed class RuleDto
     /// <summary>命中后移动到账户的垃圾邮件文件夹；没有垃圾文件夹时只保留其他动作。</summary>
     public bool MoveToJunk { get; init; }
 
+    /// <summary>命中后移动到指定文件夹；优先于 <see cref="MoveToJunk"/>。规则限定了账号时目标应在同一账号下。</summary>
+    public long? TargetFolderId { get; init; }
+
     public bool Enabled { get; init; } = true;
 
     /// <summary>累计命中次数，用来判断规则是不是写得太宽。</summary>
     public int Hits { get; init; }
+}
+
+/// <summary>规则试运行结果：只统计和取样，不改邮件。</summary>
+public sealed class RuleMatchPreviewDto
+{
+    public long RuleId { get; init; }
+
+    public int Matched { get; init; }
+
+    public int ScanLimit { get; init; }
+
+    public string? TargetFolderName { get; init; }
+
+    public RuleMatchSampleDto[] Samples { get; init; } = [];
+}
+
+public sealed class RuleMatchSampleDto
+{
+    public long MessageId { get; init; }
+
+    public long FolderId { get; init; }
+
+    public string Subject { get; init; } = string.Empty;
+
+    public string From { get; init; } = string.Empty;
+
+    public DateTimeOffset Date { get; init; }
+}
+
+/// <summary>历史回溯已接受的任务规模；实际移动在后台逐封执行。</summary>
+public sealed class RuleHistoryApplyResultDto
+{
+    public int Accepted { get; init; }
+
+    public bool Truncated { get; init; }
+
+    public string Message { get; init; } = string.Empty;
 }

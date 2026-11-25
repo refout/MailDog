@@ -104,6 +104,10 @@ public static class IpcMessageTypes
     public const string RulesList = "rulesList";
     public const string SaveRule = "saveRule";
     public const string DeleteRule = "deleteRule";
+    public const string PreviewRuleMatches = "previewRuleMatches";
+    public const string RuleMatchPreview = "ruleMatchPreview";
+    public const string ApplyRuleHistory = "applyRuleHistory";
+    public const string RuleHistoryApplied = "ruleHistoryApplied";
 
     public const string NewMail = "newMail";
     public const string MailChanged = "mailChanged";

@@ -103,6 +103,7 @@ public sealed class EngineHost : IAsyncDisposable
         });
         _router.GetAccountHealth = GetAccountHealth;
         _router.GetEmlPreview = EmlPreviewService.Load;
+        _router.ApplyRuleHistory = ApplyRuleHistory;
 #if MAILDOG_WINDOWS
         _router.AddRecent = WindowsIntegration.AddRecent;
 #endif
@@ -294,9 +295,9 @@ public sealed class EngineHost : IAsyncDisposable
                         ApplyRuleFlagsAsync(id, rule.MarkRead, rule.Flag);
                     }
 
-                    if (rule.MoveToJunk)
+                    if (rule.MoveToJunk || rule.TargetFolderId is not null)
                     {
-                        ApplyRuleMoveToJunkAsync(id, message.AccountId);
+                        ApplyRuleMoveAsync(id, message.AccountId, rule.TargetFolderId);
                     }
                 }
             }
@@ -341,24 +342,110 @@ public sealed class EngineHost : IAsyncDisposable
         });
     }
 
-    private void ApplyRuleMoveToJunkAsync(long messageId, string accountId)
+    /// <summary>历史回溯：先返回接受数量，再在后台按批标旗标、逐封移动，避免 IPC 请求超时。</summary>
+    private RuleHistoryApplyResultDto ApplyRuleHistory(long ruleId, int limit)
+    {
+        var rule = _store.GetRules().FirstOrDefault(item => item.Id == ruleId)
+            ?? throw new KeyNotFoundException("规则不存在。");
+        var matches = _store.FindRuleMatches(rule, Math.Clamp(limit, 1, 1000));
+        if (matches.Count == 0)
+        {
+            return new RuleHistoryApplyResultDto { Accepted = 0, Message = "没有匹配的历史邮件。" };
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var ids = matches.Select(item => item.Id).ToArray();
+                if (rule.MarkRead)
+                {
+                    await _sync.SetSeenManyAsync(ids, true, CancellationToken.None).ConfigureAwait(false);
+                }
+
+                if (rule.Flag)
+                {
+                    await _sync.SetFlaggedManyAsync(ids, true, CancellationToken.None).ConfigureAwait(false);
+                }
+
+                foreach (var message in matches)
+                {
+                    if (rule.TargetFolderId is not { } targetId && !rule.MoveToJunk)
+                    {
+                        continue;
+                    }
+
+                    var target = rule.TargetFolderId is { } id
+                        ? _store.GetFolder(id)
+                        : _store.GetFolders(message.AccountId).FirstOrDefault(folder => folder.Role == FolderRole.Junk);
+
+                    if (target is null
+                        || !string.Equals(target.AccountId, message.AccountId, StringComparison.Ordinal)
+                        || message.FolderId == target.Id)
+                    {
+                        continue;
+                    }
+
+                    await _sync.MoveMessageAsync(message.Id, target.Id, CancellationToken.None).ConfigureAwait(false);
+                    _ipc.Broadcast(IpcMessageTypes.MailChanged, new MailChangedEvent
+                    {
+                        AccountId = message.AccountId,
+                        MessageId = message.Id,
+                        FolderId = target.Id,
+                        Change = "move"
+                    });
+                }
+
+                _store.IncrementRuleHits([rule.Id]);
+                _tray?.UpdateUnreadCount(TotalUnread());
+                _log.Info($"规则 #{rule.Id} 回溯处理了 {matches.Count} 封历史邮件。");
+            }
+            catch (Exception exception)
+            {
+                _log.Warn($"规则 #{rule.Id} 回溯失败：{exception.Message}");
+            }
+        });
+
+        return new RuleHistoryApplyResultDto
+        {
+            Accepted = matches.Count,
+            Truncated = matches.Count >= Math.Clamp(limit, 1, 1000),
+            Message = $"已开始处理 {matches.Count} 封匹配邮件，完成前可以继续使用其他功能。"
+        };
+    }
+
+    private void ApplyRuleMoveAsync(long messageId, string accountId, long? targetFolderId)
     {
         _ = Task.Run(async () =>
         {
             try
             {
-                var junk = _store.GetFolders(accountId).FirstOrDefault(folder => folder.Role == FolderRole.Junk);
-                if (junk is null)
+                var target = targetFolderId is { } id
+                    ? _store.GetFolder(id)
+                    : _store.GetFolders(accountId).FirstOrDefault(folder => folder.Role == FolderRole.Junk);
+
+                if (target is null)
                 {
-                    _log.Warn($"账号 {accountId} 没有垃圾邮件文件夹，规则无法移动邮件 #{messageId}。");
+                    _log.Warn($"规则找不到目标文件夹，无法移动邮件 #{messageId}。");
                     return;
                 }
 
-                await _sync.MoveMessageAsync(messageId, junk.Id, CancellationToken.None).ConfigureAwait(false);
+                if (!string.Equals(target.AccountId, accountId, StringComparison.Ordinal))
+                {
+                    _log.Warn($"规则目标文件夹 {target.Id} 不属于账号 {accountId}，跳过移动邮件 #{messageId}。");
+                    return;
+                }
+
+                if (_store.GetMessage(messageId)?.FolderId == target.Id)
+                {
+                    return;
+                }
+
+                await _sync.MoveMessageAsync(messageId, target.Id, CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception exception)
             {
-                _log.Warn($"规则把邮件 #{messageId} 移到垃圾邮件失败：{exception.Message}");
+                _log.Warn($"规则把邮件 #{messageId} 移动到目标文件夹失败：{exception.Message}");
             }
         });
     }
