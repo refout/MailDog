@@ -42,7 +42,9 @@ internal static class Program
             // 通知被点击：Windows 按 maildog: 协议起了一个新进程，这里把它转给已经常驻的那个。
             if (!string.IsNullOrWhiteSpace(activationUri))
             {
+#if MAILDOG_WINDOWS
                 MailDog.Engine.Tray.ToastActivation.Send(activationUri);
+#endif
             }
 
             Console.WriteLine("MailDog.Engine 已在运行。");
@@ -91,6 +93,7 @@ internal static class Program
     /// <summary>弹出一次真实通知，用来核对标题栏小图标与气泡里的大图标。</summary>
     private static int RunNotificationTest()
     {
+#if MAILDOG_WINDOWS
         MailDog.Engine.Tray.AppIdentity.EnsureRegistered("MailDog");
 
         // --aumid <id>：用另一个应用标识单独发一条，用来排查通知系统是否认到了图标。
@@ -143,6 +146,13 @@ internal static class Program
         Thread.Sleep(8000);
         tray.Quit();
         return 0;
+#else
+        MailDog.Engine.Tray.LinuxNotifier.Show(
+            "测试发件人",
+            "这是一封测试邮件的主题\n如果能看到这条通知，说明桌面通知链路可用。");
+        Console.WriteLine("已请求发送 Linux 桌面通知。");
+        return 0;
+#endif
     }
 
     private static int RunProbes()

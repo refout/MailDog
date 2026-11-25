@@ -3,6 +3,7 @@ using System.Diagnostics;
 using MailDog.Contracts.Dto;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
+using MailDog.Contracts.Platform;
 using MailDog.Engine.Ipc;
 using MailDog.Engine.Logging;
 using MailDog.Engine.Tray;
@@ -40,7 +41,7 @@ public sealed class EngineHost : IAsyncDisposable
     private readonly object _syncStateGate = new();
     private Task? _scheduler;
     private DateTimeOffset _lastPruneUtc = DateTimeOffset.MinValue;
-    private Win32Tray? _tray;
+    private IAppTray? _tray;
     private (long MessageId, string AccountId, long FolderId)? _lastNotification;
     private (long MessageId, string AccountId, long FolderId)? _pendingNavigation;
     private bool _pendingOpenAbout;
@@ -128,7 +129,7 @@ public sealed class EngineHost : IAsyncDisposable
         _outbox.Start();
         _flagSync.Start();
 
-        _tray = new Win32Tray(
+        _tray = PlatformTray.Create(
             OpenUi,
             OpenAbout,
             HandleNotificationClicked,
@@ -594,7 +595,7 @@ public sealed class EngineHost : IAsyncDisposable
     /// <summary>同目录优先（安装后就是这样）；找不到再按仓库里的 UI 构建目录向上搜。</summary>
     private static string? LocateUi()
     {
-        var sameDirectory = Path.Combine(AppContext.BaseDirectory, "MailDog.UI.exe");
+        var sameDirectory = Path.Combine(AppContext.BaseDirectory, ProductPaths.UiExecutableName);
 
         if (File.Exists(sameDirectory))
         {
@@ -607,10 +608,7 @@ public sealed class EngineHost : IAsyncDisposable
             ? "Release"
             : "Debug";
 
-        var runtime = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture
-            == System.Runtime.InteropServices.Architecture.Arm64
-            ? "win-arm64"
-            : "win-x64";
+        var runtime = ProductPaths.RuntimeIdentifier;
 
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
@@ -625,8 +623,8 @@ public sealed class EngineHost : IAsyncDisposable
 
             foreach (var candidate in new[]
                      {
-                         Path.Combine(uiRoot, "net11.0", runtime, "MailDog.UI.exe"),
-                         Path.Combine(uiRoot, "net11.0", "MailDog.UI.exe")
+                         Path.Combine(uiRoot, "net11.0", runtime, ProductPaths.UiExecutableName),
+                         Path.Combine(uiRoot, "net11.0", ProductPaths.UiExecutableName)
                      })
             {
                 if (File.Exists(candidate))

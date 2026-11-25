@@ -8,8 +8,15 @@ namespace MailDog.Mail.Storage;
 /// </summary>
 public static class SqliteNativeBootstrap
 {
-    private const string ResourceName = "MailDog.Mail.Native.e_sqlite3.dll";
     private const string LibraryName = "e_sqlite3";
+
+    private static readonly string ResourceName = OperatingSystem.IsWindows()
+        ? "MailDog.Mail.Native.e_sqlite3.dll"
+        : "MailDog.Mail.Native.libe_sqlite3.so";
+
+    private static readonly string TargetFileName = OperatingSystem.IsWindows()
+        ? "e_sqlite3.dll"
+        : "libe_sqlite3.so";
 
     private static int _state;
 
@@ -31,7 +38,7 @@ public static class SqliteNativeBootstrap
 
         Directory.CreateDirectory(directory);
 
-        var target = Path.Combine(directory, "e_sqlite3.dll");
+        var target = Path.Combine(directory, TargetFileName);
         ExtractIfNeeded(resource, target);
 
         var handle = NativeLibrary.Load(target);
