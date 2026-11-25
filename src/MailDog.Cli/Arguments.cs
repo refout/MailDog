@@ -25,7 +25,7 @@ internal sealed class Arguments
 
     private static readonly string[] BooleanNames =
     [
-        "--json", "--unread", "--all", "--body", "--headers", "--no-start", "--confirm", "--force-send"
+        "--json", "--unread", "--all", "--body", "--headers", "--html", "--no-start", "--confirm", "--force-send"
     ];
 
     private static readonly string[] SingleValueNames =

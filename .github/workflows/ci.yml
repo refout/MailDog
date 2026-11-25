@@ -69,6 +69,10 @@ jobs:
         shell: pwsh
         run: ./src/build/ci-cli-seed.ps1
 
+      - name: CLI HTML-only integration
+        shell: pwsh
+        run: ./src/build/ci-cli-html.ps1
+
       - name: Verify Native AOT
         shell: pwsh
         run: ./src/build/verify-aot.ps1 -Runtime win-x64

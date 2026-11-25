@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace MailDog.Cli.Tests;
 
 public sealed class CliAuditTests
@@ -43,5 +45,51 @@ public sealed class CliAuditTests
         Assert.Contains("\tlist2026-01-01fake\texit=0\t", line);
         Assert.DoesNotContain("2026-01-01 fake", line);
         Assert.DoesNotContain("\n", line);
+    }
+
+    [Fact]
+    public void FormatRecordKeepsJsonOutputAsString()
+    {
+        var record = CliAudit.FormatRecord(
+            new DateTimeOffset(2026, 11, 25, 14, 30, 5, TimeSpan.FromHours(8)),
+            "0.3.4",
+            "show",
+            0,
+            TimeSpan.FromMilliseconds(123),
+            "{\"id\":2}\n{\"id\":3}",
+            true,
+            false);
+
+        using var document = JsonDocument.Parse(record);
+        var root = document.RootElement;
+
+        Assert.Equal("2026-11-25T06:30:05Z", root.GetProperty("time").GetString());
+        Assert.Equal("0.3.4", root.GetProperty("version").GetString());
+        Assert.Equal("show", root.GetProperty("command").GetString());
+        Assert.Equal(0, root.GetProperty("exit").GetInt32());
+        Assert.Equal(123, root.GetProperty("ms").GetInt64());
+        Assert.True(root.GetProperty("jsonRequested").GetBoolean());
+        Assert.False(root.GetProperty("jsonTruncated").GetBoolean());
+        Assert.Equal("{\"id\":2}\n{\"id\":3}", root.GetProperty("json").GetString());
+        Assert.DoesNotContain("\n", record);
+    }
+
+    [Fact]
+    public void FormatRecordWritesNullWhenJsonWasNotRequested()
+    {
+        var record = CliAudit.FormatRecord(
+            DateTimeOffset.MinValue,
+            "0.3.4",
+            "list",
+            0,
+            TimeSpan.Zero,
+            null,
+            false,
+            false);
+
+        using var document = JsonDocument.Parse(record);
+
+        Assert.Equal(JsonValueKind.Null, document.RootElement.GetProperty("json").ValueKind);
+        Assert.False(document.RootElement.GetProperty("jsonRequested").GetBoolean());
     }
 }

@@ -67,13 +67,14 @@ internal static class Schema
         builder.Append(',');
         builder.Append(Command(
             "show",
-            "邮件头信息与纯文本正文",
-            [Flag("--max-chars", "正文截断长度，0 表示全文，默认 2000", true)],
+            "邮件头信息与正文；优先纯文本，纯文本缺失时从 HTML 转换",
+            [Flag("--max-chars", "正文截断长度，0 表示全文；默认 2000，--html 时默认全文", true)],
             [
                 Flag("--headers", "只看头信息，不输出正文", false),
-                Flag("--body", "输出正文（默认行为，保留此开关便于脚本写明意图）", false)
+                Flag("--body", "输出正文（默认行为，保留此开关便于脚本写明意图）", false),
+                Flag("--html", "输出原始 HTML 正文；和 --json 一起用时增加 html 字段", false)
             ],
-            "{\"id\",\"subject\",\"from\",\"fromAddress\",\"to\",\"cc\",\"date\",\"truncated\",\"fromCache\",\"text\",\"attachments\":[{index,fileName,mimeType,size,inline}]}；第一个位置参数是邮件 id"));
+            "{\"id\",\"subject\",\"from\",\"fromAddress\",\"to\",\"cc\",\"date\",\"truncated\",\"fromCache\",\"text\",\"textSource\",\"html?\",\"attachments\":[{index,fileName,mimeType,size,inline}]}；textSource 为 plain/html/none；第一个位置参数是邮件 id"));
 
         builder.Append(',');
         builder.Append(Command(

@@ -1,6 +1,7 @@
 using MailDog.Contracts.Dto;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
+using MailDog.Html;
 
 namespace MailDog.Cli;
 
@@ -196,12 +197,21 @@ internal static class Commands
     public static async Task<int> ShowAsync(IpcClient client, Arguments args, CancellationToken cancellationToken)
     {
         var messageId = ParseLong(args.Positionals, 0, "show <邮件 id>");
-        var maxChars = Math.Max(0, args.IntValue("--max-chars", 2000));
+        var maxChars = Math.Max(0, args.IntValue("--max-chars", args.Has("--html") ? 0 : 2000));
         var body = await GetBodyAsync(client, messageId, cancellationToken).ConfigureAwait(false);
+
+        var html = body.Html ?? string.Empty;
+        var (text, textSource) = ResolveBodyText(body);
 
         if (args.Json)
         {
-            Console.WriteLine(BuildBodyJson(body, args.Has("--headers") ? string.Empty : Truncate(body.PlainText ?? string.Empty, maxChars)));
+            var jsonText = args.Has("--headers") ? string.Empty : Truncate(text, maxChars);
+            var jsonHtml = args.Has("--headers") || !args.Has("--html") ? null : Truncate(html, maxChars);
+            Console.WriteLine(BuildBodyJson(
+                body,
+                jsonText,
+                jsonHtml,
+                args.Has("--headers") ? "none" : textSource));
             return 0;
         }
 
@@ -236,7 +246,45 @@ internal static class Commands
 
         Console.WriteLine();
 
-        var text = string.IsNullOrWhiteSpace(body.PlainText) ? "（这封邮件没有纯文本正文）" : body.PlainText;
+        if (args.Has("--html"))
+        {
+            if (string.IsNullOrWhiteSpace(html))
+            {
+                Console.WriteLine("（这封邮件没有 HTML 正文）");
+                return 0;
+            }
+
+            var shown = Truncate(html, maxChars);
+
+            if (maxChars > 0 && html.Length > maxChars)
+            {
+                Console.WriteLine(shown);
+                Console.WriteLine($"…（已截断，共 {html.Length} 字；用 --max-chars 0 看全文）");
+            }
+            else
+            {
+                Console.WriteLine(html);
+            }
+
+            if (body.Truncated)
+            {
+                Console.WriteLine("（正文来自服务器，Engine 端也做了长度截断）");
+            }
+
+            return 0;
+        }
+
+        if (textSource == "none")
+        {
+            Console.WriteLine("（这封邮件没有正文）");
+            return 0;
+        }
+
+        if (textSource == "html")
+        {
+            Console.WriteLine("（这封邮件没有纯文本正文，以下是从 HTML 正文转换的文本；要看原始 HTML 用 --html）");
+            Console.WriteLine();
+        }
 
         if (maxChars > 0 && text.Length > maxChars)
         {
@@ -759,7 +807,22 @@ internal static class Commands
         return path;
     }
 
-    private static string BuildBodyJson(MailBodyDto body, string text)
+    internal static (string Text, string Source) ResolveBodyText(MailBodyDto body)
+    {
+        if (!string.IsNullOrWhiteSpace(body.PlainText))
+        {
+            return (body.PlainText, "plain");
+        }
+
+        if (!string.IsNullOrWhiteSpace(body.Html))
+        {
+            return (HtmlTextConverter.ToPlainText(body.Html), "html");
+        }
+
+        return (string.Empty, "none");
+    }
+
+    internal static string BuildBodyJson(MailBodyDto body, string text, string? html, string textSource)
     {
         var builder = new System.Text.StringBuilder(512);
         builder.Append("{\"id\":").Append(Output.Num(body.MessageId))
@@ -772,7 +835,14 @@ internal static class Commands
             .Append(",\"truncated\":").Append(Output.Bool(body.Truncated))
             .Append(",\"fromCache\":").Append(Output.Bool(body.FromCache))
             .Append(",\"text\":").Append(Output.Str(text))
-            .Append(",\"attachments\":[");
+            .Append(",\"textSource\":").Append(Output.Str(textSource));
+
+        if (html is not null)
+        {
+            builder.Append(",\"html\":").Append(Output.Str(html));
+        }
+
+        builder.Append(",\"attachments\":[");
 
         for (var index = 0; index < body.Attachments.Length; index++)
         {

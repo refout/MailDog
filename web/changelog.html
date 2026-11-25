@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.3</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.4</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,9 +67,28 @@
 
     <article class="release">
       <div class="release-top">
-        <h2>v0.3.3</h2>
+        <h2>v0.3.4</h2>
         <span class="date">2026-11-25</span>
         <span class="latest">最新</span>
+      </div>
+      <p class="summary">CLI 能读 HTML-only 邮件了；带 --json 的调用结果会留成 JSON 记录，设置里可以直接看。</p>
+      <ul>
+        <li><b>HTML-only 正文</b>：<code>show</code> 在纯文本为空时自动把 HTML 转成可读文本；要看原始 HTML 加 <code>--html</code>，<code>--html --json</code> 会多出 <code>html</code> 字段。</li>
+        <li><b>textSource</b>：<code>show --json</code> 新增 <code>textSource</code>（plain/html/none），脚本能判断正文是从纯文本还是 HTML 来的。</li>
+        <li><b>调用记录</b>：新增 <code>logs/cli-calls.jsonl</code>，记录时间、版本、命令、退出码、耗时和 <code>--json</code> 输出；原 <code>cli-usage.log</code> 摘要保留。</li>
+        <li><b>界面查看</b>：设置「工具」页新增「查看调用记录」，按时间倒序列出最近 100 条，右侧显示当时的 JSON；单条最多保留约 20 万字符。</li>
+        <li><b>测试</b>：增加 HTML-only 种子库与 CI 集成测试，覆盖默认转换、<code>--html</code> 和 <code>--json</code> 字段；单元测试覆盖文本回退、JSON 记录和界面解析。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.3.4" target="_blank" rel="noopener">下载 v0.3.4</a>
+        <a href="https://github.com/refout/MailDog/compare/v0.3.3...v0.3.4" target="_blank" rel="noopener">对比 v0.3.3</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.3.3</h2>
+        <span class="date">2026-11-25</span>
       </div>
       <p class="summary">CLI 下载后不再只留一个压缩包，会直接解压到安装目录，解压成功即删除压缩包。</p>
       <ul>

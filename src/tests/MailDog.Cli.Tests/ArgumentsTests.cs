@@ -22,6 +22,15 @@ public sealed class ArgumentsTests
     }
 
     [Fact]
+    public void ParsesHtmlSwitch()
+    {
+        var arguments = Arguments.Parse(["show", "9", "--html"]);
+
+        Assert.True(arguments.Has("--html"));
+        Assert.False(arguments.Has("--json"));
+    }
+
+    [Fact]
     public void SupportsOptionTerminator()
     {
         var arguments = Arguments.Parse(["search", "--no-start", "--", "--not-an-option"]);

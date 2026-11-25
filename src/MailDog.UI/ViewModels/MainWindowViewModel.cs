@@ -858,6 +858,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public string CliUsageLogDisplayPath
         => Path.Combine(ProductPaths.DisplayDataDirectory, "logs", "cli-usage.log");
 
+    public string CliCallsLogDisplayPath
+        => Path.Combine(ProductPaths.DisplayDataDirectory, "logs", "cli-calls.jsonl");
+
     [ObservableProperty]
     private string _cliCopyStatus = string.Empty;
 
@@ -3514,7 +3517,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         var cli = Path.Combine(directory, ProductPaths.CliExecutableName);
         var shim = Path.Combine(directory, OperatingSystem.IsWindows() ? "maildog.cmd" : "maildog");
         var skill = Path.Combine(directory, "maildog-cli", "SKILL.md");
-        var installed = File.Exists(cli) && File.Exists(skill);
+        var installed = File.Exists(cli) && File.Exists(shim) && File.Exists(skill);
         var hasBundle = File.Exists(bundle);
         var quote = "\"";
         var lines = new List<string>
@@ -3552,11 +3555,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         lines.Add($"Skill：{skill}");
         lines.Add(string.Empty);
         lines.Add("给智能体的使用约束：");
-        lines.Add($"1. 先运行 {quote}{shim}{quote} schema --json 确认可用命令。");
-        lines.Add("2. 读命令可以直接执行；draft / send / mark / move 先 dry-run，用户确认后才加 --confirm。");
-        lines.Add("3. 不要直接读写 MailDog 的 SQLite 数据库、凭据文件或日志。");
-        lines.Add("4. CLI 调用记录写在 MailDog 数据目录的 logs/cli-usage.log，只记录命令名、退出码和耗时。");
-        lines.Add("5. 安装升级可能清掉安装目录顶层的 CLI；升级后重新下载即可。");
+        lines.Add($"1. 先运行 {quote}{shim}{quote} schema --json 确认命令、参数和字段。");
+        lines.Add("2. accounts / folders / list / search / show / attachment 可以直接执行；draft / send / mark / move 默认只预览，等用户明确确认后再加 --confirm；cancel 会立即撤回还没发出的邮件，也要先经用户确认。");
+        lines.Add("3. send 返回退出码 6 时，把附件缺失或过大的提醒转述给用户；用户确认后才加 --force-send。");
+        lines.Add("4. show 默认优先纯文本，纯文本为空时会自动从 HTML 转成可读文本（JSON 的 textSource=html）；要原始 HTML 加 --html，--html --json 会多出 html 字段。");
+        lines.Add("5. 不要直接读写 MailDog 的 SQLite 数据库、凭据文件或日志。客户端会在 logs 目录记录调用摘要，带 --json 时还会保存当时的 JSON 输出（可能含邮件正文）；这些记录只供用户在界面查看，智能体不要把日志当成邮件数据源。");
+        lines.Add("6. 只引用与当前问题相关的邮件片段，不要把整封邮件或验证码、账单信息倒进对话。");
+        lines.Add("7. 安装升级可能清掉安装目录顶层的 CLI；升级后重新下载即可。");
 
         return string.Join(Environment.NewLine, lines);
     }

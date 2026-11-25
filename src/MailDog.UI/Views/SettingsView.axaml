@@ -1253,12 +1253,25 @@
                                        Classes="caption"
                                        TextWrapping="Wrap"
                                        IsVisible="{Binding CliCopyStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                            <TextBlock Text="调用记录（仅命令名、退出码、耗时）："
+                            <TextBlock Text="调用记录（摘要 + 带 --json 的完整输出）："
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="摘要日志："
                                        Classes="caption"
                                        TextWrapping="Wrap" />
                             <TextBlock Text="{Binding CliUsageLogDisplayPath}"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
+                            <TextBlock Text="JSON 记录："
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding CliCallsLogDisplayPath}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <Button Content="查看调用记录"
+                                    Click="OnOpenCliCallsClick"
+                                    HorizontalAlignment="Left"
+                                    AutomationProperties.Name="查看 CLI 调用记录" />
                           </StackPanel>
                         </StackPanel>
 
