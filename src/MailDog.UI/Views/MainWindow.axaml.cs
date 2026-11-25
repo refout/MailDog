@@ -45,6 +45,16 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
 
+        if (OperatingSystem.IsLinux())
+        {
+            // Ubuntu 22.04 只有 WebKitGTK；优先用它，WPE 2.0 仅作为新发行版的备选。
+            WebView.AdapterPreference = new[]
+            {
+                Avalonia.Platform.WebViewAdapterType.WebKitGtk,
+                Avalonia.Platform.WebViewAdapterType.WpeWebKit
+            };
+        }
+
         WebView.EnvironmentRequested += OnEnvironmentRequested;
         WebView.AdapterCreated += OnAdapterCreated;
         WebView.NavigationStarted += OnNavigationStarted;

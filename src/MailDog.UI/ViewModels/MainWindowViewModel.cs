@@ -818,8 +818,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _renderModeIndex;
 
-    /// <summary>Linux 暂不接 WebView，只用纯文本阅读。</summary>
-    public bool IsHtmlRenderAvailable => OperatingSystem.IsWindows();
+    /// <summary>Windows 始终有 WebView2；Linux 需要系统 WebKitGTK/WPE，缺少时退回纯文本。</summary>
+    public bool IsHtmlRenderAvailable => HtmlRendering.IsAvailable;
 
     /// <summary>Linux 没有托盘，需要关于页提供一个“连后台一起退出”的入口。</summary>
     public bool IsLinuxPlatform => OperatingSystem.IsLinux();
@@ -4157,7 +4157,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 10 => 2,
                 _ => 3
             };
-            RenderModeIndex = _settings.RenderMode == "plain" || !OperatingSystem.IsWindows() ? 1 : 0;
+            RenderModeIndex = _settings.RenderMode == "plain" || !HtmlRendering.IsAvailable ? 1 : 0;
             _allowRemoteImages = _settings.ShowRemoteImages;
             ApplyTheme();
             SettingsSaveHint = "所有更改会自动保存";
@@ -4604,7 +4604,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _allowRemoteImages,
             dark,
             background,
-            preferPlain ?? (RenderModeIndex == 1 || !OperatingSystem.IsWindows()));
+            preferPlain ?? (RenderModeIndex == 1 || !HtmlRendering.IsAvailable));
     }
 
     private (string Background, bool Dark) GetReaderAppearance()

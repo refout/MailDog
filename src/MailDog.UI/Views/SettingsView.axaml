@@ -404,6 +404,10 @@
                           <TextBlock Text="纯文本模式只显示文本内容；邮件没有纯文本段时会从 HTML 提取文本。"
                                      Classes="caption"
                                      TextWrapping="Wrap" />
+                          <TextBlock Text="Linux 的 HTML 阅读使用系统 WebKitGTK（libwebkit2gtk-4.1）；缺少该库时自动退回纯文本。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap"
+                                     IsVisible="{Binding IsLinuxPlatform}" />
                           <TextBlock Text="当前平台暂不加载 HTML 渲染器，邮件正文以纯文本显示。"
                                      Classes="caption"
                                      TextWrapping="Wrap"
