@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using MailDog.Contracts.Ipc;
 
@@ -15,11 +16,23 @@ internal static class Program
 
     public static async Task<int> Main(string[] args)
     {
+        var started = Stopwatch.StartNew();
+        string? command = null;
+
+        var exitCode = await RunAsync(args, value => command = value).ConfigureAwait(false);
+        CliAudit.Record(command, exitCode, started.Elapsed);
+
+        return exitCode;
+    }
+
+    private static async Task<int> RunAsync(string[] args, Action<string?> onCommand)
+    {
         Console.OutputEncoding = Encoding.UTF8;
 
         try
         {
             var arguments = Arguments.Parse(args);
+            onCommand(arguments.Command);
 
             if (arguments.Command is null
                 || arguments.Command is "help"

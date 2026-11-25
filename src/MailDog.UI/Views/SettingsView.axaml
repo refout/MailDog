@@ -1244,6 +1244,21 @@
                                          Classes="caption"
                                          TextWrapping="Wrap" />
                             </Grid>
+                            <Button Content="复制给智能体"
+                                    Click="OnCopyCliInfoClick"
+                                    IsEnabled="{Binding HasCliDownload}"
+                                    HorizontalAlignment="Left"
+                                    AutomationProperties.Name="复制 CLI 信息给智能体" />
+                            <TextBlock Text="{Binding CliCopyStatus}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding CliCopyStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            <TextBlock Text="调用记录（仅命令名、退出码、耗时）："
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding CliUsageLogDisplayPath}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
                           </StackPanel>
                         </StackPanel>
 
