@@ -22,7 +22,7 @@ public sealed class SecretStore
     public SecretStore(SqliteStore store)
     {
         _store = store;
-        _localKey = new Lazy<byte[]>(() => LoadOrCreateKey(ResolveKeyDirectory(store)));
+        _localKey = new Lazy<byte[]>(() => LoadOrCreateKey(ResolveKeyDirectory(store), store.DatabasePath));
     }
 
     public void Save(string reference, string kind, string plaintext)
@@ -143,14 +143,20 @@ public sealed class SecretStore
             "MailDog");
     }
 
-    private static byte[] LoadOrCreateKey(string directory)
+    private static byte[] LoadOrCreateKey(string directory, string databasePath)
     {
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, KeyFileName);
 
+        // 老版本留下的密钥文件优先：已经用它加密的凭据不能因为钥匙串出现而读不出来。
         if (File.Exists(path))
         {
             return ReadKey(path);
+        }
+
+        if (!OperatingSystem.IsWindows() && LinuxKeyring.TryLoad(databasePath, out var keyringKey))
+        {
+            return keyringKey;
         }
 
         var options = new FileStreamOptions
@@ -169,6 +175,11 @@ public sealed class SecretStore
         try
         {
             var key = RandomNumberGenerator.GetBytes(KeySize);
+
+            if (!OperatingSystem.IsWindows() && LinuxKeyring.TryStore(databasePath, key))
+            {
+                return key;
+            }
 
             using (var stream = new FileStream(path, options))
             {

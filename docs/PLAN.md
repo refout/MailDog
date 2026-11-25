@@ -20,7 +20,7 @@
 | 本地存储 | SQLite（`Microsoft.Data.Sqlite` 11.0.0，ADO.NET，不用 EF Core） |
 | 认证 | QQ 邮箱授权码 + SASL PLAIN；Outlook OAuth2 Authorization Code + PKCE（自研回环） |
 | IPC | 命名管道（Windows Named Pipe / Linux Unix Domain Socket）+ 4 字节长度前缀 + 源生成 JSON |
-| 进程模型 | Engine 持有 Win32 托盘（Linux 为无托盘常驻）；UI 关闭即 `Shutdown()`，Engine 继续驻留 |
+| 进程模型 | Engine 持有 Win32 托盘（Linux 为无托盘常驻，`shutdown` IPC / `maildog quit` 收尾）；UI 关闭即 `Shutdown()`，Engine 继续驻留 |
 | 发布 | Native AOT 单文件 × 2，零 .NET 运行时依赖 |
 | 仓库 | 本地 `C:\Users\hale\IdeaProjects\MailDog`；远端 `https://github.com/refout/MailDog`（Public） |
 | 平台范围 | v1 交付 Windows x64/arm64；v0.3.0 增加 Linux x64（纯文本阅读、无托盘）；macOS 仍预留抽象 |
@@ -1349,7 +1349,7 @@ GitHub Actions `windows-latest`：
 
 ### v0.3 规划（2026-11-24 拟定）
 
-- **Linux x64（已完成 0.3.0）**：Engine、UI、CLI 可在 Linux 构建运行；Engine 按宿主 OS 单目标编译，Windows 专用托盘/Toast 与 Linux 空实现分离；数据目录走 XDG，登录启动写 `~/.config/autostart/maildog.desktop`；凭据用数据目录内 0600 密钥的 AES-GCM；SQLite 嵌入 `libe_sqlite3.so`；通知走 `notify-send`；正文纯文本；发布 `MailDog-<版本>-linux-x64.tar.gz`，CI 增加 ubuntu-latest 任务。未做：托盘图标、通知点击跳转、系统钥匙串、HTML/WebView、Linux arm64。
+- **Linux x64（已完成 0.3.0）**：Engine、UI、CLI 可在 Linux 构建运行；Engine 按宿主 OS 单目标编译，Windows 专用托盘/Toast 与 Linux 空实现分离；数据目录走 XDG，登录启动写 `~/.config/autostart/maildog.desktop`；凭据优先存 `secret-tool` 的系统钥匙串，不可用时回退数据目录内 0600 密钥的 AES-GCM；SQLite 嵌入 `libe_sqlite3.so`；通知走 `notify-send`，0.8+ 支持 action 时点击跳回邮件；`shutdown` IPC、CLI `quit` 与关于页“退出后台”补上无托盘时的退出入口；正文纯文本；发布 `MailDog-<版本>-linux-x64.tar.gz`，CI 增加 ubuntu-latest 任务。未做：托盘图标、HTML/WebView、Linux arm64。
 
 - **Windows 集成**：注册 `mailto:` 协议、支持"设为默认邮件程序"、资源管理器右键"发送到"、拖入 `.eml` 直接打开、任务栏 JumpList 列出最近邮件。注册表写法复用 `maildog:` 协议与 AUMID 那套经验，卸载时一并清理。
 - **诊断包导出**：`logs/engine-*.log` + 版本 + 配置概览打成 zip，邮箱地址、口令、令牌、正文全部脱敏；入口放关于页，配合"UI 崩溃留痕"使用。
