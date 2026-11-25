@@ -27,4 +27,8 @@ public static class CliBundle
         var prefix = trimmed.Length == 0 ? "MailDog-cli" : $"MailDog-cli-{trimmed}";
         return $"{prefix}-{ProductPaths.RuntimeIdentifier}.{DefaultExtension}";
     }
+
+    /// <summary>下载目标固定在安装目录根下，不再弹保存对话框。</summary>
+    public static string DownloadPath(string baseDirectory, string version)
+        => Path.Combine(baseDirectory, SuggestedFileName(version));
 }

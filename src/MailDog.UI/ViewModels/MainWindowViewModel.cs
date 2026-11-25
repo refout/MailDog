@@ -640,11 +640,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsStartupSection => SettingsSectionIndex == 6;
 
+    public bool IsToolsSection => SettingsSectionIndex == 7;
+
     public bool IsAccountListVisible => IsAccountSection && !ShowAddAccountForm;
 
     public bool IsAddAccountFormVisible => IsAccountSection && ShowAddAccountForm;
 
-    public bool IsAboutSection => SettingsSectionIndex == 7;
+    public bool IsAboutSection => SettingsSectionIndex == 8;
 
     public string StorageDataDirectory => StorageSummary?.DataDirectory ?? "尚未读取";
 
@@ -728,6 +730,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsAccountSection));
         OnPropertyChanged(nameof(IsStorageSection));
         OnPropertyChanged(nameof(IsStartupSection));
+        OnPropertyChanged(nameof(IsToolsSection));
         OnPropertyChanged(nameof(IsAccountListVisible));
         OnPropertyChanged(nameof(IsAddAccountFormVisible));
         OnPropertyChanged(nameof(IsAboutSection));
@@ -843,6 +846,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _cliDownloadStatus = string.Empty;
+
+    public string CliDownloadDirectory => AppContext.BaseDirectory;
 
     [ObservableProperty]
     private bool _isDownloadingCli;
@@ -3445,35 +3450,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
-            ?.MainWindow;
-
-        if (window is null)
-        {
-            return;
-        }
-
-        var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            Title = "下载 MailDog 命令行工具",
-            SuggestedFileName = CliBundle.SuggestedFileName(AppVersion),
-            ShowOverwritePrompt = true
-        });
-
-        var path = file?.TryGetLocalPath();
-
-        if (string.IsNullOrEmpty(path))
-        {
-            return;
-        }
-
         IsDownloadingCli = true;
-        CliDownloadStatus = "正在复制 CLI 包…";
+        CliDownloadStatus = "正在保存到安装目录…";
+
+        var destination = CliBundle.DownloadPath(AppContext.BaseDirectory, AppVersion);
 
         try
         {
-            await Task.Run(() => File.Copy(bundle, path, true)).ConfigureAwait(true);
-            CliDownloadStatus = $"已下载 {Path.GetFileName(path)}";
+            await Task.Run(() => File.Copy(bundle, destination, true)).ConfigureAwait(true);
+            CliDownloadStatus = $"已保存到安装目录：{Path.GetFileName(destination)}";
         }
         catch (Exception exception)
         {
@@ -3577,7 +3562,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenAbout()
     {
-        SettingsSectionIndex = 7;
+        SettingsSectionIndex = 8;
         IsSettingsOpen = true;
     }
 

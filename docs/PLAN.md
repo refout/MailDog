@@ -1314,7 +1314,7 @@ GitHub Actions `windows-latest`：
 - 输出约定：默认人读表格；`--json` 输出稳定 JSON（列表为每行一条 JSON，便于管道）；禁止在输出里出现口令、令牌、DPAPI 明文。
 - 退出码：`0` 成功、`2` 未找到、`3` 账号未登录或离线、`4` 被权限/配置拒绝、`5` 参数错误。
 - 测试：✅ CI 已加轻量冒烟（`schema` 结构、`help` 退出 0、未知开关退出 5，不需要 Engine）；✅ 临时库种子集成测试（2026-11-24）：`src/build/testdata/cli-seed.db` 是一份 140 KB 的预置库（1 个种子账号、3 封邮件、1 封带正文），CI 用 `--db` 起一个真实 Engine 后跑 `accounts` / `list` / `search haystack --all` / `show 2 --body` / `send --dry-run`，脚本为 `src/build/ci-cli-seed.ps1`，跑完即删临时库。写命令（`mark` / `move` / `draft`）仍只在真机验证过，未进 CI。
-- 打包与分发（v0.3.0 调整）：`publish.ps1` 仍产出 `MailDog.Cli` 与 `maildog` 转发壳供构建/CI 使用，但 `package.ps1` / `package-linux.sh` 会把它们和 `maildog-cli` Skill、说明收进 `cli/MailDog-cli.zip`（Linux 为 `.tar.gz`），再从安装目录移除顶层 CLI。安装包只带这个压缩包，设置 → 关于的“命令行工具”按需保存；不自动改 PATH，也不写系统目录。这样普通用户不会多一个 5 MB 的 exe 和一条卸载时不敢删的 PATH。
+- 打包与分发（v0.3.0 调整，v0.3.1 修正入口）：`publish.ps1` 仍产出 `MailDog.Cli` 与 `maildog` 转发壳供构建/CI 使用，但 `package.ps1` / `package-linux.sh` 会把它们和 `maildog-cli` Skill、说明收进 `cli/MailDog-cli.zip`（Linux 为 `.tar.gz`），再从安装目录移除顶层 CLI。安装包只带这个压缩包；v0.3.1 把下载入口从关于页移到设置「工具」，保存时不再弹文件对话框，直接写到安装目录根下。不自动改 PATH，也不写系统目录。这样普通用户不会多一个 5 MB 的 exe 和一条卸载时不敢删的 PATH。
 - 配套 Agent Skill（✅ 2026-11-24 已产出）：`workspace/.user_skills/maildog-cli`，正文按 `maildog schema --json` 的真实输出重写：命令名、参数（`--folder` 不是 `--role`，正文用 `--text` / `--body-file`，移动用 `--account` + `--folder`）、`--json` 字段、退出码 0/2/3/4/5/6 与 `--force-send`、`cancel <outboxId>` 全部对齐实现；只读命令在种子库上逐条跑过，写命令在临时库验证了 `mark`，`draft` / `move` 受种子账号无授权码限制只验证到退出码 3。硬约束已写进 SKILL.md：
   - 找不到 `maildog` 时先构建 `src\MailDog.Cli`，**禁止**退回去直读 sqlite 或凭截图臆测。
   - id 只能来自 `list` / `search`，不猜 id。
