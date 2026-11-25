@@ -93,6 +93,12 @@ public static class IpcCodecRegistry
         Register(IpcMessageTypes.PendingNavigation, IpcJsonContext.Default.PendingNavigationResponse);
         Register(IpcMessageTypes.AccountChanged, IpcJsonContext.Default.AccountChangedEvent);
         Register(IpcMessageTypes.Shutdown, IpcJsonContext.Default.ShutdownRequest);
+        Register(IpcMessageTypes.Activate, IpcJsonContext.Default.ActivateRequest);
+        Register(IpcMessageTypes.AddRecent, IpcJsonContext.Default.AddRecentRequest);
+        Register(IpcMessageTypes.GetAccountHealth, IpcJsonContext.Default.GetAccountHealthRequest);
+        Register(IpcMessageTypes.AccountHealth, IpcJsonContext.Default.AccountHealthResponse);
+        Register(IpcMessageTypes.GetEmlPreview, IpcJsonContext.Default.GetEmlPreviewRequest);
+        Register(IpcMessageTypes.EmlPreview, IpcJsonContext.Default.EmlPreviewResponse);
 
         Register(IpcMessageTypes.Error, IpcJsonContext.Default.ErrorResponse);
     }

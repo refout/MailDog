@@ -1,17 +1,20 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Net.Sockets;
 using MailDog.Contracts.Dto;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
 using MailDog.Contracts.Platform;
 using MailDog.Engine.Ipc;
 using MailDog.Engine.Logging;
+using MailDog.Engine.Mime;
 using MailDog.Engine.Tray;
 using MailDog.Mail.Accounts;
 using MailDog.Mail.Auth;
 using MailDog.Mail.Imap;
 using MailDog.Mail.Smtp;
 using MailDog.Mail.Storage;
+using MailKit.Net.Imap;
 using MailKit.Security;
 
 namespace MailDog.Engine.Hosting;
@@ -38,12 +41,15 @@ public sealed class EngineHost : IAsyncDisposable
     private readonly ConcurrentDictionary<string, byte> _synchronizing = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _nextSyncAt = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _syncFailures = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (string Kind, string Message)> _syncErrors = new(StringComparer.Ordinal);
     private readonly object _syncStateGate = new();
     private Task? _scheduler;
     private DateTimeOffset _lastPruneUtc = DateTimeOffset.MinValue;
     private IAppTray? _tray;
     private (long MessageId, string AccountId, long FolderId)? _lastNotification;
     private (long MessageId, string AccountId, long FolderId)? _pendingNavigation;
+    private string? _pendingCompose;
+    private string? _pendingEml;
     private bool _pendingOpenAbout;
 
     // 同一批同步里可能一次进来好几封，攒一小会儿再弹，避免通知刷屏。
@@ -57,10 +63,16 @@ public sealed class EngineHost : IAsyncDisposable
     private sealed record NewMailBatchItem(MailSummaryDto Summary, string AccountId, long FolderId, int Count);
 
     private readonly string? _startupActivation;
+    private readonly string? _startupEml;
 
-    public EngineHost(string databasePath, bool hideConsole = true, string? startupActivation = null)
+    public EngineHost(
+        string databasePath,
+        bool hideConsole = true,
+        string? startupActivation = null,
+        string? startupEml = null)
     {
         _startupActivation = startupActivation;
+        _startupEml = startupEml;
         _log = new FileLogger();
         _databasePath = databasePath;
         _hideConsole = hideConsole;
@@ -83,6 +95,17 @@ public sealed class EngineHost : IAsyncDisposable
 
         _router.Diagnostic += message => _log.Warn(message);
         _router.TakePendingNavigation = TakePendingNavigation;
+        // 激活请求本身也是一条 IPC 连接；先让调用方拿到响应并断开，再决定弹窗口还是广播。
+        _router.ActivationRequested = uri => _ = Task.Run(async () =>
+        {
+            await Task.Delay(250).ConfigureAwait(false);
+            Activate(uri);
+        });
+        _router.GetAccountHealth = GetAccountHealth;
+        _router.GetEmlPreview = EmlPreviewService.Load;
+#if MAILDOG_WINDOWS
+        _router.AddRecent = WindowsIntegration.AddRecent;
+#endif
         // 先把响应发回给调用方，再收尾；否则界面/命令行只会看到连接被断开。
         _router.ShutdownRequested = () => _ = Task.Run(async () =>
         {
@@ -129,6 +152,9 @@ public sealed class EngineHost : IAsyncDisposable
 
         // 点击通知（含通知中心里的历史）时，Windows 通过 maildog: 协议把请求交回本进程。
         Tray.ShellIntegration.EnsureProtocolRegistered();
+#if MAILDOG_WINDOWS
+        WindowsIntegration.RegisterAll();
+#endif
 
         _ipc.Start();
         _scheduler = SchedulerLoopAsync(_cts.Token);
@@ -152,6 +178,11 @@ public sealed class EngineHost : IAsyncDisposable
         if (!string.IsNullOrWhiteSpace(_startupActivation))
         {
             Activate(_startupActivation);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_startupEml))
+        {
+            ActivateFile(_startupEml);
         }
 
         Console.CancelKeyPress += OnCancelKeyPress;
@@ -464,12 +495,75 @@ public sealed class EngineHost : IAsyncDisposable
     /// <summary>点通知后把用户带到那封邮件：能广播就广播，界面没开就顺手拉起。</summary>
     public void Activate(string uri)
     {
+        _log.Info($"收到激活：{uri}");
+
+        if (uri.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
+        {
+            ActivateCompose(uri);
+            return;
+        }
+
+        if (ParseEmlActivation(uri) is { Length: > 0 } emlPath)
+        {
+            ActivateFile(emlPath);
+            return;
+        }
+
         if (ParseActivation(uri) is { } target)
         {
             _pendingNavigation = target;
         }
 
         OpenUi();
+    }
+
+    /// <summary>直接打开外部 .eml：界面已在运行时发事件，否则记下来并拉起界面。</summary>
+    public void ActivateFile(string path)
+    {
+        _log.Info($"打开 .eml：{path}");
+
+        if (_ipc.HasConnections)
+        {
+            _ipc.Broadcast(IpcMessageTypes.ShowMainWindow, new ShowMainWindowEvent { EmlPath = path });
+            return;
+        }
+
+        _pendingEml = path;
+        OpenUi();
+    }
+
+    private void ActivateCompose(string uri)
+    {
+        if (_ipc.HasConnections)
+        {
+            _ipc.Broadcast(IpcMessageTypes.ShowMainWindow, new ShowMainWindowEvent { ComposeUri = uri });
+            return;
+        }
+
+        _pendingCompose = uri;
+        OpenUi();
+    }
+
+    private static string? ParseEmlActivation(string uri)
+    {
+        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed)
+            || !string.Equals(parsed.Scheme, "maildog", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(parsed.Host, "eml", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        foreach (var pair in parsed.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+
+            if (parts.Length == 2 && parts[0] == "path")
+            {
+                return Uri.UnescapeDataString(parts[1]);
+            }
+        }
+
+        return null;
     }
 
     private static (long MessageId, string AccountId, long FolderId)? ParseActivation(string uri)
@@ -525,6 +619,10 @@ public sealed class EngineHost : IAsyncDisposable
 
         var openAbout = _pendingOpenAbout;
         _pendingOpenAbout = false;
+        var compose = _pendingCompose;
+        _pendingCompose = null;
+        var eml = _pendingEml;
+        _pendingEml = null;
 
         return new PendingNavigationResponse
         {
@@ -532,6 +630,8 @@ public sealed class EngineHost : IAsyncDisposable
             MessageId = target?.MessageId,
             AccountId = target?.AccountId,
             FolderId = target?.FolderId,
+            ComposeUri = compose,
+            EmlPath = eml,
             OpenAbout = openAbout,
             CheckUpdate = openAbout
         };
@@ -558,13 +658,21 @@ public sealed class EngineHost : IAsyncDisposable
             {
                 MessageId = target.MessageId,
                 AccountId = target.AccountId,
-                FolderId = target.FolderId
+                FolderId = target.FolderId,
+                ComposeUri = _pendingCompose,
+                EmlPath = _pendingEml
             }
-            : new ShowMainWindowEvent();
+            : new ShowMainWindowEvent
+            {
+                ComposeUri = _pendingCompose,
+                EmlPath = _pendingEml
+            };
 
         if (_ipc.HasConnections)
         {
             _pendingNavigation = null;
+            _pendingCompose = null;
+            _pendingEml = null;
             _ipc.Broadcast(IpcMessageTypes.ShowMainWindow, navigation);
             return;
         }
@@ -798,6 +906,7 @@ public sealed class EngineHost : IAsyncDisposable
             lock (_syncStateGate)
             {
                 _syncFailures.Remove(accountId);
+                _syncErrors.Remove(accountId);
                 _nextSyncAt[accountId] = DateTimeOffset.UtcNow.AddMinutes(CurrentIntervalMinutes);
             }
 
@@ -813,6 +922,7 @@ public sealed class EngineHost : IAsyncDisposable
             lock (_syncStateGate)
             {
                 _nextSyncAt[accountId] = DateTimeOffset.UtcNow.AddMinutes(30);
+                _syncErrors[accountId] = ("authentication", $"认证失败：{exception.Message}");
             }
 
             _log.Warn($"账户认证失败，30 分钟后重试：{exception.Message}");
@@ -831,6 +941,7 @@ public sealed class EngineHost : IAsyncDisposable
                     600,
                     30 * Math.Pow(2, Math.Min(failures - 1, 4))));
                 _nextSyncAt[accountId] = DateTimeOffset.UtcNow + delay;
+                _syncErrors[accountId] = (ClassifySyncError(exception), exception.Message);
             }
 
             _log.Warn($"同步账户失败，{delay.TotalSeconds:0} 秒后重试：{exception.Message}");
@@ -841,6 +952,61 @@ public sealed class EngineHost : IAsyncDisposable
             _synchronizing.TryRemove(accountId, out _);
         }
     }
+
+    private AccountHealthDto[] GetAccountHealth()
+    {
+        var idleStates = _idle.GetStates().ToDictionary(state => state.AccountId, StringComparer.Ordinal);
+        var accounts = _store.GetAccounts();
+
+        return accounts.Select(account =>
+        {
+            var idle = idleStates.GetValueOrDefault(account.Id);
+            int failures;
+            DateTimeOffset? nextRetry;
+            string? errorKind;
+            string? errorMessage;
+
+            lock (_syncStateGate)
+            {
+                failures = _syncFailures.GetValueOrDefault(account.Id);
+                nextRetry = _nextSyncAt.GetValueOrDefault(account.Id) is { } due && due > DateTimeOffset.UtcNow
+                    ? due
+                    : null;
+                var error = _syncErrors.GetValueOrDefault(account.Id);
+                errorKind = error.Kind;
+                errorMessage = error.Message;
+            }
+
+            return new AccountHealthDto
+            {
+                AccountId = account.Id,
+                Email = account.Email,
+                DisplayName = account.DisplayName,
+                Status = account.Status,
+                LastSyncUtc = account.LastSyncUtc,
+                IdleConnected = idle?.IsConnected ?? false,
+                IdleSupported = idle?.SupportsIdle,
+                IdleSinceUtc = idle?.ConnectedSinceUtc,
+                IdleError = idle?.LastError,
+                LastSyncErrorKind = errorKind,
+                LastSyncError = errorMessage,
+                ConsecutiveFailures = failures > 0
+                    ? failures
+                    : errorKind is "authentication" ? 1 : 0,
+                NextRetryUtc = failures > 0 || errorKind is "authentication" ? nextRetry : null
+            };
+        }).ToArray();
+    }
+
+    private static string ClassifySyncError(Exception exception)
+        => exception switch
+        {
+            AuthenticationException => "authentication",
+            ImapProtocolException => "protocol",
+            TimeoutException or OperationCanceledException => "timeout",
+            SocketException or IOException => "network",
+            _ => "other"
+        };
 
     private int CurrentIntervalMinutes
         => Math.Clamp(_store.GetSettings().SyncIntervalMinutes, 1, 60);

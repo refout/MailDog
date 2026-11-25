@@ -12,6 +12,8 @@ namespace MailDog.UI;
 
 public partial class App : Application
 {
+    private LinuxTray? _linuxTray;
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -55,7 +57,14 @@ public partial class App : Application
             var viewModel = new MainWindowViewModel(engine);
 
             desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
-            desktop.MainWindow = new MainWindow(viewModel);
+            var window = new MainWindow(viewModel);
+            desktop.MainWindow = window;
+
+            if (OperatingSystem.IsLinux())
+            {
+                _linuxTray = new LinuxTray(window, viewModel);
+                desktop.Exit += (_, _) => _linuxTray?.Dispose();
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

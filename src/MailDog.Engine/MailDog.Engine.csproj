@@ -26,6 +26,7 @@
     <Compile Remove="Tray/NativeMethods.cs" />
     <Compile Remove="Tray/AppIdentity.cs" />
     <Compile Remove="Tray/ShellIntegration.cs" />
+    <Compile Remove="Tray/WindowsIntegration.cs" />
     <Compile Remove="Hosting/StartupRegistration.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'net11.0-windows10.0.19041.0'">

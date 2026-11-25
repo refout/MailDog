@@ -66,6 +66,16 @@ Filename: "{app}\MailDog.UI.exe"; Description: "{cm:LaunchProgram,MailDog}"; Fla
 ; 协议与应用标识是运行时写进 HKCU 的，卸载时一并清掉，避免留下指向已删除程序的条目。
 Root: HKCU; Subkey: "Software\Classes\maildog"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\AppUserModelId\MailDog.MailDog.App"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\MailDog.mailto"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\MailDog.Eml"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\.eml\OpenWithProgids"; ValueType: string; ValueName: "MailDog.Eml"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Clients\Mail\MailDog"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\MailDog"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "MailDog"; ValueData: "Software\MailDog\Capabilities"; Flags: uninsdeletevalue
+
+[UninstallDelete]
+Type: files; Name: "{userappdata}\Microsoft\Windows\SendTo\MailDog.lnk"
+Type: filesandordirs; Name: "{localappdata}\MailDog\JumpList"
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/C taskkill /IM MailDog.UI.exe /F"; Flags: runhidden; RunOnceId: "KillUI"

@@ -55,6 +55,10 @@ public partial class MainWindow : Window
             };
         }
 
+        DragDrop.SetAllowDrop(this, true);
+        DragDrop.AddDragOverHandler(this, OnEmlDragOver);
+        DragDrop.AddDropHandler(this, OnEmlDrop);
+
         WebView.EnvironmentRequested += OnEnvironmentRequested;
         WebView.AdapterCreated += OnAdapterCreated;
         WebView.NavigationStarted += OnNavigationStarted;
@@ -977,11 +981,49 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnEmlDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = FindEmlPath(e.DataTransfer) is not null ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void OnEmlDrop(object? sender, DragEventArgs e)
+    {
+        if (FindEmlPath(e.DataTransfer) is { } path)
+        {
+            e.DragEffects = DragDropEffects.Copy;
+            e.Handled = true;
+            await _viewModel.OpenEmlFileAsync(path);
+        }
+    }
+
+    private static string? FindEmlPath(IDataTransfer data)
+    {
+        if (data.TryGetFiles() is not { } files)
+        {
+            return null;
+        }
+
+        foreach (var file in files)
+        {
+            var path = file.TryGetLocalPath();
+
+            if (path is not null && path.EndsWith(".eml", StringComparison.OrdinalIgnoreCase))
+            {
+                return path;
+            }
+        }
+
+        return null;
+    }
+
     private void OnClosed(object? sender, EventArgs e)
     {
         Closed -= OnClosed;
         KeyDown -= OnWindowKeyDown;
         RemoveHandler(KeyDownEvent, OnWindowPreviewKeyDown);
+        DragDrop.RemoveDragOverHandler(this, OnEmlDragOver);
+        DragDrop.RemoveDropHandler(this, OnEmlDrop);
         MailList.RemoveHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
         _viewModel.Messages.CollectionChanged -= OnMessagesCollectionChanged;
         FolderTree.ContainerPrepared -= OnFolderTreeContainerPrepared;

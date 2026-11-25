@@ -508,6 +508,66 @@
                           </WrapPanel>
                         </StackPanel>
                         <StackPanel Spacing="8">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="账号健康" Classes="section" />
+                            <Button Grid.Column="1"
+                                    Classes="link"
+                                    Command="{Binding RefreshAccountHealthCommand}"
+                                    AutomationProperties.Name="刷新账号健康">
+                              <TextBlock Text="刷新" TextDecorations="Underline" />
+                            </Button>
+                          </Grid>
+                          <TextBlock Text="每行显示最近一次成功同步、IDLE 连接状态，以及失败后的退避时间。"
+                                     Classes="caption"
+                                     TextWrapping="Wrap" />
+                          <TextBlock Text="{Binding AccountHealthStatus}"
+                                     Classes="caption"
+                                     TextWrapping="Wrap"
+                                     IsVisible="{Binding AccountHealthStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                          <TextBlock Text="还没有账户。"
+                                     Classes="caption"
+                                     IsVisible="{Binding !HasAccountHealth}" />
+                          <ItemsControl ItemsSource="{Binding AccountHealth}" IsVisible="{Binding HasAccountHealth}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:AccountHealthViewModel">
+                                <Border BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                        BorderThickness="0,0,0,1"
+                                        Padding="0,10"
+                                        Margin="0,0,0,2">
+                                  <StackPanel Spacing="4">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                      <StackPanel Spacing="1">
+                                        <TextBlock Text="{Binding Title}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Email}" Classes="caption" />
+                                      </StackPanel>
+                                      <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right">
+                                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                                          <Ellipse Width="6" Height="6" Fill="{Binding StatusBrush}" VerticalAlignment="Center" />
+                                          <TextBlock Text="{Binding StatusText}" FontSize="12" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding LastSyncText}" Classes="caption" TextAlignment="Right" />
+                                      </StackPanel>
+                                    </Grid>
+                                    <TextBlock Text="{Binding IdleText}" Classes="caption" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding ErrorText}"
+                                               Classes="caption"
+                                               TextWrapping="Wrap"
+                                               IsVisible="{Binding HasError}" />
+                                    <TextBlock Text="{Binding FailuresText}"
+                                               Classes="caption"
+                                               TextWrapping="Wrap"
+                                               IsVisible="{Binding HasFailures}" />
+                                  </StackPanel>
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Spacing="8">
                           <TextBlock Text="来信规则" Classes="section" Margin="0,8,0,0" />
                           <TextBlock Text="新邮件到达时按关键词自动处理：标已读、加旗标，或者不弹通知。规则只对之后收到的邮件生效，也不会删除邮件。"
                                      Classes="caption"
@@ -1324,7 +1384,7 @@
                                 IsVisible="{Binding IsLinuxPlatform}">
                           <StackPanel Spacing="10">
                             <TextBlock Text="后台进程" Classes="section" />
-                            <TextBlock Text="Linux 版本没有托盘图标。关闭窗口后后台仍会继续收信；要彻底退出，用下面的按钮，或在终端运行 maildog quit。"
+                            <TextBlock Text="Linux 的托盘入口取决于桌面环境；关闭窗口后后台仍会继续收信。要彻底退出，用下面的按钮，或在终端运行 maildog quit。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
                             <Button Content="退出后台"
@@ -1341,12 +1401,46 @@
                         <Border Margin="0,22,0,0"
                                 Padding="0,20,0,0"
                                 BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                BorderThickness="0,1,0,0"
+                                IsVisible="{Binding IsWindowsPlatform}">
+                          <StackPanel Spacing="10">
+                            <TextBlock Text="Windows 集成" Classes="section" />
+                            <TextBlock Text="已注册 mailto: 与 .eml 打开方式，并把 MailDog 加入“默认应用”候选和资源管理器“发送到”。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <Button Content="打开默认应用设置"
+                                    Command="{Binding OpenDefaultAppsSettingsCommand}"
+                                    HorizontalAlignment="Left"
+                                    AutomationProperties.Name="打开默认应用设置" />
+                            <TextBlock Text="Windows 不允许程序静默抢占默认关联，需要在系统设置里选一次 MailDog。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Border>
+
+                        <Border Margin="0,22,0,0"
+                                Padding="0,20,0,0"
+                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                                 BorderThickness="0,1,0,0">
                           <StackPanel Spacing="12">
                             <TextBlock Text="支持" Classes="section" />
                             <TextBlock Text="使用中遇到问题，可在项目主页提交 Issue。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
+                            <StackPanel Spacing="6">
+                              <Button Content="导出诊断包"
+                                      Command="{Binding ExportDiagnosticsCommand}"
+                                      IsEnabled="{Binding !IsExportingDiagnostics}"
+                                      HorizontalAlignment="Left"
+                                      AutomationProperties.Name="导出诊断包" />
+                              <TextBlock Text="包含版本、脱敏配置、账号状态和最近的引擎日志；不含邮件正文、口令与令牌。"
+                                         Classes="caption"
+                                         TextWrapping="Wrap" />
+                              <TextBlock Text="{Binding DiagnosticsStatus}"
+                                         Classes="caption"
+                                         TextWrapping="Wrap"
+                                         IsVisible="{Binding DiagnosticsStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            </StackPanel>
                             <Button Classes="link"
                                     Command="{Binding OpenProjectPageCommand}"
                                     HorizontalAlignment="Left"

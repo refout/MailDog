@@ -35,6 +35,7 @@ internal static class Program
 
         var databasePath = GetArgument(args, "--db") ?? SqliteStore.DefaultDatabasePath;
         var activationUri = GetArgument(args, "--activate");
+        var emlPath = GetArgument(args, "--eml");
 
         using var mutex = new Mutex(true, "Local\\MailDog.Engine.Singleton", out var createdNew);
         if (!createdNew)
@@ -44,7 +45,20 @@ internal static class Program
             {
 #if MAILDOG_WINDOWS
                 MailDog.Engine.Tray.ToastActivation.Send(activationUri);
+#else
+                if (!MailDog.Engine.Tray.EngineActivation.Send(activationUri))
+                {
+                    Console.WriteLine("MailDog.Engine 正在运行，但激活请求没有送达。");
+                }
 #endif
+            }
+
+            if (!string.IsNullOrWhiteSpace(emlPath))
+            {
+                if (!MailDog.Engine.Tray.EngineActivation.SendEml(emlPath))
+                {
+                    Console.WriteLine("MailDog.Engine 正在运行，但 .eml 打开请求没有送达。");
+                }
             }
 
             Console.WriteLine("MailDog.Engine 已在运行。");
@@ -54,7 +68,8 @@ internal static class Program
         var host = new EngineHost(
             databasePath,
             hideConsole: !console,
-            startupActivation: activationUri);
+            startupActivation: activationUri,
+            startupEml: emlPath);
 
         try
         {

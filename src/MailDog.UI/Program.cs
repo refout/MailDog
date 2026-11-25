@@ -22,6 +22,8 @@ internal static class Program
             return;
         }
 
+        CrashLog.Install();
+
         if (OperatingSystem.IsWindows())
         {
             NativeBootstrap.EnsureLoaded();
