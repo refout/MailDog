@@ -19,7 +19,7 @@ Windows 和 Linux 上把 QQ 邮箱和 Outlook 收进同一个窗口的桌面邮�
 
 ## 现在能做什么
 
-发布版 **v0.3.0** 加入 Linux（x64）支持：Engine、UI 与命令行都能在 Linux 上编译运行，数据目录遵循 XDG，登录启动写入 `~/.config/autostart`，凭据优先交给系统钥匙串、没有 Secret Service 时回退本机密钥的 AES-GCM；Linux 版暂不加载 HTML 渲染器，邮件正文以纯文本显示，桌面通知走 `notify-send`。Linux 没有托盘图标，关于页新增“退出后台”，命令行可用 `maildog quit` 停止 Engine。v0.2.5 给「检查更新」补上就地状态：点击后在版本号下方显示检查中、已是最新、发现新版本或失败原因；检查更新、下载更新和打开项目主页都改成文字链接。v0.2.4 把「关于」页里多余的更新区整块去掉，只保留版本号旁的「检查更新」按钮；v0.2.3 收敛了设置页重复的版本号、分区标题和说明，统一主窗口三栏的上下左右边距，并真正修复自动升级装完后不自动重新打开的问题。包仍然直接从 `main` 打。
+发布版 **v0.3.0** 把 Linux（x64）补齐：Engine、UI 与命令行都能在 Linux 上编译运行，数据目录遵循 XDG，登录启动写入 `~/.config/autostart`，凭据优先交给系统钥匙串、没有 Secret Service 时回退本机密钥的 AES-GCM。Linux 现在用 WebKitGTK 渲染 HTML 正文，缺库时自动退回纯文本；桌面环境提供 StatusNotifier 托盘宿主时显示托盘图标，没有时仍可用关于页“退出后台”或 `maildog quit`；`maildog://` 协议把通知点击和第二次启动交回已运行的实例，锁屏时通知只留一句“有新邮件”，检查更新能识别 `linux-x64.tar.gz`。账号健康面板、脱敏诊断包和 UI 崩溃留痕也进了这一版；Windows 侧补上 `mailto:`、`.eml` 打开方式、默认应用候选、“发送到”和最近邮件。v0.2.5 给「检查更新」补上就地状态：点击后在版本号下方显示检查中、已是最新、发现新版本或失败原因；检查更新、下载更新和打开项目主页都改成文字链接。v0.2.4 把「关于」页里多余的更新区整块去掉，只保留版本号旁的「检查更新」按钮；v0.2.3 收敛了设置页重复的版本号、分区标题和说明，统一主窗口三栏的上下左右边距，并真正修复自动升级装完后不自动重新打开的问题。包仍然直接从 `main` 打。
 
 - **两个邮箱，一个窗口**：QQ 邮箱用授权码登录，Outlook 点一下用浏览器登录，不用填密码。两个邮箱的信在同一份列表里，收件箱、已发送、草稿、存档按邮箱分开列，哪个邮箱有几封没读，名字旁边直接标着。
 - **写信闭环**：新写、回复、全部回复、转发；正文只保留原生富文本编辑器（AvaloniaRichEditor），工具栏支持 H1/H2/H3/正文、加粗、斜体、下划线、删除线、项目符号、编号、引用、链接、插入图片与撤销重做；底栏固定「附件」入口，可添加/移除本机附件，单封合计不超过 25 MiB，附件较多时自动换行；设置里可配置邮件签名，新写、回复和转发时自动插到正文下方；草稿可续写并同步到 Drafts；发送成功后按设置保存到已发送。富文本邮件同时生成纯文本回退，出站 HTML 先清洗再交给 SMTP。
@@ -57,7 +57,7 @@ Windows 和 Linux 上把 QQ 邮箱和 Outlook 收进同一个窗口的桌面邮�
 
 都在 [Releases](https://github.com/refout/MailDog/releases/latest) 里。Windows 要求 Windows 10 1809+ 或 Windows 11；Windows 10 需要先有 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)（Windows 11 已内置）。Linux 目前提供 x64 包，需要 glibc 与 X11/Wayland 桌面，通知依赖 `notify-send`（`libnotify-bin`）；想点击通知跳回邮件需要 `notify-send` 0.8+ 与支持 action 的通知守护进程，0.7 及更早版本只弹通知。
 
-Linux 版现阶段的能力边界：没有托盘图标，关闭界面后 Engine 继续后台收信；要停止请用关于页的“退出后台”或 `maildog quit`（不要直接 `kill -9`，否则发件箱和 WAL 可能来不及收尾）；邮件正文以纯文本显示，不加载 WebView；通知点击依赖 `notify-send` 0.8+ 的 action 支持；新库凭据优先存进 `secret-tool` 管理的系统钥匙串，检测不到 Secret Service 时回退到数据目录内 0600 权限的随机密钥；旧版本已经生成的密钥文件会继续沿用，避免已有账户失效。
+Linux 版现阶段的能力边界：托盘图标依赖桌面环境的 StatusNotifier 宿主（KDE 自带，GNOME 默认要装扩展），看不到图标时关掉界面 Engine 仍继续后台收信；要停止请用关于页的“退出后台”或 `maildog quit`（不要直接 `kill -9`，否则发件箱和 WAL 可能来不及收尾）；HTML 正文走 WebKitGTK 4.1，系统没装 `libwebkit2gtk-4.1-0` 时自动退回纯文本；通知点击依赖 `notify-send` 0.8+ 的 action 支持；锁屏判断通过 `gdbus` 查询 GNOME/KDE 屏保，查不到时按未锁屏处理；新库凭据优先存进 `secret-tool` 管理的系统钥匙串，检测不到 Secret Service 时回退到数据目录内 0600 权限的随机密钥；旧版本已经生成的密钥文件会继续沿用，避免已有账户失效。
 
 - **QQ 邮箱**：在 QQ 邮箱网页端开启 IMAP/SMTP，生成**授权码**（不是登录密码）填进去。
 - **Outlook**：点“使用浏览器登录”，应用已内置 Entra 公共客户端（公共客户端 ID 不属于机密）。想换成自己注册的应用，设环境变量 `MAILDOG_ENTRA_CLIENT_ID`。
@@ -224,10 +224,10 @@ dist/
 | 10 | 真实账户验收、许可证与发布说明 | 待真实邮箱凭据与许可证决定 |
 | 11 | 列表悬停/无障碍、搜索范围、会话聚合、收件人 chips 与快捷键 | ✅ 已完成（随 v0.1.2 发布） |
 | 12 | 通知链路收口（点击激活、路径自校验、合并与免打扰）、自动更新 | ✅ 已随 v0.2.0 发布；安装版已实装，检查更新正常；通知点击与静默升级留到下一版发布时验 |
-| 13 | 命令行 `MailDog.Cli`：查账号/文件夹/搜索/读信/取附件，写命令需确认，`--json` 与 `schema` 自描述供脚本与助手调用（MCP 方案已取消；解析层计划迁到 `System.CommandLine`） | ✅ 已随 v0.2.0 发布；解析层迁移排 v0.3，见 `docs/PLAN.md` |
+| 13 | 命令行 `MailDog.Cli`：查账号/文件夹/搜索/读信/取附件，写命令需确认，`--json` 与 `schema` 自描述供脚本与助手调用（MCP 方案已取消；解析层用 `System.CommandLine` 2.0.15） | ✅ 已随 v0.2.0 发布；v0.3.0 完成解析层迁移，命令、输出与退出码不变 |
 | 14 | 本地规则过滤器（发件人/主题匹配 → 标已读/加旗标/静音通知，设置页可增删启停）、延迟发送 + 撤销、附件防漏提醒 | ✅ 已随 v0.2.0 发布（2026-11-24，见 `docs/PLAN.md`） |
-| 15 | Windows 集成（mailto / 默认邮件程序 / SendTo / 拖入 .eml / JumpList）、诊断包、账号健康面板 | 🚧 v0.3，见 `docs/PLAN.md` |
-| 16 | Linux x64：Engine 双目标、XDG 数据目录与 autostart、AES-GCM/系统钥匙串凭据、纯文本阅读、`notify-send` 通知与点击、`maildog quit` 退出、tar.gz 打包与 CI | ✅ v0.3.0 |
+| 15 | Windows 集成（mailto / 默认邮件程序 / SendTo / 拖入 .eml / JumpList）、诊断包、账号健康面板 | ✅ v0.3.0；Windows 注册表与 SendTo/JumpList 待实机验收 |
+| 16 | Linux x64：Engine 双目标、XDG 数据目录与 autostart、AES-GCM/系统钥匙串凭据、WebKitGTK HTML 与纯文本回退、托盘/协议激活、锁屏隐私、`notify-send` 通知与点击、`maildog quit` 退出、tar.gz 打包与 CI | ✅ v0.3.0；Linux arm64 未做 |
 | — | 远期不做：HTTP/SOCKS5 代理、S/MIME/PGP、多语言界面 | ⛔ 已记结论，见 `docs/PLAN.md` |
 
 
