@@ -841,6 +841,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isExportingDiagnostics;
 
+    [ObservableProperty]
+    private string _cliDownloadStatus = string.Empty;
+
+    [ObservableProperty]
+    private bool _isDownloadingCli;
+
     /// <summary>Linux 的托盘显示取决于桌面环境，关于页保留“连后台一起退出”的可靠入口。</summary>
     public bool IsLinuxPlatform => OperatingSystem.IsLinux();
 
@@ -3420,6 +3426,62 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         finally
         {
             IsExportingDiagnostics = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadCliAsync()
+    {
+        if (IsDownloadingCli)
+        {
+            return;
+        }
+
+        var bundle = CliBundle.Find();
+
+        if (bundle is null)
+        {
+            CliDownloadStatus = "当前构建没有附带 CLI 包，请使用发布版安装包。";
+            return;
+        }
+
+        var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+
+        if (window is null)
+        {
+            return;
+        }
+
+        var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "下载 MailDog 命令行工具",
+            SuggestedFileName = CliBundle.SuggestedFileName(AppVersion),
+            ShowOverwritePrompt = true
+        });
+
+        var path = file?.TryGetLocalPath();
+
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        IsDownloadingCli = true;
+        CliDownloadStatus = "正在复制 CLI 包…";
+
+        try
+        {
+            await Task.Run(() => File.Copy(bundle, path, true)).ConfigureAwait(true);
+            CliDownloadStatus = $"已下载 {Path.GetFileName(path)}";
+        }
+        catch (Exception exception)
+        {
+            CliDownloadStatus = $"下载失败：{GetErrorMessage(exception)}";
+        }
+        finally
+        {
+            IsDownloadingCli = false;
         }
     }
 

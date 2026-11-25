@@ -1314,11 +1314,12 @@ GitHub Actions `windows-latest`：
 - 输出约定：默认人读表格；`--json` 输出稳定 JSON（列表为每行一条 JSON，便于管道）；禁止在输出里出现口令、令牌、DPAPI 明文。
 - 退出码：`0` 成功、`2` 未找到、`3` 账号未登录或离线、`4` 被权限/配置拒绝、`5` 参数错误。
 - 测试：✅ CI 已加轻量冒烟（`schema` 结构、`help` 退出 0、未知开关退出 5，不需要 Engine）；✅ 临时库种子集成测试（2026-11-24）：`src/build/testdata/cli-seed.db` 是一份 140 KB 的预置库（1 个种子账号、3 封邮件、1 封带正文），CI 用 `--db` 起一个真实 Engine 后跑 `accounts` / `list` / `search haystack --all` / `show 2 --body` / `send --dry-run`，脚本为 `src/build/ci-cli-seed.ps1`，跑完即删临时库。写命令（`mark` / `move` / `draft`）仍只在真机验证过，未进 CI。
-- 打包：✅ `publish.ps1` 产出 `MailDog.Cli.exe`（AOT，5.24 MiB）与 `maildog.cmd` 转发壳，zip 与安装包一并带上；PATH 自动改写暂不做（避免卸载误删整条 Path），需要时手动把安装目录加进 PATH。已用 CI 产物实测 `schema` / `help` 正常。
+- 打包与分发（v0.3.0 调整）：`publish.ps1` 仍产出 `MailDog.Cli` 与 `maildog` 转发壳供构建/CI 使用，但 `package.ps1` / `package-linux.sh` 会把它们和 `maildog-cli` Skill、说明收进 `cli/MailDog-cli.zip`（Linux 为 `.tar.gz`），再从安装目录移除顶层 CLI。安装包只带这个压缩包，设置 → 关于的“命令行工具”按需保存；不自动改 PATH，也不写系统目录。这样普通用户不会多一个 5 MB 的 exe 和一条卸载时不敢删的 PATH。
 - 配套 Agent Skill（✅ 2026-11-24 已产出）：`workspace/.user_skills/maildog-cli`，正文按 `maildog schema --json` 的真实输出重写：命令名、参数（`--folder` 不是 `--role`，正文用 `--text` / `--body-file`，移动用 `--account` + `--folder`）、`--json` 字段、退出码 0/2/3/4/5/6 与 `--force-send`、`cancel <outboxId>` 全部对齐实现；只读命令在种子库上逐条跑过，写命令在临时库验证了 `mark`，`draft` / `move` 受种子账号无授权码限制只验证到退出码 3。硬约束已写进 SKILL.md：
   - 找不到 `maildog` 时先构建 `src\MailDog.Cli`，**禁止**退回去直读 sqlite 或凭截图臆测。
   - id 只能来自 `list` / `search`，不猜 id。
   - `send` 先 dry-run 给用户看，确认后才加 `--confirm`；`draft` / `mark` / `move` 同样要用户明确同意；命中发送前检查时退出码 6，确认后 `--force-send`。
+  - 随包副本：`src/build/cli-bundle/maildog-cli/SKILL.md`，和 CLI 一起压进 `cli/MailDog-cli.zip` / `.tar.gz`；不依赖开发机的 `.user_skills` 路径，正文里的命令解析改成先查 PATH。
 - ✅ **解析层迁移到 `System.CommandLine`**（2026-11-25 完成）：`Arguments.cs` 用 `RootCommand` / `Option<T>` / `ParseResult` 承载词法与开关识别，`Program.cs`、`Schema.cs`、`Output.cs`、`Commands.cs` 未改；命令名、开关、`--json` 输出、`schema` JSON 与退出码 0/2/3/4/5/6 保持不变。`Arguments` 仍保留原外观，先按白名单扫一遍，未知开关/缺值/未知命令继续给中文提示；`--name=value`、`--` 终止符、可重复 `--to`/`--attach`、单值开关重复后写覆盖前写均有测试（`MailDog.Cli.Tests`，10 条）。
   - 现状依据：`System.CommandLine` 已有正式版（2.0.x 到 2.0.15，3.0.0 已发布），不再是当年长期 beta 的状态；AOT/裁剪场景可用，仍是微软官方维护。微软那篇中文教程用的是 beta 期 API（`CommandLineBuilder` / `UseDefaults`），迁移时以官方当前文档的 `RootCommand` / `Option<T>` / `ParseResult` 为准，不要照教程抄。
   - 实际只改 `Arguments.cs`；`Program.cs`、`Schema.cs`、`Output.cs`、`Commands.cs` 未动。**对外契约不变**：命令名、开关名、`--json` 输出结构、退出码（0/2/3/4/5）、`maildog schema` 的 JSON 全部保持原样。

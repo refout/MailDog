@@ -51,8 +51,12 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "{#MySourceDir}\MailDog.Engine.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MySourceDir}\MailDog.UI.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#MySourceDir}\MailDog.Cli.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#MySourceDir}\maildog.cmd"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MySourceDir}\cli\MailDog-cli.zip"; DestDir: "{app}\cli"; Flags: ignoreversion
+
+[InstallDelete]
+; 0.3.0 起 CLI 不再默认安装；升级时清掉旧版留在安装目录的顶层文件。
+Type: files; Name: "{app}\MailDog.Cli.exe"
+Type: files; Name: "{app}\maildog.cmd"
 
 [Icons]
 Name: "{group}\MailDog"; Filename: "{app}\MailDog.UI.exe"

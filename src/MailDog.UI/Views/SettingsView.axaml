@@ -1384,7 +1384,7 @@
                                 IsVisible="{Binding IsLinuxPlatform}">
                           <StackPanel Spacing="10">
                             <TextBlock Text="后台进程" Classes="section" />
-                            <TextBlock Text="Linux 的托盘入口取决于桌面环境；关闭窗口后后台仍会继续收信。要彻底退出，用下面的按钮，或在终端运行 maildog quit。"
+                            <TextBlock Text="Linux 的托盘入口取决于桌面环境；关闭窗口后后台仍会继续收信。要彻底退出，用下面的按钮，或下载 CLI 后运行 maildog quit。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
                             <Button Content="退出后台"
@@ -1415,6 +1415,27 @@
                             <TextBlock Text="Windows 不允许程序静默抢占默认关联，需要在系统设置里选一次 MailDog。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Border>
+
+                        <Border Margin="0,22,0,0"
+                                Padding="0,20,0,0"
+                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                BorderThickness="0,1,0,0">
+                          <StackPanel Spacing="10">
+                            <TextBlock Text="命令行工具" Classes="section" />
+                            <TextBlock Text="CLI 不随安装包预装。下载后解压可得到 maildog 命令和 maildog-cli Skill；不会自动修改 PATH。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <Button Content="下载 CLI + Skill"
+                                    Command="{Binding DownloadCliCommand}"
+                                    IsEnabled="{Binding !IsDownloadingCli}"
+                                    HorizontalAlignment="Left"
+                                    AutomationProperties.Name="下载 CLI 与 Skill" />
+                            <TextBlock Text="{Binding CliDownloadStatus}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding CliDownloadStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                           </StackPanel>
                         </Border>
 

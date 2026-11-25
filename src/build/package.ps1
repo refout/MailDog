@@ -50,7 +50,11 @@ $engineExe = Join-Path $appDir "MailDog.Engine$($isWindowsTarget ? '.exe' : '')"
 $uiExe = Join-Path $appDir "MailDog.UI$($isWindowsTarget ? '.exe' : '')"
 $cliExe = Join-Path $appDir "MailDog.Cli$($isWindowsTarget ? '.exe' : '')"
 $cliShim = Join-Path $appDir ($isWindowsTarget ? 'maildog.cmd' : 'maildog')
-foreach ($file in @($engineExe, $uiExe, $cliExe, $cliShim)) {
+$bundleRoot = Join-Path $PSScriptRoot 'cli-bundle'
+$cliBundleDir = Join-Path $appDir 'cli'
+$cliBundle = Join-Path $cliBundleDir ($isWindowsTarget ? 'MailDog-cli.zip' : 'MailDog-cli.tar.gz')
+
+foreach ($file in @($engineExe, $uiExe)) {
     if (-not (Test-Path $file)) {
         throw "缺少发布文件：$file（先运行 publish.ps1 或去掉 -SkipPublish）。"
     }
@@ -64,6 +68,44 @@ if (-not $isWindowsTarget) {
             throw "缺少 Linux 原生库：$path（先运行 publish.ps1 或去掉 -SkipPublish）。"
         }
     }
+}
+
+# CLI 不再展开安装：publish.ps1 产出的顶层 CLI 在这里收进 cli/ 压缩包，然后从安装目录移除。
+if ((Test-Path $cliExe) -or (Test-Path $cliShim)) {
+    if (-not (Test-Path $cliExe) -or -not (Test-Path $cliShim)) {
+        throw "CLI 发布不完整：需要同时存在 $cliExe 与 $cliShim。"
+    }
+
+    $staging = Join-Path ([IO.Path]::GetTempPath()) "maildog-cli-$([guid]::NewGuid().ToString('N'))"
+    New-Item -ItemType Directory -Force -Path $staging | Out-Null
+    New-Item -ItemType Directory -Force -Path $cliBundleDir | Out-Null
+
+    try {
+        Copy-Item $cliExe $staging -Force
+        Copy-Item $cliShim $staging -Force
+        Copy-Item (Join-Path $bundleRoot 'maildog-cli') (Join-Path $staging 'maildog-cli') -Recurse -Force
+        Copy-Item (Join-Path $bundleRoot 'README.txt') $staging -Force
+
+        if ($isWindowsTarget) {
+            Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $cliBundle -Force
+        }
+        else {
+            & chmod +x (Join-Path $staging 'MailDog.Cli') (Join-Path $staging 'maildog')
+            & tar -czf $cliBundle -C $staging .
+            if ($LASTEXITCODE -ne 0) {
+                throw "CLI tar 打包失败，退出码 $LASTEXITCODE。"
+            }
+        }
+    }
+    finally {
+        Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    Remove-Item $cliExe, $cliShim -Force
+    Write-Host "CLI 包：$cliBundle" -ForegroundColor Green
+}
+elseif (-not (Test-Path $cliBundle)) {
+    throw "缺少 CLI 包：$cliBundle（先运行 publish.ps1 或去掉 -SkipPublish）。"
 }
 
 # 压缩包：Windows 用 zip，Linux 用 tar.gz（保留可执行权限）。
