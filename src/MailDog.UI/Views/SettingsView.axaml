@@ -60,6 +60,12 @@
                 </ListBoxItem>
                 <ListBoxItem Padding="10,8">
                   <StackPanel Orientation="Horizontal" Spacing="12">
+                    <ic:FluentIcon Icon="ArrowDownload" IconSize="Size16" />
+                    <TextBlock Text="工具" FontSize="13" VerticalAlignment="Center" />
+                  </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Padding="10,8">
+                  <StackPanel Orientation="Horizontal" Spacing="12">
                     <ic:FluentIcon Icon="Info" IconSize="Size16" />
                     <TextBlock Text="关于" FontSize="13" VerticalAlignment="Center" />
                   </StackPanel>
@@ -1212,6 +1218,35 @@
                           </StackPanel>
                         </StackPanel>
 
+                        <StackPanel IsVisible="{Binding IsToolsSection}" Spacing="16">
+                          <TextBlock Classes="page-title" Text="工具" />
+
+                          <StackPanel Spacing="10">
+                            <TextBlock Text="命令行工具" Classes="section" />
+                            <TextBlock Text="CLI 不随安装包预装。点击后直接把压缩包保存到软件安装目录；解压可得到 maildog 命令和 maildog-cli Skill，不会自动修改 PATH。"
+                                       Classes="caption"
+                                       TextWrapping="Wrap" />
+                            <Button Content="下载 CLI + Skill"
+                                    Command="{Binding DownloadCliCommand}"
+                                    IsEnabled="{Binding !IsDownloadingCli}"
+                                    HorizontalAlignment="Left"
+                                    AutomationProperties.Name="下载 CLI 与 Skill" />
+                            <TextBlock Text="{Binding CliDownloadStatus}"
+                                       Classes="caption"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding CliDownloadStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                              <TextBlock Text="保存位置："
+                                         Classes="caption"
+                                         VerticalAlignment="Top" />
+                              <TextBlock Grid.Column="1"
+                                         Text="{Binding CliDownloadDirectory}"
+                                         Classes="caption"
+                                         TextWrapping="Wrap" />
+                            </Grid>
+                          </StackPanel>
+                        </StackPanel>
+
                       <StackPanel IsVisible="{Binding IsAboutSection}"
                                   Spacing="0"
                                   MaxWidth="880"
@@ -1415,27 +1450,6 @@
                             <TextBlock Text="Windows 不允许程序静默抢占默认关联，需要在系统设置里选一次 MailDog。"
                                        Classes="caption"
                                        TextWrapping="Wrap" />
-                          </StackPanel>
-                        </Border>
-
-                        <Border Margin="0,22,0,0"
-                                Padding="0,20,0,0"
-                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                BorderThickness="0,1,0,0">
-                          <StackPanel Spacing="10">
-                            <TextBlock Text="命令行工具" Classes="section" />
-                            <TextBlock Text="CLI 不随安装包预装。下载后解压可得到 maildog 命令和 maildog-cli Skill；不会自动修改 PATH。"
-                                       Classes="caption"
-                                       TextWrapping="Wrap" />
-                            <Button Content="下载 CLI + Skill"
-                                    Command="{Binding DownloadCliCommand}"
-                                    IsEnabled="{Binding !IsDownloadingCli}"
-                                    HorizontalAlignment="Left"
-                                    AutomationProperties.Name="下载 CLI 与 Skill" />
-                            <TextBlock Text="{Binding CliDownloadStatus}"
-                                       Classes="caption"
-                                       TextWrapping="Wrap"
-                                       IsVisible="{Binding CliDownloadStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                           </StackPanel>
                         </Border>
 

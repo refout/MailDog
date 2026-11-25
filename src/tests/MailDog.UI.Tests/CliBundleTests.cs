@@ -48,6 +48,16 @@ public sealed class CliBundleTests
         Assert.EndsWith($".{CliBundle.DefaultExtension}", name);
     }
 
+    [Fact]
+    public void DownloadPathUsesInstallDirectory()
+    {
+        var root = Path.GetTempPath();
+
+        Assert.Equal(
+            Path.Combine(root, CliBundle.SuggestedFileName("0.3.0")),
+            CliBundle.DownloadPath(root, "0.3.0"));
+    }
+
     private static string CreateTempDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), $"maildog-cli-{Guid.NewGuid():N}");
