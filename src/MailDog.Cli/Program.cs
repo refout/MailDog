@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Text;
+using MailDog.Contracts.Dto;
 using MailDog.Contracts.Ipc;
+using MailDog.Contracts.Platform;
 
 namespace MailDog.Cli;
 
@@ -71,13 +73,34 @@ internal static class Program
 
             if (arguments.Command is "schema")
             {
-                Console.WriteLine(Schema.Json());
+                Console.WriteLine(Schema.Json(arguments.ReadOnly));
                 return ExitOk;
             }
 
-            if (arguments.Command is not ("accounts" or "folders" or "list" or "search" or "show" or "attachment" or "draft" or "send" or "mark" or "move" or "cancel" or "quit"))
+            if (arguments.Command is not ("accounts" or "folders" or "list" or "search" or "show" or "attachment" or "draft" or "send" or "mark" or "move" or "cancel" or "pending" or "approve" or "deny" or "quit"))
             {
                 throw new UsageException($"不认识的命令：{arguments.Command}（用 maildog schema 看全部命令）");
+            }
+
+            var policy = CliPolicyStore.Load();
+            var isWriteCommand = CliPolicyDto.WriteCommands.Contains(arguments.Command, StringComparer.OrdinalIgnoreCase);
+            if (isWriteCommand && (arguments.ReadOnly || !policy.IsAllowed(arguments.Command)))
+            {
+                throw new CliException(
+                    ExitRefused,
+                    arguments.ReadOnly
+                        ? "本次以 --read-only 运行，写命令已被拒绝。"
+                        : "该写命令未在 Agent 权限里授权；到「CLI 调用记录 → Agent 权限」里开启。");
+            }
+
+            if (arguments.Command is "pending")
+            {
+                return Commands.Pending(arguments);
+            }
+
+            if (arguments.Command is "deny")
+            {
+                return Commands.Deny(arguments);
             }
 
             using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(2));
@@ -102,6 +125,7 @@ internal static class Program
                     "mark" => await Commands.MarkAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     "move" => await Commands.MoveAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     "cancel" => await Commands.CancelAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
+                    "approve" => await Commands.ApproveAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     "quit" => await Commands.QuitAsync(client, arguments, cancellation.Token).ConfigureAwait(false),
                     _ => ExitUsage
                 };

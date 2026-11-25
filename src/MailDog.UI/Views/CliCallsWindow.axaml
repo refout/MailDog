@@ -11,11 +11,11 @@
         MinHeight="480"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource MailDogBrushSurfaceSolid}">
-  <Grid Margin="24" RowDefinitions="Auto,*,Auto" RowSpacing="14">
+  <Grid Margin="24" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="14">
     <Grid ColumnDefinitions="*,Auto">
       <StackPanel Spacing="4">
         <TextBlock Text="CLI 调用记录" FontSize="22" FontWeight="SemiBold" />
-        <TextBlock Text="最近 100 条调用。带 --json 的命令会保存当时的 JSON 输出，方便回看；不带 --json 的只保留摘要。"
+        <TextBlock Text="最近 100 条调用。带 --json 的命令会保存当时的 JSON 输出；默认先脱敏正文，再写入记录。"
                    Classes="caption"
                    TextWrapping="Wrap" />
       </StackPanel>
@@ -26,7 +26,57 @@
               AutomationProperties.Name="刷新 CLI 调用记录" />
     </Grid>
 
-    <Grid Grid.Row="1" ColumnDefinitions="340,*" ColumnSpacing="16">
+    <Border Grid.Row="1"
+            Background="{DynamicResource MailDogBrushSurfaceSubtle}"
+            BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="12">
+      <Expander Header="Agent 权限（命令行）" IsExpanded="False">
+        <StackPanel Spacing="8" Margin="0,8,0,0">
+          <TextBlock Text="命令行默认只能写待确认队列；这里决定哪些写命令可以直接执行。修改后对新启动的 maildog 生效。"
+                     Classes="caption"
+                     TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Spacing="20">
+            <CheckBox Content="全局只读（拒绝所有写命令）"
+                      IsChecked="{Binding PolicyReadOnly, Mode=TwoWay}" />
+            <CheckBox Content="记录 JSON 前先脱敏正文"
+                      IsChecked="{Binding PolicyRedactBody, Mode=TwoWay}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="14">
+            <CheckBox Content="保存草稿（draft）"
+                      IsChecked="{Binding PolicyAllowDraft, Mode=TwoWay}" />
+            <CheckBox Content="发送（send）"
+                      IsChecked="{Binding PolicyAllowSend, Mode=TwoWay}" />
+            <CheckBox Content="标记已读（mark）"
+                      IsChecked="{Binding PolicyAllowMark, Mode=TwoWay}" />
+            <CheckBox Content="移动邮件（move）"
+                      IsChecked="{Binding PolicyAllowMove, Mode=TwoWay}" />
+            <CheckBox Content="撤回发件（cancel）"
+                      IsChecked="{Binding PolicyAllowCancel, Mode=TwoWay}" />
+            <CheckBox Content="确认待发送（approve）"
+                      IsChecked="{Binding PolicyAllowApprove, Mode=TwoWay}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="调用记录保留天数" VerticalAlignment="Center" />
+            <TextBox Text="{Binding PolicyRetentionDaysText, Mode=TwoWay}"
+                     Width="72"
+                     AutomationProperties.Name="调用记录保留天数" />
+            <TextBlock Text="天（1–3650）" Classes="caption" VerticalAlignment="Center" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="保存权限" Command="{Binding SavePolicyCommand}" />
+            <Button Content="重新读取" Command="{Binding ReloadPolicyCommand}" />
+            <TextBlock Text="{Binding PolicyStatus}" Classes="caption"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+          <TextBlock Text="{Binding PolicyPathDisplay}" Classes="caption" TextWrapping="Wrap" />
+        </StackPanel>
+      </Expander>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="340,*" ColumnSpacing="16">
       <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
               BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
               BorderThickness="1"
@@ -77,8 +127,8 @@
       </Border>
     </Grid>
 
-    <TextBlock Grid.Row="2"
-               Text="JSON 输出可能包含邮件正文、地址等隐私内容；单条最多保留约 20 万字符，超出会截断。"
+    <TextBlock Grid.Row="3"
+               Text="JSON 输出可能包含邮件正文、地址等隐私内容；默认只记录脱敏后的正文，单条最多保留约 20 万字符。"
                Classes="caption"
                TextWrapping="Wrap" />
   </Grid>

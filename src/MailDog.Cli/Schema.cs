@@ -1,4 +1,5 @@
 using System.Text;
+using MailDog.Contracts.Platform;
 
 namespace MailDog.Cli;
 
@@ -8,19 +9,23 @@ namespace MailDog.Cli;
 /// </summary>
 internal static class Schema
 {
-    public static string Json()
+    public static string Json(bool readOnly = false)
     {
         var builder = new StringBuilder(4096);
 
         builder.Append("{\"tool\":\"maildog\",\"version\":").Append(Output.Str(Program.Version))
             .Append(",\"transport\":\"named-pipe:MailDog.Engine.IPC.v1\"")
-            .Append(",\"readOnly\":false")
+            .Append(",\"readOnly\":").Append(Output.Bool(readOnly || CliPolicyStore.Load().ReadOnly))
             .Append(",\"globalFlags\":[")
             .Append(Flag("--json", "每行一条 JSON 输出", false))
             .Append(',')
             .Append(Flag("--no-start", "连不上 Engine 时不要自动拉起", false))
             .Append(',')
             .Append(Flag("--confirm", "写命令真正执行；不带时只打印预览", false))
+            .Append(',')
+            .Append(Flag("--read-only", "本次拒绝所有写命令，只允许读操作", false))
+            .Append(',')
+            .Append(Flag("--queue", "draft/send 不直接执行，改为放进本地待确认队列", false))
             .Append(',')
             .Append(Flag("--engine", "指定 MailDog.Engine 可执行文件的路径", true))
             .Append("],\"commands\":[");
@@ -99,8 +104,8 @@ internal static class Schema
                 Flag("--html-file", "HTML 正文文件，给出时按 HTML 发送", true),
                 Flag("--attach", "附件路径，可重复", true)
             ],
-            [Flag("--confirm", "真正写入", false)],
-            "{\"folderId\",\"folder\"}；不带 --confirm 时输出 {\"dryRun\":true,...}"));
+            [Flag("--confirm", "真正写入", false), Flag("--queue", "放进待确认队列，之后用 approve 执行", false)],
+            "{\"folderId\",\"folder\"} 或 {\"pendingId\",\"kind\":\"draft\",\"status\":\"queued\"}；不带 --confirm 且不带 --queue 时输出 {\"dryRun\":true,...}"));
 
         builder.Append(',');
         builder.Append(Command(
@@ -117,8 +122,8 @@ internal static class Schema
                 Flag("--html-file", "HTML 正文文件，给出时按 HTML 发送", true),
                 Flag("--attach", "附件路径，可重复", true)
             ],
-            [Flag("--confirm", "真正发送", false), Flag("--force-send", "发送前检查命中时仍然强发", false)],
-            "{\"outboxId\",\"sent\",\"queued\",\"status\",\"error\",\"delaySeconds\"}；delaySeconds>0 表示还在撤销窗口内，可用 cancel 撤回；发送失败退出码 3"));
+            [Flag("--confirm", "真正发送", false), Flag("--force-send", "发送前检查命中时仍然强发", false), Flag("--queue", "放进待确认队列，之后用 approve 执行", false)],
+            "{\"outboxId\",\"sent\",\"queued\",\"status\",\"error\",\"delaySeconds\"}；delaySeconds>0 表示还在撤销窗口内，可用 cancel 撤回；发送失败退出码 3；--queue 时输出 {\"pendingId\",\"kind\":\"send\",\"status\":\"queued\"}"));
 
         builder.Append(',');
         builder.Append(Command(
@@ -152,6 +157,30 @@ internal static class Schema
 
         builder.Append(',');
         builder.Append(Command(
+            "pending",
+            "列出本地待确认队列（不连接 Engine，纯本地）",
+            [],
+            [],
+            "pending 对象逐行：{pendingId,kind,created,summary}"));
+
+        builder.Append(',');
+        builder.Append(Command(
+            "approve",
+            "执行一条待确认的草稿或发送请求；成功后才从队列删除",
+            [],
+            [],
+            "草稿输出 {\"folderId\",\"folder\"}；发送输出同 send；不存在时退出码 2；第一个位置参数是 pendingId"));
+
+        builder.Append(',');
+        builder.Append(Command(
+            "deny",
+            "拒绝并删除一条待确认请求（纯本地）",
+            [],
+            [],
+            "{\"pendingId\",\"status\":\"denied\"}；不存在时退出码 2；第一个位置参数是 pendingId"));
+
+        builder.Append(',');
+        builder.Append(Command(
             "quit",
             "让后台 Engine 正常收尾并退出；Linux 无托盘时用它停止后台收信",
             [],
@@ -175,7 +204,9 @@ internal static class Schema
             .Append(',')
             .Append(Output.Str("找不到 maildog 时先构建 src\\MailDog.Cli，不要退回直读 sqlite。"))
             .Append(',')
-            .Append(Output.Str("写操作（draft / mark / move / send）默认只预览，加 --confirm 才真正执行；send 还可能因发送前检查返回退出码 6，确认后加 --force-send。"))
+            .Append(Output.Str("写操作（draft / send / mark / move / cancel / approve）默认只预览，加 --confirm 才真正执行；draft/send 可改用 --queue 放进待确认队列。"))
+            .Append(',')
+            .Append(Output.Str("写命令还要通过 Agent 权限：默认全部允许；可在 MailDog UI 的「CLI 调用记录 → Agent 权限」里改成只读、白名单或关闭正文脱敏。"))
             .Append("]}");
 
         return builder.ToString();

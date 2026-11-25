@@ -35,11 +35,14 @@ public sealed class IpcClient : IAsyncDisposable
     public bool IsConnected => _pipe?.IsConnected == true;
 
     /// <summary>连上管道并完成 Hello 握手；连不上返回 null，由调用方决定是否先拉起 Engine。</summary>
-    public static async Task<IpcClient?> TryConnectAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    public static async Task<IpcClient?> TryConnectAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken,
+        string? pipeName = null)
     {
         var pipe = new NamedPipeClientStream(
             ".",
-            IpcProtocol.PipeName,
+            pipeName ?? IpcProtocol.PipeName,
             PipeDirection.InOut,
             PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
 

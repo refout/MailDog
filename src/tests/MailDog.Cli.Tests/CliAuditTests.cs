@@ -75,6 +75,29 @@ public sealed class CliAuditTests
     }
 
     [Fact]
+    public void FormatRecordRedactsBodiesWhenPolicyAsks()
+    {
+        var record = CliAudit.FormatRecord(
+            DateTimeOffset.MinValue,
+            "0.3.5",
+            "show",
+            0,
+            TimeSpan.FromMilliseconds(5),
+            "{\"id\":2,\"text\":\"客户报价 100 万\",\"html\":\"<p>secret</p>\"}",
+            true,
+            false,
+            redactBody: true);
+
+        using var document = JsonDocument.Parse(record);
+        var root = document.RootElement;
+
+        Assert.True(root.GetProperty("jsonRedacted").GetBoolean());
+        Assert.DoesNotContain("客户报价", record);
+        Assert.DoesNotContain("secret", record);
+        Assert.Contains("正文已脱敏", root.GetProperty("json").GetString());
+    }
+
+    [Fact]
     public void FormatRecordWritesNullWhenJsonWasNotRequested()
     {
         var record = CliAudit.FormatRecord(

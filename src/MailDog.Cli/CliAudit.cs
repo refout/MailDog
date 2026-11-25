@@ -1,4 +1,6 @@
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using MailDog.Contracts.Platform;
 
 namespace MailDog.Cli;
@@ -32,6 +34,7 @@ internal static class CliAudit
             Directory.CreateDirectory(directory);
 
             var timestamp = DateTimeOffset.Now;
+            var policy = CliPolicyStore.Load();
 
             var usagePath = Path.Combine(directory, "cli-usage.log");
             Rotate(usagePath, MaxUsageFileBytes);
@@ -42,9 +45,10 @@ internal static class CliAudit
 
             var callsPath = Path.Combine(directory, "cli-calls.jsonl");
             Rotate(callsPath, MaxCallsFileBytes);
+            Prune(callsPath, policy.AuditRetentionDays);
             Append(
                 callsPath,
-                FormatRecord(timestamp, Program.Version, command, exitCode, elapsed, jsonOutput, jsonRequested, jsonTruncated)
+                FormatRecord(timestamp, Program.Version, command, exitCode, elapsed, jsonOutput, jsonRequested, jsonTruncated, policy.RedactBody)
                 + Environment.NewLine);
         }
         catch
@@ -71,11 +75,13 @@ internal static class CliAudit
         TimeSpan elapsed,
         string? jsonOutput,
         bool jsonRequested,
-        bool jsonTruncated)
+        bool jsonTruncated,
+        bool redactBody = false)
     {
         var normalized = NormalizeCommand(command);
+        var storedJson = redactBody && jsonOutput is not null ? RedactJson(jsonOutput) : jsonOutput;
 
-        return new StringBuilder(256 + (jsonOutput?.Length ?? 0))
+        return new StringBuilder(256 + (storedJson?.Length ?? 0))
             .Append("{\"time\":").Append(Output.Str(Output.Iso(timestamp)))
             .Append(",\"version\":").Append(Output.Str(version))
             .Append(",\"command\":").Append(Output.Str(normalized))
@@ -83,7 +89,8 @@ internal static class CliAudit
             .Append(",\"ms\":").Append(Output.Num((long)elapsed.TotalMilliseconds))
             .Append(",\"jsonRequested\":").Append(Output.Bool(jsonRequested))
             .Append(",\"jsonTruncated\":").Append(Output.Bool(jsonTruncated))
-            .Append(",\"json\":").Append(Output.Str(jsonOutput))
+            .Append(",\"jsonRedacted\":").Append(Output.Bool(redactBody))
+            .Append(",\"json\":").Append(Output.Str(storedJson))
             .Append('}')
             .ToString();
     }
@@ -111,6 +118,140 @@ internal static class CliAudit
         }
 
         return builder.Length == 0 ? "(未知)" : builder.ToString();
+    }
+
+    private static readonly string[] SensitiveFields =
+    [
+        "text", "html", "body", "bodyHtml", "plainText", "preview", "snippet"
+    ];
+
+    private static string RedactJson(string json)
+    {
+        var builder = new StringBuilder(json.Length);
+
+        foreach (var line in json.Split('\n'))
+        {
+            if (builder.Length > 0)
+            {
+                builder.Append('\n');
+            }
+
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(trimmed);
+                using var output = new MemoryStream();
+                using (var writer = new Utf8JsonWriter(output, new JsonWriterOptions
+                       {
+                           Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                       }))
+                {
+                    WriteRedacted(document.RootElement, writer);
+                }
+
+                builder.Append(Encoding.UTF8.GetString(output.ToArray()));
+            }
+            catch (JsonException)
+            {
+                builder.Append("[非 JSON 输出，已隐藏]");
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static void WriteRedacted(JsonElement element, Utf8JsonWriter writer)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                writer.WriteStartObject();
+                foreach (var property in element.EnumerateObject())
+                {
+                    if (SensitiveFields.Contains(property.Name, StringComparer.OrdinalIgnoreCase)
+                        && property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        var length = property.Value.GetString()?.Length ?? 0;
+                        writer.WriteString(property.Name, $"[正文已脱敏，{length} 字符]");
+                    }
+                    else
+                    {
+                        writer.WritePropertyName(property.Name);
+                        WriteRedacted(property.Value, writer);
+                    }
+                }
+
+                writer.WriteEndObject();
+                break;
+            case JsonValueKind.Array:
+                writer.WriteStartArray();
+                foreach (var item in element.EnumerateArray())
+                {
+                    WriteRedacted(item, writer);
+                }
+
+                writer.WriteEndArray();
+                break;
+            default:
+                element.WriteTo(writer);
+                break;
+        }
+    }
+
+    private static void Prune(string path, int retentionDays)
+    {
+        if (retentionDays <= 0 || !File.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            var cutoff = DateTimeOffset.UtcNow.AddDays(-Math.Min(retentionDays, 3650));
+            var lines = File.ReadAllLines(path);
+            var kept = new List<string>(lines.Length);
+
+            foreach (var line in lines)
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    using var document = JsonDocument.Parse(line);
+                    if (document.RootElement.TryGetProperty("time", out var timeElement)
+                        && DateTimeOffset.TryParse(timeElement.GetString(), out var timestamp)
+                        && timestamp < cutoff)
+                    {
+                        continue;
+                    }
+                }
+                catch (JsonException)
+                {
+                    // 损坏的行保留，避免误删其他进程正在写的内容。
+                }
+
+                kept.Add(line);
+            }
+
+            if (kept.Count < lines.Length)
+            {
+                var temporary = path + ".tmp";
+                File.WriteAllText(temporary, string.Join(Environment.NewLine, kept) + Environment.NewLine, new UTF8Encoding(false));
+                File.Move(temporary, path, true);
+            }
+        }
+        catch
+        {
+            // 清理失败不能影响 CLI。
+        }
     }
 
     private static bool IsDisabled()

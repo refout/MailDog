@@ -20,12 +20,14 @@ internal sealed class Arguments
     private static readonly string[] CommandNames =
     [
         "accounts", "folders", "list", "search", "show", "attachment",
-        "draft", "send", "mark", "move", "cancel", "quit", "schema", "help"
+        "draft", "send", "mark", "move", "cancel", "pending", "approve", "deny",
+        "quit", "schema", "help"
     ];
 
     private static readonly string[] BooleanNames =
     [
-        "--json", "--unread", "--all", "--body", "--headers", "--html", "--no-start", "--confirm", "--force-send"
+        "--json", "--unread", "--all", "--body", "--headers", "--html", "--no-start", "--confirm",
+        "--force-send", "--read-only", "--queue"
     ];
 
     private static readonly string[] SingleValueNames =
@@ -175,6 +177,10 @@ internal sealed class Arguments
     }
 
     public bool Json => Has("--json");
+
+    public bool ReadOnly => Has("--read-only");
+
+    public bool Queue => Has("--queue");
 
     private void AddValue(string flag, string value)
     {

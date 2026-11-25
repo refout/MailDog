@@ -20,6 +20,8 @@ public sealed class CliCallRecord
 
     public bool JsonTruncated { get; init; }
 
+    public bool JsonRedacted { get; init; }
+
     public string? Json { get; init; }
 
     public string DisplayTime => Time.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
@@ -111,6 +113,7 @@ public static class CliCallLog
                 DurationMs = GetInt64(root, "ms"),
                 JsonRequested = GetBoolean(root, "jsonRequested"),
                 JsonTruncated = GetBoolean(root, "jsonTruncated"),
+                JsonRedacted = GetBoolean(root, "jsonRedacted"),
                 Json = GetString(root, "json")
             };
         }

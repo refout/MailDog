@@ -69,6 +69,25 @@ public sealed class ArgumentsTests
     }
 
     [Fact]
+    public void ParsesAgentBoundarySwitches()
+    {
+        var arguments = Arguments.Parse(["send", "--queue", "--read-only", "--json"]);
+
+        Assert.True(arguments.Queue);
+        Assert.True(arguments.ReadOnly);
+        Assert.True(arguments.Json);
+    }
+
+    [Fact]
+    public void ParsesPendingQueueCommands()
+    {
+        var arguments = Arguments.Parse(["approve", "20261125120000-abcdef12"]);
+
+        Assert.Equal("approve", arguments.Command);
+        Assert.Equal(["20261125120000-abcdef12"], arguments.Positionals);
+    }
+
+    [Fact]
     public void RejectsUnknownCommand()
     {
         var exception = Assert.Throws<UsageException>(() => Arguments.Parse(["unknown"]));

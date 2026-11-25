@@ -1,6 +1,8 @@
+using System.Text.Json;
 using MailDog.Contracts.Dto;
 using MailDog.Contracts.Ipc;
 using MailDog.Contracts.Messages;
+using MailDog.Contracts.Serialization;
 
 namespace MailDog.Cli;
 
@@ -350,11 +352,33 @@ internal static class Commands
         var compose = await ReadComposeAsync(client, args, requireRecipients: false, cancellationToken).ConfigureAwait(false);
         PrintCompose("保存草稿", compose, args);
 
+        var request = new SaveDraftRequest
+        {
+            AccountId = compose.Account.Id,
+            To = compose.To,
+            Cc = compose.Cc,
+            Bcc = compose.Bcc,
+            Subject = compose.Subject,
+            BodyText = compose.Text,
+            BodyHtml = compose.Html,
+            IsMarkdown = compose.Html is null,
+            AttachmentPaths = compose.Attachments
+        };
+
+        if (args.Queue)
+        {
+            return QueueForApproval(
+                "draft",
+                $"草稿：{compose.Subject}",
+                JsonSerializer.Serialize(request, IpcJsonContext.Default.SaveDraftRequest),
+                args);
+        }
+
         if (!args.Has("--confirm"))
         {
             if (!args.Json)
             {
-                Console.WriteLine("这是预览，没有写入草稿箱。确认后加 --confirm 再执行。");
+                Console.WriteLine("这是预览，没有写入草稿箱。确认后加 --confirm 再执行，或用 --queue 放进待确认队列。");
             }
 
             return 0;
@@ -362,31 +386,11 @@ internal static class Commands
 
         var response = await client.RequestAsync<DraftSavedResponse>(
             IpcMessageTypes.SaveDraft,
-            new SaveDraftRequest
-            {
-                AccountId = compose.Account.Id,
-                To = compose.To,
-                Cc = compose.Cc,
-                Bcc = compose.Bcc,
-                Subject = compose.Subject,
-                BodyText = compose.Text,
-                BodyHtml = compose.Html,
-                IsMarkdown = compose.Html is null,
-                AttachmentPaths = compose.Attachments
-            },
+            request,
             LongTimeout,
             cancellationToken).ConfigureAwait(false);
 
-        if (args.Json)
-        {
-            Console.WriteLine("{\"folderId\":" + Output.Num(response.FolderId)
-                + ",\"folder\":" + Output.Str(response.FolderName) + "}");
-        }
-        else
-        {
-            Console.WriteLine($"已存草稿：{response.FolderName}（文件夹 id {response.FolderId}）");
-        }
-
+        PrintDraftSaved(response, args);
         return 0;
     }
 
@@ -395,11 +399,34 @@ internal static class Commands
         var compose = await ReadComposeAsync(client, args, requireRecipients: true, cancellationToken).ConfigureAwait(false);
         PrintCompose("发送邮件", compose, args);
 
+        var request = new SendMailRequest
+        {
+            AccountId = compose.Account.Id,
+            To = compose.To,
+            Cc = compose.Cc,
+            Bcc = compose.Bcc,
+            Subject = compose.Subject,
+            BodyText = compose.Text,
+            BodyHtml = compose.Html,
+            IsMarkdown = compose.Html is null,
+            AttachmentPaths = compose.Attachments,
+            SkipSendChecks = args.Has("--force-send")
+        };
+
+        if (args.Queue)
+        {
+            return QueueForApproval(
+                "send",
+                $"发送：{compose.Subject} → {compose.To}",
+                JsonSerializer.Serialize(request, IpcJsonContext.Default.SendMailRequest),
+                args);
+        }
+
         if (!args.Has("--confirm"))
         {
             if (!args.Json)
             {
-                Console.WriteLine("这是预览，没有发出。确认后加 --confirm 再执行。");
+                Console.WriteLine("这是预览，没有发出。确认后加 --confirm 再执行，或用 --queue 放进待确认队列。");
             }
 
             return 0;
@@ -407,22 +434,35 @@ internal static class Commands
 
         var response = await client.RequestAsync<SendMailResponse>(
             IpcMessageTypes.SendMail,
-            new SendMailRequest
-            {
-                AccountId = compose.Account.Id,
-                To = compose.To,
-                Cc = compose.Cc,
-                Bcc = compose.Bcc,
-                Subject = compose.Subject,
-                BodyText = compose.Text,
-                BodyHtml = compose.Html,
-                IsMarkdown = compose.Html is null,
-                AttachmentPaths = compose.Attachments,
-                SkipSendChecks = args.Has("--force-send")
-            },
+            request,
             LongTimeout,
             cancellationToken).ConfigureAwait(false);
 
+        return PrintSendResponse(response, args);
+    }
+
+    private static int QueueForApproval(string kind, string summary, string requestJson, Arguments args)
+    {
+        var item = CliPending.Create(kind, summary, requestJson);
+
+        if (args.Json)
+        {
+            Console.WriteLine("{\"pendingId\":" + Output.Str(item.Id)
+                + ",\"kind\":" + Output.Str(item.Kind)
+                + ",\"status\":\"queued\",\"summary\":" + Output.Str(item.Summary) + "}");
+        }
+        else
+        {
+            Console.WriteLine($"已放进待确认队列：{item.Id}");
+            Console.WriteLine($"类型：{item.Kind}；{item.Summary}");
+            Console.WriteLine($"用 maildog approve {item.Id} 确认；用 maildog deny {item.Id} 拒绝。");
+        }
+
+        return 0;
+    }
+
+    private static int PrintSendResponse(SendMailResponse response, Arguments args)
+    {
         if (response.Status == SendStatuses.ConfirmRequired)
         {
             if (args.Json)
@@ -469,6 +509,116 @@ internal static class Commands
         }
 
         return response.Sent || response.Queued ? 0 : 3;
+    }
+
+    private static void PrintDraftSaved(DraftSavedResponse response, Arguments args)
+    {
+        if (args.Json)
+        {
+            Console.WriteLine("{\"folderId\":" + Output.Num(response.FolderId)
+                + ",\"folder\":" + Output.Str(response.FolderName) + "}");
+        }
+        else
+        {
+            Console.WriteLine($"已存草稿：{response.FolderName}（文件夹 id {response.FolderId}）");
+        }
+    }
+
+    public static int Pending(Arguments args)
+    {
+        var items = CliPending.List();
+
+        if (items.Count == 0)
+        {
+            if (!args.Json)
+            {
+                Console.WriteLine("待确认队列为空。");
+            }
+
+            return 0;
+        }
+
+        foreach (var item in items)
+        {
+            if (args.Json)
+            {
+                Console.WriteLine("{\"pendingId\":" + Output.Str(item.Id)
+                    + ",\"kind\":" + Output.Str(item.Kind)
+                    + ",\"created\":" + Output.Str(Output.Iso(item.CreatedUtc))
+                    + ",\"summary\":" + Output.Str(item.Summary) + "}");
+            }
+            else
+            {
+                Console.WriteLine($"{item.Id}  {item.Kind}  {item.CreatedUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}  {item.Summary}");
+            }
+        }
+
+        return 0;
+    }
+
+    public static int Deny(Arguments args)
+    {
+        var id = args.Positionals.FirstOrDefault()
+            ?? throw new UsageException("用法：maildog deny <pendingId>");
+
+        if (!CliPending.Delete(id))
+        {
+            throw new CliException(2, $"待确认项不存在：{id}");
+        }
+
+        if (args.Json)
+        {
+            Console.WriteLine("{\"pendingId\":" + Output.Str(id) + ",\"status\":\"denied\"}");
+        }
+        else
+        {
+            Console.WriteLine($"已拒绝待确认项：{id}");
+        }
+
+        return 0;
+    }
+
+    public static async Task<int> ApproveAsync(IpcClient client, Arguments args, CancellationToken cancellationToken)
+    {
+        var id = args.Positionals.FirstOrDefault()
+            ?? throw new UsageException("用法：maildog approve <pendingId>");
+        var item = CliPending.Read(id)
+            ?? throw new CliException(2, $"待确认项不存在：{id}");
+
+        if (string.Equals(item.Kind, "send", StringComparison.OrdinalIgnoreCase))
+        {
+            var request = JsonSerializer.Deserialize(item.RequestJson, IpcJsonContext.Default.SendMailRequest)
+                ?? throw new CliException(2, $"待确认项内容损坏：{id}");
+            var response = await client.RequestAsync<SendMailResponse>(
+                IpcMessageTypes.SendMail,
+                request,
+                LongTimeout,
+                cancellationToken).ConfigureAwait(false);
+            var exitCode = PrintSendResponse(response, args);
+
+            if (exitCode == 0)
+            {
+                CliPending.Delete(id);
+            }
+
+            return exitCode;
+        }
+
+        if (string.Equals(item.Kind, "draft", StringComparison.OrdinalIgnoreCase))
+        {
+            var request = JsonSerializer.Deserialize(item.RequestJson, IpcJsonContext.Default.SaveDraftRequest)
+                ?? throw new CliException(2, $"待确认项内容损坏：{id}");
+            var response = await client.RequestAsync<DraftSavedResponse>(
+                IpcMessageTypes.SaveDraft,
+                request,
+                LongTimeout,
+                cancellationToken).ConfigureAwait(false);
+            PrintDraftSaved(response, args);
+            CliPending.Delete(id);
+            return 0;
+        }
+
+        throw new CliException(2, $"待确认项类型未知：{item.Kind}");
     }
 
     public static async Task<int> MarkAsync(IpcClient client, Arguments args, CancellationToken cancellationToken)

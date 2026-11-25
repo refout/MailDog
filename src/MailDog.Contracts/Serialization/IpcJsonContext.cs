@@ -23,6 +23,8 @@ namespace MailDog.Contracts.Serialization;
 [JsonSerializable(typeof(AccountPreferencesResponse))]
 [JsonSerializable(typeof(UpdateAccountPreferencesRequest))]
 [JsonSerializable(typeof(AccountPreferencesDto))]
+[JsonSerializable(typeof(CliPolicyDto))]
+[JsonSerializable(typeof(CliPendingDto))]
 [JsonSerializable(typeof(AddPasswordAccountRequest))]
 [JsonSerializable(typeof(AccountResponse))]
 [JsonSerializable(typeof(StartOAuthRequest))]
@@ -136,6 +138,6 @@ namespace MailDog.Contracts.Serialization;
 [JsonSerializable(typeof(MailTemplateDto[]))]
 [JsonSerializable(typeof(OAuthTokenResponse))]
 [JsonSerializable(typeof(OAuthTokenError))]
-internal partial class IpcJsonContext : JsonSerializerContext
+public partial class IpcJsonContext : JsonSerializerContext
 {
 }
