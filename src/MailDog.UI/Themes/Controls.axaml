@@ -236,6 +236,69 @@
 
   <!-- ================= 容器 ================= -->
 
+  <!-- 主窗口三栏共用一套工作区表面：同一圆角、描边和裁剪边界。 -->
+  <Style Selector="Border.workspace-column">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfacePane}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushStrokeSubtle}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusSurface}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="Border.workspace-column.navigation">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceSubtle}" />
+  </Style>
+  <Style Selector="Border.workspace-column.list">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceContent}" />
+  </Style>
+  <Style Selector="Border.workspace-column.reader">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceContent}" />
+  </Style>
+
+  <!-- 设置页分组卡片：所有页面只保留这一种层级，组内不再各自造边框和间距。 -->
+  <Style Selector="Border.settings-card">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceCard}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushStrokeSubtle}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusSurface}" />
+    <Setter Property="Padding" Value="{DynamicResource MailDogPadCard}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+  <Style Selector="Border.settings-card TextBlock.section">
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeCardTitle}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextPrimary}" />
+  </Style>
+
+  <Style Selector="TextBlock.settings-page-subtitle">
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextSecondary}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <Style Selector="TextBlock.settings-nav-title">
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeTitle}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextPrimary}" />
+  </Style>
+
+  <Style Selector="TextBlock.settings-nav-subtitle">
+    <Setter Property="FontSize" Value="{DynamicResource MailDogTypeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource MailDogBrushTextTertiary}" />
+  </Style>
+
+  <Style Selector="Button.settings-footer">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+  </Style>
+  <Style Selector="Button.settings-footer:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushFillHover}" />
+  </Style>
+
   <!-- ================= 列表与浮层 ================= -->
 
   <Style Selector="ListBoxItem">
@@ -267,9 +330,13 @@
   </Style>
 
   <Style Selector="ListBox.settings-nav ListBoxItem">
-    <Setter Property="Padding" Value="10,8" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="MinHeight" Value="36" />
     <Setter Property="Margin" Value="4,1" />
-    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusControl}" />
+  </Style>
+  <Style Selector="ListBox.settings-nav ListBoxItem.nav-group-gap">
+    <Setter Property="Margin" Value="4,14,4,1" />
   </Style>
   <Style Selector="ListBox.settings-nav ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource MailDogBrushSelectionTint}" />

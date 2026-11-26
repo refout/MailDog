@@ -78,6 +78,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         Accounts.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasAccounts));
+            OnPropertyChanged(nameof(IsAccountSignatureVisible));
         };
         RefreshBackgroundPresets();
         BuildCalendar();
@@ -824,6 +825,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsAccountListVisible => IsAccountSection && !ShowAddAccountForm;
 
+    public bool IsAccountSignatureVisible => IsAccountListVisible && HasAccounts;
+
     public bool IsAddAccountFormVisible => IsAccountSection && ShowAddAccountForm;
 
     public bool IsAboutSection => SettingsSectionIndex == 10;
@@ -892,6 +895,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnShowAddAccountFormChanged(bool value)
     {
         OnPropertyChanged(nameof(IsAccountListVisible));
+        OnPropertyChanged(nameof(IsAccountSignatureVisible));
         OnPropertyChanged(nameof(IsAddAccountFormVisible));
     }
 
@@ -914,6 +918,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsTemplatesSection));
         OnPropertyChanged(nameof(IsTagsSection));
         OnPropertyChanged(nameof(IsAccountListVisible));
+        OnPropertyChanged(nameof(IsAccountSignatureVisible));
         OnPropertyChanged(nameof(IsAddAccountFormVisible));
         OnPropertyChanged(nameof(IsAboutSection));
 
@@ -1068,8 +1073,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnBackgroundExitStatusChanged(string value)
         => OnPropertyChanged(nameof(HasBackgroundExitStatus));
 
-    /// <summary>云母/亚克力只存在于 Windows 11，Linux 不展示无效选项。</summary>
-    public bool IsWindowsMaterialAvailable => OperatingSystem.IsWindows();
+    /// <summary>Windows 10 1809+ 支持亚克力，Windows 11 22H2+ 才支持云母。</summary>
+    public bool IsWindowsMaterialAvailable =>
+        OperatingSystem.IsWindows() && Environment.OSVersion.Version.Build >= 17763;
+
+    public bool IsMicaAvailable =>
+        OperatingSystem.IsWindows() && Environment.OSVersion.Version.Build >= 22000;
+
+    public bool IsAcrylicAvailable => IsWindowsMaterialAvailable;
 
     public string Material => MaterialIndex switch
     {
@@ -6349,8 +6360,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             };
             MaterialIndex = _settings.Material switch
             {
-                "mica" => 1,
-                "acrylic" => 2,
+                "mica" when IsMicaAvailable => 1,
+                "acrylic" when IsAcrylicAvailable => 2,
                 _ => 0
             };
             BackgroundColorHex = _settings.BackgroundColor ?? string.Empty;

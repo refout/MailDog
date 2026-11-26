@@ -4,6 +4,7 @@
         xmlns:controls="using:MailDog.UI.Controls"
         xmlns:vm="using:MailDog.UI.ViewModels"
         xmlns:views="using:MailDog.UI.Views"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
         x:Class="MailDog.UI.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="MailDog"
@@ -11,9 +12,35 @@
         Height="800"
         MinWidth="900"
         MinHeight="680"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="32"
+        WindowDecorations="Full"
         TransparencyLevelHint="Mica, Blur"
+        TransparencyBackgroundFallback="{DynamicResource MailDogBrushSurfaceSolid}"
         Background="Transparent">
-  <Grid RowDefinitions="Auto,*,Auto">
+  <Grid x:Name="WindowChromeRoot" RowDefinitions="32,*">
+    <Border Grid.Row="0"
+            x:Name="CustomTitleBar"
+            Background="Transparent"
+            chrome:WindowDecorationProperties.ElementRole="TitleBar">
+      <StackPanel Orientation="Horizontal"
+                  Spacing="8"
+                  Margin="12,0,0,0"
+                  VerticalAlignment="Center"
+                  IsHitTestVisible="False">
+        <Image Source="avares://MailDog.UI/Assets/logo.png"
+               Width="16"
+               Height="16"
+               Stretch="UniformToFill" />
+        <TextBlock Text="MailDog"
+                   FontSize="13"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource MailDogBrushTextPrimary}" />
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto">
     <Border Grid.Row="0"
             IsVisible="{Binding IsOffline}"
             Background="{DynamicResource MailDogBrushStatusWarningTint}"
@@ -44,12 +71,15 @@
     </Border>
 
     <!-- 三栏内容：文件夹栏、邮件列表、阅读区；设置页独立占满内容区 -->
-    <Grid x:Name="MailColumns" Grid.Row="1" ColumnDefinitions="240,360,*" IsVisible="{Binding !IsSettingsOpen}">
+    <Grid x:Name="MailColumns"
+          Grid.Row="1"
+          ColumnDefinitions="240,360,*"
+          ColumnSpacing="{DynamicResource MailDogSizeColumnGap}"
+          Margin="12,10,12,12"
+          IsVisible="{Binding !IsSettingsOpen}">
       <!-- 文件夹栏 -->
       <Border Grid.Column="0"
-              Background="{DynamicResource MailDogBrushSurfaceSubtle}"
-              BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-              BorderThickness="0,0,1,0">
+              Classes="workspace-column navigation">
         <Grid RowDefinitions="Auto,*,Auto" Margin="16">
           <StackPanel Grid.Row="0">
             <Button Command="{Binding NewMailCommand}"
@@ -206,7 +236,7 @@
                                FontSize="13"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding Email}"
-                               FontSize="11"
+                               FontSize="10.5"
                                Foreground="{DynamicResource MailDogBrushTextTertiary}"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding SyncStatus}"
@@ -329,25 +359,35 @@
             </Border>
           </Grid>
 
-          <StackPanel Grid.Row="2" Spacing="2" Margin="0,8,0,0">
-            <Button Classes="nav-item"
+          <Border Grid.Row="2"
+                  Margin="0,10,0,0"
+                  Padding="0,10,0,0"
+                  BorderBrush="{DynamicResource MailDogBrushStrokeSubtle}"
+                  BorderThickness="0,1,0,0">
+            <Button Classes="settings-footer"
                     Command="{Binding OpenSettingsCommand}"
+                    HorizontalContentAlignment="Stretch"
                     AutomationProperties.Name="设置"
-                    ToolTip.Tip="设置">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <ic:FluentIcon Icon="Settings" IconSize="Size16" />
-                <TextBlock Text="设置" FontSize="13" VerticalAlignment="Center" />
-              </StackPanel>
+                    ToolTip.Tip="设置（Ctrl+,）">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <ic:FluentIcon Grid.Column="0"
+                               Icon="Settings"
+                               IconSize="Size16"
+                               Foreground="{DynamicResource MailDogBrushTextSecondary}"
+                               VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1"
+                           Text="设置"
+                           FontSize="13"
+                           VerticalAlignment="Center" />
+              </Grid>
             </Button>
-          </StackPanel>
+          </Border>
         </Grid>
       </Border>
 
       <!-- 邮件列表 -->
       <Border Grid.Column="1"
-              Background="{DynamicResource MailDogBrushSurfaceContent}"
-              BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-              BorderThickness="0,0,1,0">
+              Classes="workspace-column list">
         <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="0,0,0,16">
           <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="16,16,16,8">
             <TextBlock Classes="page-title" Text="{Binding FolderTitle}"
@@ -902,7 +942,7 @@
             </ListBox>
 
             <Border IsVisible="{Binding IsEmpty}"
-                    Background="{DynamicResource MailDogBrushSurfacePane}">
+                    Background="Transparent">
               <StackPanel HorizontalAlignment="Center"
                           VerticalAlignment="Center"
                           Spacing="8">
@@ -929,9 +969,8 @@
       </Border>
 
       <!-- 阅读区 -->
-      <Grid Grid.Column="2"
-            RowDefinitions="Auto,*,Auto"
-            Background="{DynamicResource MailDogBrushSurfaceContent}">
+      <Border Grid.Column="2" Classes="workspace-column reader">
+        <Grid RowDefinitions="Auto,*,Auto">
         <Grid Grid.Row="0"
               RowDefinitions="Auto,Auto,Auto"
               Margin="16,16,16,0"
@@ -1318,7 +1357,7 @@
           <NativeWebView Grid.Row="1" x:Name="WebView" Margin="16,0,16,0" IsVisible="{Binding IsReaderHtmlVisible}" />
 
           <Border Grid.Row="1" IsVisible="{Binding Reader.ShowEmpty}"
-                  Background="{DynamicResource MailDogBrushSurfacePane}">
+                  Background="Transparent">
             <StackPanel HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         Spacing="8">
@@ -1363,13 +1402,15 @@
           </Border>
         </StackPanel>
 
-      </Grid>
+        </Grid>
+      </Border>
 
       <!-- 写邮件：覆盖中间邮件列表与右侧阅读区，保留左侧账户导航 -->
       <Border Grid.Row="1"
               Grid.Column="1"
               Grid.ColumnSpan="2"
               ZIndex="10"
+              Classes="workspace-column"
               IsVisible="{Binding IsComposeOpen}"
               Background="{DynamicResource MailDogBrushSurfacePopup}">
         <views:ComposeView DataContext="{Binding Compose}" />
@@ -1465,4 +1506,6 @@
     </Border>
 
   </Grid>
+  </Grid>
 </Window>
+

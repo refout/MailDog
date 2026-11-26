@@ -21,8 +21,10 @@ public partial class MainWindow : Window
 {
     private const int DwmwaUseImmersiveDarkMode = 20;
     private const int DwmwaUseImmersiveDarkModeLegacy = 19;
+    private const int DwmwaBorderColor = 34;
     private const int DwmwaCaptionColor = 35;
     private const int DwmwaTextColor = 36;
+    private const int DwmwaColorNone = unchecked((int)0xFFFFFFFE);
 
     private readonly MainWindowViewModel _viewModel;
     private readonly Dictionary<TreeViewItem, AccountViewModel> _accountNodes = [];
@@ -42,6 +44,15 @@ public partial class MainWindow : Window
     public MainWindow(MainWindowViewModel viewModel)
     {
         InitializeComponent();
+
+        if (!OperatingSystem.IsWindows())
+        {
+            // 自绘标题条只服务于 Windows 的 Mica/Acrylic 客户区延展；
+            // Linux/macOS 仍使用系统标题栏，避免出现第二条空白标题栏。
+            CustomTitleBar.IsVisible = false;
+            WindowChromeRoot.RowDefinitions[0].Height = new GridLength(0);
+            ExtendClientAreaToDecorationsHint = false;
+        }
 
         _viewModel = viewModel;
         DataContext = viewModel;
@@ -107,8 +118,8 @@ public partial class MainWindow : Window
     {
         // 窄窗口把空间让给阅读区；宽窗口恢复完整文件夹与列表宽度。
         var progress = Math.Clamp((width - 900) / 380d, 0d, 1d);
-        MailColumns.ColumnDefinitions[0].Width = new GridLength(208 + (32 * progress));
-        MailColumns.ColumnDefinitions[1].Width = new GridLength(320 + (40 * progress));
+        MailColumns.ColumnDefinitions[0].Width = new GridLength(208 + (48 * progress));
+        MailColumns.ColumnDefinitions[1].Width = new GridLength(340 + (28 * progress));
     }
 
     private void OnShowRequested()
@@ -838,15 +849,28 @@ public partial class MainWindow : Window
 
     private void ApplyAppearance()
     {
-        var supportsMaterial = Environment.OSVersion.Version.Build >= 22000;
-        var material = supportsMaterial ? _viewModel.Material : "none";
-        var translucent = material != "none" || _viewModel.BackgroundOpacity < 100;
+        var build = Environment.OSVersion.Version.Build;
+        var supportsMica = OperatingSystem.IsWindows() && build >= 22000;
+        var supportsAcrylic = OperatingSystem.IsWindows() && build >= 17763;
+
+        // 保存的材质在本机不可用时按纯色处理，避免界面显示已启用、实际却没有任何变化。
+        var material = _viewModel.Material switch
+        {
+            "mica" when supportsMica => "mica",
+            "acrylic" when supportsAcrylic => "acrylic",
+            _ => "none"
+        };
+        var materialActive = material != "none";
+        var translucent = materialActive || _viewModel.BackgroundOpacity < 100;
 
         TransparencyLevelHint = material switch
         {
-            "mica" => [WindowTransparencyLevel.Mica, WindowTransparencyLevel.Blur],
-            "acrylic" => [WindowTransparencyLevel.AcrylicBlur, WindowTransparencyLevel.Blur],
-            _ => translucent ? [WindowTransparencyLevel.Transparent] : [WindowTransparencyLevel.None]
+            "mica" => [WindowTransparencyLevel.Mica, WindowTransparencyLevel.AcrylicBlur,
+                WindowTransparencyLevel.Blur, WindowTransparencyLevel.None],
+            "acrylic" => [WindowTransparencyLevel.AcrylicBlur, WindowTransparencyLevel.Blur,
+                WindowTransparencyLevel.None],
+            _ => translucent ? [WindowTransparencyLevel.Transparent, WindowTransparencyLevel.None]
+                : [WindowTransparencyLevel.None]
         };
 
         var baseColor = ThemeService.ResolveSurfaceColor(
@@ -854,8 +878,8 @@ public partial class MainWindow : Window
             ActualThemeVariant == ThemeVariant.Dark);
         var opacity = translucent ? Math.Clamp(_viewModel.BackgroundOpacity, 40, 100) / 100d : 1d;
 
-        ApplyPalette(baseColor, opacity, translucent, ActualThemeVariant == ThemeVariant.Dark);
-        ApplyNativeTitleBarTheme(IsDark(baseColor), baseColor);
+        ApplyPalette(baseColor, opacity, translucent, ActualThemeVariant == ThemeVariant.Dark, materialActive);
+        ApplyNativeTitleBarTheme(IsDark(baseColor), baseColor, materialActive);
 
         if (translucent)
         {
@@ -864,23 +888,44 @@ public partial class MainWindow : Window
                 {
                     if (ActualTransparencyLevel == WindowTransparencyLevel.None)
                     {
-                        ApplyPalette(baseColor, 1d, false, ActualThemeVariant == ThemeVariant.Dark);
+                        ApplyPalette(baseColor, 1d, false, ActualThemeVariant == ThemeVariant.Dark, false);
+                        ApplyNativeTitleBarTheme(IsDark(baseColor), baseColor, false);
                     }
                 },
-                TimeSpan.FromMilliseconds(500));
+                TimeSpan.FromMilliseconds(600));
         }
     }
 
-    private static void ApplyPalette(Color baseColor, double opacity, bool translucent, bool themeDark)
+    private static void ApplyPalette(
+        Color baseColor,
+        double opacity,
+        bool translucent,
+        bool themeDark,
+        bool materialActive)
     {
         var dark = IsDark(baseColor);
         var baseAlpha = translucent ? ToAlpha(opacity) : (byte)255;
-        var subtleAlpha = translucent ? ToAlpha(Math.Min(1d, opacity + (1d - opacity) * 0.78)) : (byte)255;
-        var layerAlpha = translucent ? ToAlpha(Math.Min(1d, opacity + (1d - opacity) * 0.90)) : (byte)255;
-        // 列表与阅读区整片都是字：桌面上的深色/高对比内容透过来会和文字笔画叠在一起，
-        // 实测 6% 的透出就足以让灰字糊掉，所以承字面的补强几乎贴到不透明（透明度 64% 时 ≈98%）。
-        // 想看到壁纸的话，留给窗口背景和左侧栏，那里没有成片的正文。
-        var contentAlpha = translucent ? ToAlpha(Math.Min(1d, opacity + (1d - opacity) * 0.94)) : (byte)255;
+
+        // 材质模式下不再把所有可承字表面补到近乎不透明，否则云母/亚克力只剩标题栏一条缝：
+        // 左侧栏保留更多桌面纹理，列表/阅读区保持较高的底色占比，圆角卡片之间的 12px 间隙
+        // 和设置页背景都能直接看到系统材质。纯色/无材质模式保持原来的高对比策略。
+        var materialOpacity = Math.Clamp(opacity, 0.4d, 1d);
+        var subtleAlpha = !translucent ? (byte)255
+            : materialActive
+                ? ToAlpha(0.35d + materialOpacity * 0.38d)
+                : ToAlpha(Math.Min(1d, opacity + (1d - opacity) * 0.78d));
+        var layerAlpha = !translucent ? (byte)255
+            : materialActive
+                ? ToAlpha(0.48d + materialOpacity * 0.40d)
+                : ToAlpha(Math.Min(1d, opacity + (1d - opacity) * 0.90d));
+        var contentAlpha = !translucent ? (byte)255
+            : materialActive
+                ? ToAlpha(0.62d + materialOpacity * 0.33d)
+                : ToAlpha(Math.Min(1d, opacity + (1d - opacity) * 0.94d));
+        var cardAlpha = !translucent ? (byte)255
+            : materialActive
+                ? ToAlpha(Math.Clamp(0.84d + materialOpacity * 0.08d, 0.86d, 0.95d))
+                : (byte)255;
 
         var subtleColor = Adjust(baseColor, dark ? 0.02 : -0.02);
         var layerColor = Adjust(baseColor, 0.05);
@@ -889,7 +934,8 @@ public partial class MainWindow : Window
         SetBrush("MailDogBrushSurfaceSubtle", WithAlpha(subtleColor, subtleAlpha));
         SetBrush("MailDogBrushSurfacePane", WithAlpha(layerColor, layerAlpha));
         SetBrush("MailDogBrushSurfaceContent", WithAlpha(layerColor, contentAlpha));
-        // 弹出菜单/浮层/设置页使用不透明版本，避免透出下方邮件内容。
+        SetBrush("MailDogBrushSurfaceCard", WithAlpha(layerColor, cardAlpha));
+        // 弹出菜单、对话框和安全遮罩必须遮挡下方内容，保持完全不透明。
         SetBrush("MailDogBrushSurfacePopup", Color.FromRgb(layerColor.R, layerColor.G, layerColor.B));
         SetBrush("MailDogBrushSurfaceSolid", Color.FromRgb(layerColor.R, layerColor.G, layerColor.B));
         SetBrush("MailDogBrushFillHover", dark ? Color.Parse("#0FFFFFFF") : Color.Parse("#0A000000"));
@@ -969,7 +1015,7 @@ public partial class MainWindow : Window
         application.Resources[key] = new SolidColorBrush(color);
     }
 
-    private void ApplyNativeTitleBarTheme(bool dark, Color baseColor)
+    private void ApplyNativeTitleBarTheme(bool dark, Color baseColor, bool materialActive)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -994,11 +1040,22 @@ public partial class MainWindow : Window
             return;
         }
 
+        var text = dark ? 0xFFFFFF : 0x1B1B1B;
+        _ = DwmSetWindowAttribute(handle, DwmwaTextColor, ref text, sizeof(int));
+
+        if (materialActive)
+        {
+            // DWMWA_COLOR_NONE：把标题栏重新交还给 DWM 的系统材质。
+            // 之前强制写入不透明 caption color 会覆盖云母/亚克力，只剩客户区能看到材质。
+            var none = DwmwaColorNone;
+            _ = DwmSetWindowAttribute(handle, DwmwaCaptionColor, ref none, sizeof(int));
+            _ = DwmSetWindowAttribute(handle, DwmwaBorderColor, ref none, sizeof(int));
+            return;
+        }
+
         // COLORREF 为 0x00BBGGRR，让标题栏与主页面背景保持一致。
         var caption = baseColor.R | (baseColor.G << 8) | (baseColor.B << 16);
-        var text = dark ? 0xFFFFFF : 0x1B1B1B;
         _ = DwmSetWindowAttribute(handle, DwmwaCaptionColor, ref caption, sizeof(int));
-        _ = DwmSetWindowAttribute(handle, DwmwaTextColor, ref text, sizeof(int));
     }
 
     private void OnEnvironmentRequested(object? sender, WebViewEnvironmentRequestedEventArgs e)
