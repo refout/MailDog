@@ -134,6 +134,7 @@ if ($Installer) {
     if (-not $InnoCompiler) {
         $candidates = @(
             (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source,
+            (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'),
             (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
             (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')
         ) | Where-Object { $_ -and (Test-Path $_) }
@@ -142,7 +143,7 @@ if ($Installer) {
     }
 
     if (-not $InnoCompiler) {
-        throw '找不到 ISCC.exe，请先安装 Inno Setup 6（choco install innosetup）或用 -InnoCompiler 指定路径。'
+        throw '找不到 ISCC.exe，请先安装 Inno Setup 6（winget install JRSoftware.InnoSetup 或 choco install innosetup）或用 -InnoCompiler 指定路径。'
     }
 
     $issPath = Join-Path $PSScriptRoot 'installer/MailDog.iss'
