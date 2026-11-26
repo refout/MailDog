@@ -67,6 +67,26 @@
 
     <article class="release">
       <div class="release-top">
+        <h2>v0.3.5</h2>
+        <span class="date">2026-11-26</span>
+        <span class="latest">待发布</span>
+      </div>
+      <p class="summary">发布工程版本：Windows 产物接入代码签名，崩溃可配置上报，安装包覆盖升级与卸载验收补齐。</p>
+      <ul>
+        <li><b>代码签名</b>：新增 <code>sign.ps1</code>，支持 PFX 与 CI secrets；打包时按顺序签 Engine / UI / CLI，没有证书时自动跳过。</li>
+        <li><b>崩溃上报</b>：本地 <code>crash.log</code> 保留；配置端点后额外 POST 异常类型与堆栈，不上报异常消息，失败落盘并在下次启动重试。</li>
+        <li><b>安装包验收</b>：0.3.4 安装、卸载、0.3.3 安装、0.3.4 覆盖升级、最终卸载全部通过；安装目录与注册项清理正确，用户数据库保留。</li>
+        <li><b>垃圾规则</b>：Outlook 真实邮件上「标记垃圾邮件并拦截发件人」实测通过，同发件人新邮件会自动进入 Junk。</li>
+        <li><b>验证</b>：构建 0 警告 0 错误，182 项测试通过；自签 PFX 已完成签名与完整打包验证。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/compare/v0.3.4...main" target="_blank" rel="noopener">对比 v0.3.4</a>
+        <a href="https://github.com/refout/MailDog/blob/main/docs/releases/0.3.5.md" target="_blank" rel="noopener">发布说明草稿</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
         <h2>v0.3.4</h2>
         <span class="date">2026-11-25</span>
         <span class="latest">最新</span>

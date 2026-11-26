@@ -1,6 +1,6 @@
 # MailDog 技术方案
 
-> 状态：v0.3.4 已发布；功能路线图阶段 17–23、25–32 已完成，阶段 24 主体完成（假 SMTP/IMAP 端到端、Windows 集成、0.3.3→当前 v15 升级与快照回滚、HOME 上 QQ×1/Outlook×2 真实账户矩阵已实测；Gmail/自定义账户、Linux 桌面、安装包级回滚待做）；构建 0 警告、175 项自动化测试全绿；代码签名、许可证仍待继续收口
+> 状态：v0.3.5 发版准备中；功能路线图阶段 17–23、25–32 已完成，阶段 24 的 Windows 与真实账户收尾完成（仅剩 Gmail/自定义账户、Linux 桌面实机）；代码签名流水线与可配置崩溃上报已实现，OV/EV 证书与正式上报端点待提供；构建 0 警告、182 项自动化测试全绿；许可证仍待决定
 > 日期：2026-11-26
 > 适用范围：MailDog v1（Windows 优先）
 > 关联文档：[UI-DESIGN.md](./UI-DESIGN.md)、[SPIKES.md](./SPIKES.md)
@@ -943,7 +943,7 @@ cellpadding, cellspacing, span, bgcolor, color, face, size, style, class, id`
 
 ### 12.5 崩溃与退出
 
-- 捕获 `AppDomain.UnhandledException`、`TaskScheduler.UnobservedTaskException`，写 `crash-*.log`。
+- 捕获 `AppDomain.UnhandledException`、`TaskScheduler.UnobservedTaskException`，写 `crash.log`；配置端点时额外 POST 一份不含异常消息的摘要，失败落盘 `crash-pending/` 并在下次启动重试（见 `docs/crash-reporting.md`）。
 - 退出流程：停止调度 → 取消所有 CTS → 等待后台任务（最多 5s）→ 关闭 SQLite → 删除托盘 → 释放互斥体。
 - 不自动重启，避免崩溃循环；下次用户点击托盘再启动。
 
@@ -1052,8 +1052,8 @@ GitHub Actions `windows-latest`：
 
 ### 14.4 签名与分发（后续）
 
-- 代码签名证书（OV/EV）解决 SmartScreen 与杀软误报。
-- 安装包二选一：MSIX（需签名、适合商店）或 Inno Setup（简单、可控）。
+- 代码签名证书（OV/EV）解决 SmartScreen 与杀软误报。签名脚本与 CI secrets 已接入，证书本身仍待采购/提供。
+- 安装包二选一：MSIX（需签名、适合商店）或 Inno Setup（简单、可控）。当前使用 Inno Setup。
 - 自动更新不进入 v1；预留 `version.json` 检查点，后续实现。
 
 ---
@@ -1203,10 +1203,12 @@ GitHub Actions `windows-latest`：
 - 撰写页、草稿、附件。撰写为主窗口内嵌页，不弹独立窗口；正文只保留富文本编辑器，旧 Markdown 草稿首次打开时转成 HTML。
 - 自定义 IMAP/SMTP 服务器、cid 内嵌图、附件默认程序打开。
 
-### Stage 8：分发（v1.1，部分完成）
+### Stage 8：分发（v1.1，Windows 发布链路完成）
 
 - 压缩包、Inno Setup 安装包与 GitHub Release 流水线已完成。
-- 仍待：代码签名证书（需 OV/EV 证书与签名密钥）、自动更新检查、崩溃报告（可选）。
+- ✅ 代码签名（2026-11-26）：新增 `src/build/sign.ps1`，支持 PFX 文件或 `MAILDOG_SIGN_PFX_BASE64`；`package.ps1` 在 Windows 构建且配置证书时依次签 Engine/UI/CLI，CI secrets 已接入。无证书时跳过，不影响本地构建；自签 PFX 已走完整打包+安装包验证。受信任 OV/EV 证书仍待提供，`Get-AuthenticodeSignature` 对自签根显示 `UnknownError` 属预期。详见 `docs/release-signing.md`。
+- ✅ 崩溃上报（2026-11-26）：UI 未处理异常仍写本地 `crash.log`；配置 `MAILDOG_CRASH_ENDPOINT` 或 `crash-endpoint.txt` 后异步 POST，失败落盘 `crash-pending/`，下次启动重试。只发送异常类型与堆栈，不发送异常消息；`CrashReportUploaderTests` 7 项通过。正式上报地址仍待提供。详见 `docs/crash-reporting.md`。
+- 🟡 安装包覆盖安装/卸载：XIZXI 干净用户实测 0.3.4 安装、卸载、0.3.3 安装、0.3.4 覆盖升级、最终卸载均通过；安装目录与注册项清理正确，用户数据库保留。0.3.5 产物尚未打 tag。
 
 ### Stage 9：可选工作台（v1.2，已移除）
 
@@ -1350,7 +1352,7 @@ GitHub Actions `windows-latest`：
 - UI 崩溃留痕：顶层异常捕获写本地日志（现在只有 Engine 写 `logs/engine-*.log`）。
 - CI 增加 Avalonia Headless 冒烟测试：切主题、开设置、模拟通知激活拉起窗口。
 - 官网截图重拍：首页仍是 v0.1.1 的旧图标真机图，与 v0.1.2 新标不一致。
-- 代码签名与依赖审计：OV/EV 证书接入，`NuGetAudit` 进 CI。
+- 代码签名与依赖审计：✅ 签名脚本与 CI secrets 已接入（证书待提供）；`NuGetAudit` 仍待接入 CI。
 
 ### v0.3 规划（2026-11-24 拟定）
 
