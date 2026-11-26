@@ -60,6 +60,15 @@ foreach ($file in @($engineExe, $uiExe)) {
     }
 }
 
+if ($isWindowsTarget -and $env:MAILDOG_SIGN_PFX_BASE64) {
+    $signTargets = @($engineExe, $uiExe)
+    if (Test-Path $cliExe) {
+        $signTargets += $cliExe
+    }
+
+    & (Join-Path $PSScriptRoot 'sign.ps1') -Path $signTargets -Require
+}
+
 if (-not $isWindowsTarget) {
     foreach ($library in @('libSkiaSharp.so', 'libHarfBuzzSharp.so')) {
         $path = Join-Path $appDir $library

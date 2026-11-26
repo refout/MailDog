@@ -66,6 +66,10 @@ jobs:
       - name: Publish and package (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
+        env:
+          MAILDOG_SIGN_PFX_BASE64: ${{ secrets.MAILDOG_SIGN_PFX_BASE64 }}
+          MAILDOG_SIGN_PFX_PASSWORD: ${{ secrets.MAILDOG_SIGN_PFX_PASSWORD }}
+          MAILDOG_SIGN_TIMESTAMP_URL: ${{ vars.MAILDOG_SIGN_TIMESTAMP_URL }}
         run: ./src/build/package.ps1 -Version '${{ steps.version.outputs.version }}' -Runtime ${{ matrix.runtime }}
 
       - name: Publish and package (Linux)
