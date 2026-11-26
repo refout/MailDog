@@ -80,8 +80,8 @@
       <!-- 文件夹栏 -->
       <Border Grid.Column="0"
               Classes="workspace-column navigation">
-        <Grid RowDefinitions="Auto,*,Auto" Margin="16,16,16,8">
-          <StackPanel Grid.Row="0">
+        <Grid RowDefinitions="Auto,*,Auto" Margin="16,16,0,8">
+          <StackPanel Grid.Row="0" Margin="0,0,16,0">
             <Button Command="{Binding NewMailCommand}"
                     Classes="primary"
                     IsEnabled="{Binding HasAccounts}"
@@ -184,7 +184,7 @@
                     Background="Transparent"
                     BorderThickness="0"
                     Padding="0"
-                    Margin="0,0,8,0"
+                    Margin="0"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                     ItemsSource="{Binding Accounts}"
                     SelectedItem="{Binding SelectedSidebarItem}">
@@ -192,7 +192,7 @@
               <ControlTheme TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                 <Setter Property="MinHeight" Value="34" />
                 <Setter Property="Padding" Value="4,0" />
-                <Setter Property="Margin" Value="0,1" />
+                <Setter Property="Margin" Value="0,1,6,1" />
                 <Setter Property="CornerRadius" Value="6" />
               </ControlTheme>
             </TreeView.ItemContainerTheme>
@@ -308,7 +308,7 @@
           </TreeView>
 
             <Border Grid.Row="1"
-                    Margin="4,8,4,0"
+                    Margin="4,8,16,0"
                     Padding="10"
                     CornerRadius="8"
                     Background="{DynamicResource MailDogBrushSurfacePane}"
@@ -336,7 +336,7 @@
             </Border>
 
             <Border Grid.Row="1"
-                    Margin="4,8,4,0"
+                    Margin="4,8,16,0"
                     Padding="10"
                     CornerRadius="8"
                     Background="{DynamicResource MailDogBrushStatusWarningTint}"
@@ -361,7 +361,7 @@
           </Grid>
 
           <Border Grid.Row="2"
-                  Margin="0,2,0,0"
+                  Margin="0,2,16,0"
                   Padding="0,2,0,0"
                   BorderBrush="{DynamicResource MailDogBrushStrokeSubtle}"
                   BorderThickness="0,1,0,0">
@@ -1083,6 +1083,9 @@
                 </Border>
               </StackPanel>
             </Grid>
+            <ScrollViewer MaxHeight="224"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
             <ItemsControl ItemsSource="{Binding Reader.Attachments}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -1095,30 +1098,33 @@
                           BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                           BorderThickness="1"
                           CornerRadius="8"
-                          MinWidth="240"
-                          MaxWidth="320"
-                          Padding="10,8"
+                          MinWidth="200"
+                          MaxWidth="230"
+                          Padding="8,6"
                           Margin="0,0,8,8">
-                    <StackPanel Spacing="6">
+                    <StackPanel Spacing="4">
                       <Border Background="{DynamicResource MailDogBrushSurfacePane}"
+                              Height="112"
                               CornerRadius="4"
                               IsVisible="{Binding HasPreviewImage}"
                               ClipToBounds="True">
                         <Image Source="{Binding PreviewImage}"
-                               MaxWidth="260"
-                               MaxHeight="200"
+                               MaxWidth="204"
+                               MaxHeight="112"
                                Stretch="Uniform"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
                                AutomationProperties.Name="附件图片预览" />
                       </Border>
                       <TextBlock Text="{Binding PreviewError}"
                                  IsVisible="{Binding HasPreviewError}"
                                  Classes="caption"
                                  TextWrapping="Wrap"
-                                 MaxWidth="260" />
+                                 MaxWidth="204" />
                       <Grid RowDefinitions="Auto,Auto"
                             ColumnDefinitions="Auto,Auto,*"
-                            ColumnSpacing="8"
-                            RowSpacing="6">
+                            ColumnSpacing="6"
+                            RowSpacing="4">
                         <CheckBox Grid.Row="0"
                                   Grid.Column="0"
                                   IsChecked="{Binding IsSelected, Mode=TwoWay}"
@@ -1134,7 +1140,7 @@
                                     Grid.Column="2"
                                     Spacing="1">
                           <TextBlock Text="{Binding FileName}"
-                                     FontSize="12"
+                                     FontSize="11.5"
                                      TextTrimming="CharacterEllipsis"
                                      ToolTip.Tip="{Binding FileName}" />
                           <TextBlock Text="{Binding SizeText}"
@@ -1174,6 +1180,7 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+            </ScrollViewer>
           </StackPanel>
 
           <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
