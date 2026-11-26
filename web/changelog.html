@@ -78,6 +78,7 @@
         <li><b>安装包验收</b>：0.3.4 安装、卸载、0.3.3 安装、0.3.4 覆盖升级、最终卸载全部通过；安装目录与注册项清理正确，用户数据库保留。</li>
         <li><b>垃圾规则</b>：Outlook 真实邮件上「标记垃圾邮件并拦截发件人」实测通过，同发件人新邮件会自动进入 Junk。</li>
         <li><b>Linux</b>：0.3.5 linux-x64 AOT 包在 Ubuntu 22.04 云主机构建；WSLg 复核 UI、<code>maildog open</code>/<code>quit</code> 与 <code>~/.local/share/MailDog</code> 数据目录。修复 CLI 在 <code>cli/</code> 子目录找不到上级 Engine，以及 <code>--register-integration</code> 未隔离导致 Linux 编译失败。</li>
+        <li><b>Release 审计</b>：五个产物已核对版本与 SHA-256，校验文件随 Release 上传；Windows 资产当前为未签名。</li>
         <li><b>验证</b>：构建 0 警告 0 错误，187 项测试通过；自签 PFX 已完成签名与完整打包验证；Linux WSLg 启动验收补齐，并修复 Linux 默认数据目录与 CLI 包入口校验。</li>
       </ul>
       <div class="assets">

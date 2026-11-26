@@ -77,6 +77,13 @@
 - 数据目录：`~/.local/share/MailDog/maildog.db`，日志、native 库、outbox 均在同一目录；设置 `XDG_DATA_HOME=/tmp/mdxdg` 后落库到 `/tmp/mdxdg/MailDog/maildog.db`。
 - 构建期修复：`--register-integration` 只在 Windows 目标编译，用 `#if MAILDOG_WINDOWS` 隔离；CLI 增加 `cli/` 上一级 Engine 查找。Windows 构建与 187 项测试仍通过。
 
+### v0.3.5 Release 资产审计
+
+- GitHub Release `v0.3.5` 的五个产物已下载核对；`SHA256SUMS` 已作为独立资产上传。
+- Windows x64 zip：Engine/UI/CLI 的 `FileVersion` 为 `0.3.5.0`，`ProductVersion` 为 `0.3.5+cf14b953...`；Engine `--probe` 通过，CLI schema 含 `"name":"open"`。
+- Windows x64 setup：`ProductVersion` 为 `0.3.5`；Windows 资产签名状态均为 `NotSigned`，与空签名 secrets 一致。
+- win-arm64 在 x64 主机上不可执行，已核对 PE 版本与签名；linux-x64 实际发布包 `--probe`、CLI schema 与默认/XDG 数据目录通过；linux-arm64 可执行文件为 AArch64 ELF。
+
 ## 代码签名与崩溃上报
 
 - 代码签名：`src/build/sign.ps1`，`package.ps1` 在 Windows 且配置 `MAILDOG_SIGN_PFX_BASE64` 时签名 Engine/UI/CLI；CI secrets 已接入。自签 PFX 走完整打包+安装包流程验证通过；受信任 CA 证书未提供，`Get-AuthenticodeSignature` 对自签根显示 `UnknownError` 属预期。详见 `docs/release-signing.md`。
