@@ -86,9 +86,23 @@ if ((Test-Path $cliExe) -or (Test-Path $cliShim)) {
     }
 
     # 防止发布包里的 CLI 落后于引擎：Linux 无托盘时 `maildog open` 是唯一回界面入口。
-    $cliSchema = & $cliExe schema --json | Out-String
-    if ($cliSchema -notmatch '"name":"open"') {
-        throw "CLI 包缺少 open 命令，拒绝生成发布包。"
+    # win-arm64 在 x64 主机上无法执行，改为校验同一份源码；win-x64 / 原生 ARM64 仍执行实测。
+    $canRunTargetCli = $Runtime -eq 'win-x64' -or
+        ($Runtime -eq 'win-arm64' -and $env:PROCESSOR_ARCHITECTURE -eq 'ARM64')
+
+    if ($canRunTargetCli) {
+        $cliSchema = & $cliExe schema --json | Out-String
+        if ($cliSchema -notmatch '"name":"open"') {
+            throw "CLI 包缺少 open 命令，拒绝生成发布包。"
+        }
+    }
+    else {
+        $schemaSource = Get-Content (Join-Path $srcRoot 'MailDog.Cli/Schema.cs') -Raw
+        if ($schemaSource -notmatch '"open"') {
+            throw "CLI 源码缺少 open 命令，拒绝生成发布包。"
+        }
+
+        Write-Host "当前主机无法执行 $Runtime CLI，已改为校验 Schema.cs 中的 open 入口。"
     }
 
     $staging = Join-Path ([IO.Path]::GetTempPath()) "maildog-cli-$([guid]::NewGuid().ToString('N'))"
