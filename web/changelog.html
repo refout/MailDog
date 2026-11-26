@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.6</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.7</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,9 +67,31 @@
 
     <article class="release">
       <div class="release-top">
-        <h2>v0.3.6</h2>
+        <h2>v0.3.7</h2>
         <span class="date">2026-11-26</span>
         <span class="latest">最新</span>
+      </div>
+      <p class="summary">界面细节收口：三栏间距、滚动条、设置入口高度和 Windows 关闭按钮悬停都按实机反馈调整。</p>
+      <ul>
+        <li><b>三栏</b>：栏间距从 12px 收到 8px，卡片宽度和折叠逻辑不变。</li>
+        <li><b>滚动条</b>：统一 10px 轨道、圆角滑块，关闭自动隐藏后占位不压内容；邮件 HTML 阅读区通过 <code>::-webkit-scrollbar</code> 使用同一套圆角样式。</li>
+        <li><b>左栏</b>：文件夹树和邮件列表给滚动条留出空间；底部设置入口从 40px 降到 28px，footer 高度收紧。</li>
+        <li><b>设置</b>：设置导航删除“偏好与本地数据”，关于页删除“本地优先、不经过第三方服务器”的介绍。</li>
+        <li><b>标题栏</b>：caption 按钮恢复方形命中区，关闭按钮悬停使用系统红。</li>
+        <li><b>验证</b>：Release 构建 0 警告，187 项测试通过；Windows 11 实机截图复核主界面和阅读区滚动条。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/compare/v0.3.6...v0.3.7" target="_blank" rel="noopener">对比 v0.3.6</a>
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.3.7" target="_blank" rel="noopener">Release 下载</a>
+        <a href="https://github.com/refout/MailDog/blob/main/docs/releases/0.3.7.md" target="_blank" rel="noopener">发布说明</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.3.6</h2>
+        <span class="date">2026-11-26</span>
+        <span class="latest">已发布</span>
       </div>
       <p class="summary">界面重构版本：主窗口三栏改为统一圆角卡片，设置入口固定在左栏底部；11 个设置页重新分组，Windows 标题栏改为透明自绘条。</p>
       <ul>
