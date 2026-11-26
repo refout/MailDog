@@ -315,11 +315,6 @@ public sealed partial class ReaderViewModel : ObservableObject
 
         SelectedAttachmentCount = 0;
 
-        foreach (var attachment in Attachments.Where(attachment => attachment.IsImage))
-        {
-            _ = attachment.LoadPreviewImageAsync();
-        }
-
         Notice = body.Truncated ? "邮件内容较大，已截断。" : null;
         IsFromCache = body.FromCache;
         Error = null;

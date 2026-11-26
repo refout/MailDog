@@ -5,12 +5,14 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using MailDog.Contracts.Platform;
 using MailDog.UI.Services;
 using MailDog.UI.ViewModels;
@@ -29,8 +31,12 @@ public partial class MainWindow : Window
     private readonly MainWindowViewModel _viewModel;
     private readonly Dictionary<TreeViewItem, AccountViewModel> _accountNodes = [];
     private readonly Dictionary<MailSummaryViewModel, ListBoxItem> _mailContainers = [];
+    private const int MaxHtmlRetries = 2;
     private bool _adapterReady;
     private bool _internalNavigation;
+    private bool _ignoreNextNavigationFailure;
+    private int _htmlRetryCount;
+    private int _htmlNavigationGeneration;
     private string? _pendingHtml;
 
     [DllImport("dwmapi.dll")]
@@ -81,8 +87,10 @@ public partial class MainWindow : Window
         viewModel.ScrollToMessageRequested += OnScrollToMessageRequested;
         FolderTree.ContainerPrepared += OnFolderTreeContainerPrepared;
         FolderTree.ContainerClearing += OnFolderTreeContainerClearing;
+        FolderTree.Loaded += (_, _) => ConfigureSidebarScrollViewer(FolderTree);
         MailList.ContainerPrepared += OnMailListContainerPrepared;
         MailList.ContainerClearing += OnMailListContainerClearing;
+        MailList.Loaded += (_, _) => ConfigureSidebarScrollViewer(MailList);
         MailList.AddHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
         viewModel.Messages.CollectionChanged += OnMessagesCollectionChanged;
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
@@ -112,6 +120,17 @@ public partial class MainWindow : Window
     private void OnWindowSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         UpdateColumns(e.NewSize.Width);
+    }
+
+    private static void ConfigureSidebarScrollViewer(Control control)
+    {
+        foreach (var viewer in control.GetVisualDescendants().OfType<ScrollViewer>())
+        {
+            // 模板内的 ScrollViewer 会用自己的默认值覆盖窗口级样式；这里直接落到实例上，
+            // 保证三栏滚动条都按 10px 槽宽常显，而不是鼠标移上去才出现。
+            viewer.AllowAutoHide = false;
+            viewer.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
+        }
     }
 
     private void UpdateColumns(double width)
@@ -1074,6 +1093,7 @@ public partial class MainWindow : Window
     private void OnAdapterCreated(object? sender, WebViewAdapterEventArgs e)
     {
         _adapterReady = true;
+        _htmlRetryCount = 0;
         NavigatePending();
     }
 
@@ -1082,11 +1102,13 @@ public partial class MainWindow : Window
         if (_internalNavigation)
         {
             _internalNavigation = false;
+            _ignoreNextNavigationFailure = false;
             return;
         }
 
         var request = e.Request;
         e.Cancel = true;
+        _ignoreNextNavigationFailure = true;
 
         if (request is null)
         {
@@ -1108,11 +1130,82 @@ public partial class MainWindow : Window
 
     private void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
     {
-        if (!e.IsSuccess && _viewModel.Reader.UseHtml)
+        if (_ignoreNextNavigationFailure)
         {
-            _viewModel.Reader.UseHtml = false;
-            _viewModel.Reader.Error = "HTML 渲染失败，已切换为纯文本。";
+            // 外部链接被主动取消不算渲染失败，不能让一次点击把正文永久切回纯文本。
+            _ignoreNextNavigationFailure = false;
+            return;
         }
+
+        if (e.IsSuccess)
+        {
+            _htmlNavigationGeneration++;
+            _htmlRetryCount = 0;
+            return;
+        }
+
+        if (_viewModel.Reader.UseHtml)
+        {
+            HandleHtmlRenderFailure();
+        }
+    }
+
+    private void HandleHtmlRenderFailure()
+    {
+        _htmlNavigationGeneration++;
+
+        if (!_viewModel.Reader.UseHtml || string.IsNullOrEmpty(_pendingHtml))
+        {
+            return;
+        }
+
+        if (_htmlRetryCount < MaxHtmlRetries)
+        {
+            _htmlRetryCount++;
+            var html = _pendingHtml;
+            var attempt = _htmlRetryCount;
+            _ = RetryHtmlAsync(html, attempt);
+            return;
+        }
+
+        Debug.WriteLine("HTML 渲染重试后仍失败，切换为纯文本。");
+        _viewModel.Reader.UseHtml = false;
+        _viewModel.Reader.Error = "HTML 渲染失败，已重试 2 次并切换为纯文本。";
+    }
+
+    private async Task RetryHtmlAsync(string html, int attempt)
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(400 * attempt));
+
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (_pendingHtml != html || !_viewModel.Reader.UseHtml || !_adapterReady)
+            {
+                return;
+            }
+
+            _internalNavigation = true;
+            WebView.NavigateToString(html);
+            var generation = ++_htmlNavigationGeneration;
+            _ = WatchHtmlNavigationAsync(generation, html);
+        });
+    }
+
+    private async Task WatchHtmlNavigationAsync(int generation, string html)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(12));
+
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (generation != _htmlNavigationGeneration
+                || _pendingHtml != html
+                || !_viewModel.Reader.UseHtml)
+            {
+                return;
+            }
+
+            HandleHtmlRenderFailure();
+        });
     }
 
     private async void OnAttachmentDragHandlePressed(object? sender, PointerPressedEventArgs e)
@@ -1193,6 +1286,8 @@ public partial class MainWindow : Window
         if (e.PropertyName == nameof(ReaderViewModel.HtmlDocument))
         {
             _pendingHtml = _viewModel.Reader.HtmlDocument;
+            _htmlRetryCount = 0;
+            _htmlNavigationGeneration++;
             NavigatePending();
         }
     }
@@ -1204,8 +1299,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        var html = _pendingHtml;
         _internalNavigation = true;
-        WebView.NavigateToString(_pendingHtml);
+        WebView.NavigateToString(html);
+        var generation = ++_htmlNavigationGeneration;
+        _ = WatchHtmlNavigationAsync(generation, html);
     }
 
     /// <summary>搜索结果列表重建后，列表容器会丢掉选中项；在 UI 刷新后补选第一条。</summary>

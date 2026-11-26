@@ -21,6 +21,7 @@
   <Grid x:Name="WindowChromeRoot" RowDefinitions="32,*">
     <Border Grid.Row="0"
             x:Name="CustomTitleBar"
+            Margin="0,0,150,0"
             Background="Transparent"
             chrome:WindowDecorationProperties.ElementRole="TitleBar">
       <StackPanel Orientation="Horizontal"
@@ -183,16 +184,17 @@
                     Grid.Row="0"
                     Background="Transparent"
                     BorderThickness="0"
-                    Padding="0"
+                    Padding="11,0,6,0"
                     Margin="0"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                    ScrollViewer.VerticalScrollBarVisibility="Visible"
                     ItemsSource="{Binding Accounts}"
                     SelectedItem="{Binding SelectedSidebarItem}">
             <TreeView.ItemContainerTheme>
               <ControlTheme TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                 <Setter Property="MinHeight" Value="34" />
                 <Setter Property="Padding" Value="4,0" />
-                <Setter Property="Margin" Value="0,1,6,1" />
+                <Setter Property="Margin" Value="0,1" />
                 <Setter Property="CornerRadius" Value="6" />
               </ControlTheme>
             </TreeView.ItemContainerTheme>
@@ -794,14 +796,15 @@
             <ListBox x:Name="MailList"
                      Classes="mail-list"
                      Background="Transparent"
-                     Margin="0,0,4,0"
+                     Margin="0"
+                     ScrollViewer.VerticalScrollBarVisibility="Visible"
                      ItemsSource="{Binding Messages}"
                      SelectedItem="{Binding SelectedMessage}">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:MailSummaryViewModel">
                   <Grid ColumnDefinitions="12,Auto,Auto,*"
                         Height="{DynamicResource MailDogSizeMailRow}"
-                        Margin="12,0"
+                        Margin="10,0"
                         AutomationProperties.Name="{Binding AccessibilityName}">
                     <Border Grid.Column="0"
                             Width="3"
@@ -1083,7 +1086,7 @@
                 </Border>
               </StackPanel>
             </Grid>
-            <ScrollViewer MaxHeight="224"
+            <ScrollViewer MaxHeight="176"
                           HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
             <ItemsControl ItemsSource="{Binding Reader.Attachments}">
@@ -1103,24 +1106,6 @@
                           Padding="8,6"
                           Margin="0,0,8,8">
                     <StackPanel Spacing="4">
-                      <Border Background="{DynamicResource MailDogBrushSurfacePane}"
-                              Height="112"
-                              CornerRadius="4"
-                              IsVisible="{Binding HasPreviewImage}"
-                              ClipToBounds="True">
-                        <Image Source="{Binding PreviewImage}"
-                               MaxWidth="204"
-                               MaxHeight="112"
-                               Stretch="Uniform"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               AutomationProperties.Name="附件图片预览" />
-                      </Border>
-                      <TextBlock Text="{Binding PreviewError}"
-                                 IsVisible="{Binding HasPreviewError}"
-                                 Classes="caption"
-                                 TextWrapping="Wrap"
-                                 MaxWidth="204" />
                       <Grid RowDefinitions="Auto,Auto"
                             ColumnDefinitions="Auto,Auto,*"
                             ColumnSpacing="6"

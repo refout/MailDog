@@ -1872,8 +1872,7 @@
 
                       <StackPanel IsVisible="{Binding IsAboutSection}"
                                   Spacing="16"
-                                  MaxWidth="880"
-                                  HorizontalAlignment="Left">
+                                  HorizontalAlignment="Stretch">
                         <StackPanel Classes="settings-page-head" Spacing="4" Margin="0,0,0,4">
                           <TextBlock Classes="page-title" Text="关于" />
                           <TextBlock Classes="settings-page-subtitle"

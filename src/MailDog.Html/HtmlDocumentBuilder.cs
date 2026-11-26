@@ -9,6 +9,7 @@ public sealed class HtmlDocumentBuilder
         :root { color-scheme: light; }
         *, *::before, *::after { box-sizing: border-box !important; }
         html, body { max-width: 100%; overflow-x: hidden; }
+        html { overflow-y: auto; scrollbar-gutter: stable; }
         body {
           margin: 0; padding: 16px;
           font-family: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
@@ -38,10 +39,12 @@ public sealed class HtmlDocumentBuilder
         hr { border: 0; border-top: 1px solid #e0e0e0; margin: 20px 0; }
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+        ::-webkit-scrollbar-corner { background: transparent; }
         ::-webkit-scrollbar-thumb {
           background: rgba(0, 0, 0, 0.26);
           border: 2px solid transparent;
-          border-radius: 5px;
+          border-radius: 4px;
           background-clip: content-box;
         }
         ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.42); background-clip: content-box; }
@@ -55,6 +58,7 @@ public sealed class HtmlDocumentBuilder
         :root { color-scheme: dark; }
         *, *::before, *::after { box-sizing: border-box !important; }
         html, body { max-width: 100%; overflow-x: hidden; }
+        html { overflow-y: auto; scrollbar-gutter: stable; }
         body {
           margin: 0; padding: 16px;
           font-family: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
@@ -84,10 +88,12 @@ public sealed class HtmlDocumentBuilder
         hr { border: 0; border-top: 1px solid #3d3d3d; margin: 20px 0; }
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+        ::-webkit-scrollbar-corner { background: transparent; }
         ::-webkit-scrollbar-thumb {
           background: rgba(255, 255, 255, 0.28);
           border: 2px solid transparent;
-          border-radius: 5px;
+          border-radius: 4px;
           background-clip: content-box;
         }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.46); background-clip: content-box; }
