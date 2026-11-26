@@ -12,9 +12,8 @@
                 BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                 BorderThickness="0,0,1,0">
           <Grid RowDefinitions="Auto,*,Auto">
-            <StackPanel Grid.Row="0" Margin="20,18,14,12" Spacing="3">
+            <StackPanel Grid.Row="0" Margin="20,16,14,12">
               <TextBlock Classes="settings-nav-title" Text="MailDog" />
-              <TextBlock Classes="settings-nav-subtitle" Text="偏好与本地数据" />
             </StackPanel>
             <ScrollViewer Grid.Row="1"
                           VerticalScrollBarVisibility="Auto"
@@ -93,7 +92,7 @@
               </ListBox>
             </ScrollViewer>
             <Border Grid.Row="2"
-                    Padding="20,10,14,12"
+                    Padding="20,8,14,8"
                     BorderBrush="{DynamicResource MailDogBrushStrokeSubtle}"
                     BorderThickness="0,1,0,0">
               <TextBlock Text="Ctrl+, 可随时打开设置"
@@ -1922,10 +1921,6 @@
                             </StackPanel>
                           </StackPanel>
                         </Grid>
-
-                        <TextBlock TextWrapping="Wrap"
-                                   LineHeight="20"
-                                   Text="MailDog 是一款本地优先的桌面邮件客户端，邮件收取、阅读与存储均在本机完成，不经过第三方中转服务器。" />
 
                         <Border Classes="settings-card">
                           <StackPanel Spacing="10">

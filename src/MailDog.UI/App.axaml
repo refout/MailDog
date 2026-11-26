@@ -32,6 +32,25 @@
     <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_FullScreenButton">
       <Setter Property="IsVisible" Value="False" />
     </Style>
+    <!-- 原生 caption 按钮是方块；关闭按钮悬停保持系统红，不跟随通用按钮的圆角和灰底。 -->
+    <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_MinimizeButton">
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_MaximizeButton">
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_CloseButton">
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_CloseButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource CaptionButtonCloseBackground}" />
+    </Style>
+    <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_CloseButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource CaptionButtonCloseBorderBrush}" />
+    </Style>
   </Application.Styles>
 </Application>
 

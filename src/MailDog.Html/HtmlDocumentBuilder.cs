@@ -36,6 +36,15 @@ public sealed class HtmlDocumentBuilder
         h1 { font-size: 24px; } h2 { font-size: 20px; } h3 { font-size: 17px; }
         p { margin: 0 0 12px; }
         hr { border: 0; border-top: 1px solid #e0e0e0; margin: 20px 0; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.26);
+          border: 2px solid transparent;
+          border-radius: 5px;
+          background-clip: content-box;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.42); background-clip: content-box; }
         @media (max-width: 560px) {
           body { padding: 8px; }
           .maildog-mail { padding: 14px; border-radius: 6px; }
@@ -73,6 +82,15 @@ public sealed class HtmlDocumentBuilder
         h1 { font-size: 24px; } h2 { font-size: 20px; } h3 { font-size: 17px; }
         p { margin: 0 0 12px; }
         hr { border: 0; border-top: 1px solid #3d3d3d; margin: 20px 0; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.28);
+          border: 2px solid transparent;
+          border-radius: 5px;
+          background-clip: content-box;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.46); background-clip: content-box; }
         @media (max-width: 560px) {
           body { padding: 8px; }
           .maildog-mail { padding: 14px; border-radius: 6px; }
