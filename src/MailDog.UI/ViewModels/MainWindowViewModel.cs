@@ -126,8 +126,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             ? "Linux（x64）"
             : "当前平台";
 
-    public string DataDirectoryText => $"本机 SQLite 数据库（{ProductPaths.DisplayDataDirectory}）";
-
     public string StartupTitle => OperatingSystem.IsWindows()
         ? "登录 Windows 时自动启动 MailDog"
         : "登录系统时自动启动 MailDog";

@@ -153,7 +153,7 @@ internal static class WindowsIntegration
         }
 
         capabilities.SetValue("ApplicationName", "MailDog", RegistryValueKind.String);
-        capabilities.SetValue("ApplicationDescription", "本地优先的桌面邮件客户端", RegistryValueKind.String);
+        capabilities.SetValue("ApplicationDescription", "桌面邮件客户端", RegistryValueKind.String);
         capabilities.SetValue("ApplicationIcon", $"\"{icon}\",0", RegistryValueKind.String);
 
         using var urls = capabilities.CreateSubKey("URLAssociations");

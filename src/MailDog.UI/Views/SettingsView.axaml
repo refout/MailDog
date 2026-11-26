@@ -1934,24 +1934,6 @@
                                          FontSize="13"
                                          TextWrapping="Wrap" />
                             </Grid>
-                            <Grid ColumnDefinitions="120,*">
-                              <TextBlock Text="数据存储"
-                                         FontSize="13"
-                                         Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-                              <TextBlock Grid.Column="1"
-                                         Text="{Binding DataDirectoryText}"
-                                         FontSize="13"
-                                         TextWrapping="Wrap" />
-                            </Grid>
-                            <Grid ColumnDefinitions="120,*">
-                              <TextBlock Text="网络通信"
-                                         FontSize="13"
-                                         Foreground="{DynamicResource MailDogBrushTextSecondary}" />
-                              <TextBlock Grid.Column="1"
-                                         Text="邮件收发仅连接已添加账户的 IMAP / SMTP 服务"
-                                         FontSize="13"
-                                         TextWrapping="Wrap" />
-                            </Grid>
                           </StackPanel>
                         </Border>
 

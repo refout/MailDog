@@ -5,7 +5,7 @@ description: 通过本机 MailDog 邮件客户端的命令行（maildog）查询
 
 # MailDog CLI
 
-MailDog 是用户自己的 Windows 邮件客户端：Engine 常驻托盘，全部邮件存在本机 SQLite。本技能只通过它的命令行访问，**不直连数据库、不碰 IMAP、不读 `%LOCALAPPDATA%\MailDog\maildog.db`**。
+MailDog 是用户自己的 Windows 邮件客户端：Engine 常驻托盘，邮件数据由 SQLite 保存。本技能只通过它的命令行访问，**不直连数据库、不碰 IMAP、不读 `%LOCALAPPDATA%\MailDog\maildog.db`**。
 
 ## 0. 先找到命令
 
