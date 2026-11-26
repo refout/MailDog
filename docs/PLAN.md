@@ -1,7 +1,7 @@
 # MailDog 技术方案
 
 > 状态：v0.3.4 已发布；功能路线图阶段 17–23、25–32 已完成，阶段 24 主体完成（假 SMTP/IMAP 端到端、Windows 集成、0.3.3→当前 v15 升级与快照回滚、HOME 上 QQ×1/Outlook×2 真实账户矩阵已实测；Gmail/自定义账户、Linux 桌面、安装包级回滚待做）；构建 0 警告、175 项自动化测试全绿；代码签名、许可证仍待继续收口
-> 日期：2026-11-25
+> 日期：2026-11-26
 > 适用范围：MailDog v1（Windows 优先）
 > 关联文档：[UI-DESIGN.md](./UI-DESIGN.md)、[SPIKES.md](./SPIKES.md)
 
