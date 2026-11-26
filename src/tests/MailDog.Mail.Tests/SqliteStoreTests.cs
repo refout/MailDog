@@ -1,5 +1,6 @@
 using MailDog.Contracts.Dto;
 using MailDog.Mail.Storage;
+using Microsoft.Data.Sqlite;
 
 namespace MailDog.Mail.Tests;
 
@@ -978,6 +979,62 @@ public sealed class SqliteStoreTests : IDisposable
         Assert.False(_store.GetMessage(message.Id)!.Flags.HasFlag(MailFlags.Seen));
         Assert.Single(_store.QueryMessages(folder.Id, null, null, 10).Items);
         Assert.Equal(1, _store.GetFolders(account.Id)[0].UnreadCount);
+    }
+
+    [Fact]
+    public void UpgradeFromV14CreatesRestorableBackup()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "maildog-backup", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var database = Path.Combine(directory, "maildog.db");
+
+        try
+        {
+            using (var initial = new SqliteStore(database))
+            {
+                Assert.Equal(15, GetUserVersion(database));
+            }
+
+            // 造一个 v14 库：去掉 v15 新列并把 user_version 退回 14。
+            using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText = """
+                    ALTER TABLE rules DROP COLUMN target_folder_id;
+                    PRAGMA user_version = 14;
+                    """;
+                command.ExecuteNonQuery();
+            }
+
+            using var upgraded = new SqliteStore(database);
+            Assert.NotNull(upgraded.LastMigrationBackupPath);
+            var backup = upgraded.LastMigrationBackupPath!;
+            Assert.True(File.Exists(backup));
+            Assert.Contains("pre-v14", Path.GetFileName(backup), StringComparison.Ordinal);
+            Assert.Equal(15, GetUserVersion(database));
+            Assert.Equal(14, GetUserVersion(backup));
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+            catch
+            {
+                // 临时目录清理失败不影响测试结论。
+            }
+        }
+    }
+
+    private static int GetUserVersion(string path)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA user_version;";
+        return Convert.ToInt32(command.ExecuteScalar());
     }
 
     public void Dispose()

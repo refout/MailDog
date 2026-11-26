@@ -11,6 +11,7 @@
 | Windows mailto / .eml / 默认邮件程序注册 | `src/build/verify-windows-integration.ps1` | ✅ 本机通过，CI 已接入 |
 | Windows SendTo 快捷方式 | 同上 | ✅ 通过 |
 | Windows JumpList 最近邮件 | 同上 | ✅ 通过 |
+| 升级前数据库快照 | `SqliteStoreTests.UpgradeFromV14CreatesRestorableBackup` | ✅ 通过 |
 | mbox 写入与回读 | `MboxFormatTests` | ✅ 通过 |
 
 ## 真实账户矩阵（待凭据）
@@ -44,7 +45,7 @@
 5. 若旧版打不开数据库（schema 版本高于旧版支持范围），记录为回滚阻断项；用备份恢复数据后再启动旧版。
 6. 重新安装当前版本，确认旧版写入的邮件/标记没有丢失。
 
-当前 schema 版本为 15，尚未建立自动的 pre-migration 数据库备份；跨大版本回滚前必须手工复制数据目录。
+当前 schema 版本为 15。启动时若检测到旧 schema，会先用 `VACUUM INTO` 生成 `maildog.db.pre-v<旧版本>.bak` 快照；快照不覆盖已有同名文件，可通过临时替换数据库文件回滚。
 
 ## 待办与阻塞
 

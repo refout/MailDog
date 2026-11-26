@@ -17,6 +17,9 @@ public sealed class SqliteStore : IDisposable
 
     public string DatabasePath { get; }
 
+    /// <summary>本次启动发生 schema 升级时，升级前数据库快照的路径；没有升级则为 null。</summary>
+    public string? LastMigrationBackupPath { get; private set; }
+
     public SqliteStore(string databasePath)
     {
         DatabasePath = databasePath;
@@ -2530,6 +2533,11 @@ public sealed class SqliteStore : IDisposable
     {
         var version = GetUserVersion();
 
+        if (version is > 0 and < 15)
+        {
+            LastMigrationBackupPath = BackupBeforeMigration(version);
+        }
+
         if (version < 1)
         {
             CreateSchemaV1();
@@ -2849,6 +2857,37 @@ public sealed class SqliteStore : IDisposable
         }
 
         transaction.Commit();
+    }
+
+    /// <summary>
+    /// 在写 schema 前用 VACUUM INTO 生成一致快照。失败不阻塞启动，
+    /// 路径固定为“库名.pre-v{旧版本号}.bak”，重复升级不会覆盖最早的一份。
+    /// </summary>
+    private string? BackupBeforeMigration(int version)
+    {
+        if (string.IsNullOrEmpty(DatabasePath) || DatabasePath == ":memory:")
+        {
+            return null;
+        }
+
+        try
+        {
+            var directory = Path.GetDirectoryName(DatabasePath) ?? string.Empty;
+            var file = Path.GetFileNameWithoutExtension(DatabasePath);
+            var backup = Path.Combine(directory, $"{file}.pre-v{version}.bak");
+            if (File.Exists(backup))
+            {
+                return backup;
+            }
+
+            var escaped = backup.Replace("'", "''", StringComparison.Ordinal);
+            Execute($"VACUUM INTO '{escaped}';");
+            return File.Exists(backup) ? backup : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private int GetUserVersion()
