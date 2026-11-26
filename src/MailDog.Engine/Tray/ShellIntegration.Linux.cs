@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using MailDog.Contracts.Platform;
 
 namespace MailDog.Engine.Tray;
 
@@ -27,9 +28,7 @@ internal static class ShellIntegration
             return;
         }
 
-        var applications = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "applications");
+        var applications = Path.Combine(ProductPaths.DataRootDirectory, "applications");
         Directory.CreateDirectory(applications);
 
         var desktopPath = Path.Combine(applications, DesktopFileName);

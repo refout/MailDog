@@ -92,6 +92,15 @@ internal static class EngineGateway
             return sameDirectory;
         }
 
+        // 发版包把 CLI 放在 cli/ 子目录，引擎在上一级目录。
+        var parentDirectory = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "..", ProductPaths.EngineExecutableName));
+
+        if (File.Exists(parentDirectory))
+        {
+            return parentDirectory;
+        }
+
         // 开发时命令行与 Engine 分属不同输出目录，按仓库结构向上找一遍。
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         var runtime = ProductPaths.RuntimeIdentifier;

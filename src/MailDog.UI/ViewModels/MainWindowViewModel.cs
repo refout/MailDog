@@ -3157,10 +3157,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     private static string AttachmentCacheDirectory()
-        => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MailDog",
-            "attachments");
+        => Path.Combine(ProductPaths.DataDirectory, "attachments");
 
     /// <summary>批量保存到用户选择的文件夹；同名附件自动加序号，不覆盖已有文件。</summary>
     private async Task SaveAttachmentsAsync(IReadOnlyList<AttachmentViewModel> attachments)

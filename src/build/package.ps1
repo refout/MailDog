@@ -85,6 +85,12 @@ if ((Test-Path $cliExe) -or (Test-Path $cliShim)) {
         throw "CLI 发布不完整：需要同时存在 $cliExe 与 $cliShim。"
     }
 
+    # 防止发布包里的 CLI 落后于引擎：Linux 无托盘时 `maildog open` 是唯一回界面入口。
+    $cliSchema = & $cliExe schema --json | Out-String
+    if ($cliSchema -notmatch '"name":"open"') {
+        throw "CLI 包缺少 open 命令，拒绝生成发布包。"
+    }
+
     $staging = Join-Path ([IO.Path]::GetTempPath()) "maildog-cli-$([guid]::NewGuid().ToString('N'))"
     New-Item -ItemType Directory -Force -Path $staging | Out-Null
     New-Item -ItemType Directory -Force -Path $cliBundleDir | Out-Null

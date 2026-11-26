@@ -1,3 +1,5 @@
+using MailDog.Contracts.Platform;
+
 namespace MailDog.Engine.Logging;
 
 public sealed class FileLogger : IDisposable
@@ -7,10 +9,7 @@ public sealed class FileLogger : IDisposable
 
     public FileLogger(string? path = null)
     {
-        var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MailDog",
-            "logs");
+        var directory = Path.Combine(ProductPaths.DataDirectory, "logs");
 
         Directory.CreateDirectory(directory);
 

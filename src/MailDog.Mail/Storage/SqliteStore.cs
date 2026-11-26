@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using MailDog.Contracts.Dto;
+using MailDog.Contracts.Platform;
 using MailDog.Contracts.Serialization;
 using Microsoft.Data.Sqlite;
 
@@ -47,10 +48,7 @@ public sealed class SqliteStore : IDisposable
     }
 
     public static string DefaultDatabasePath
-        => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MailDog",
-            "maildog.db");
+        => Path.Combine(ProductPaths.DataDirectory, "maildog.db");
 
     public IReadOnlyList<AccountRecord> GetAccounts()
     {

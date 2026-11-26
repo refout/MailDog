@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using MailDog.Contracts.Platform;
 
 namespace MailDog.Mail.Storage;
 
@@ -138,9 +139,7 @@ public sealed class SecretStore
             return directory;
         }
 
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MailDog");
+        return ProductPaths.DataDirectory;
     }
 
     private static byte[] LoadOrCreateKey(string directory, string databasePath)

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using MailDog.Contracts.Platform;
 
 namespace MailDog.Mail.Storage;
 
@@ -31,10 +32,7 @@ public static class SqliteNativeBootstrap
         using var resource = assembly.GetManifestResourceStream(ResourceName)
             ?? throw new InvalidOperationException($"未找到嵌入的 SQLite 原生库：{ResourceName}");
 
-        var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MailDog",
-            "native");
+        var directory = Path.Combine(ProductPaths.DataDirectory, "native");
 
         Directory.CreateDirectory(directory);
 

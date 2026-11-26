@@ -263,7 +263,7 @@ dist/
 | 21 | 规则增强：自动移动到文件夹、对历史邮件回溯应用、规则试运行与命中预览 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage21.md`） |
 | 22 | 迁移与互操作：mbox/eml 批量导入、全量导出、Thunderbird/Outlook 迁移指引 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage22.md` 与 `docs/migration.md`） |
 | 23 | 平台扩展：Linux arm64；macOS 仅在真实需求出现后评估；Linux 无托盘宿主时的兜底入口 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage23.md` 与 `docs/platform-evaluation.md`；macOS 结论为暂不发布） |
-| 24 | 质量工程：真实 QQ/Outlook 账号冒烟矩阵、假 IMAP/SMTP 端到端、Windows 注册表/SendTo/JumpList 实机验收、升级回滚测试 | 🟡 仅剩 Gmail/自定义账户与 Linux 桌面实机（缺凭据/设备）：假 SMTP/IMAP、Windows 集成、0.3.3→当前 v15 升级/快照回滚、HOME 上 QQ×1/Outlook×2 登录/收发/附件/草稿/搜索/定时撤回、XIZXI 安装包覆盖升级/卸载、Outlook 垃圾规则 UI 与自动拦截均已实测，见 `docs/smoke/2026-11-25-stage24.md`、`docs/qa-matrix.md` |
+| 24 | 质量工程：真实 QQ/Outlook 账号冒烟矩阵、假 IMAP/SMTP 端到端、Windows 注册表/SendTo/JumpList 实机验收、升级回滚测试 | 🟡 仅剩 Gmail/自定义账户与 Linux 真实桌面托盘/通知/WebKit：假 SMTP/IMAP、Windows 集成、0.3.3→当前 v15 升级/快照回滚、HOME 上 QQ×1/Outlook×2 登录/收发/附件/草稿/搜索/定时撤回、XIZXI 安装包覆盖升级/卸载、Outlook 垃圾规则 UI 与自动拦截、WSLg Ubuntu 24.04 的 Engine/UI 启动、`maildog open`/`quit`、Linux 数据目录与 0.3.5 linux-x64 AOT 包均已实测；WSL 同时暴露并修复了 0.3.4 的默认数据目录与 CLI 缺 `open`，另有 `#if MAILDOG_WINDOWS` 隔离和 CLI 上级 Engine 查找修复，见 `docs/smoke/2026-11-25-stage24.md`、`docs/qa-matrix.md` |
 | 25 | 批量操作补全：选择模式支持批量归档、移动、删除、标记垃圾邮件，以及对当前搜索结果全选执行 | ✅ 已完成（批量移动限同一账户；跨账户会提示） |
 | 26 | 邮件模板与快速回复：常用回复保存、简单变量（收件人/主题/日期）、按账户绑定签名 | ✅ 已完成（变量：`{{date}}`/`{{time}}`/`{{account}}`/`{{email}}`/`{{subject}}`） |
 | 27 | 应用锁与加密备份：启动 PIN/Windows Hello、闲置自动锁定、带密码的备份包；数据库整体加密单独评估 | ✅ 已完成 PIN 与 AES-256-GCM 备份；Windows Hello 未接入，数据库整体加密仍单独立项 |

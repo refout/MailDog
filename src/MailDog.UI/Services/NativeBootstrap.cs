@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Avalonia;
+using MailDog.Contracts.Platform;
 
 namespace MailDog.UI.Services;
 
@@ -22,11 +23,7 @@ internal static class NativeBootstrap
             return;
         }
 
-        var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MailDog",
-            "native",
-            "ui");
+        var directory = Path.Combine(ProductPaths.DataDirectory, "native", "ui");
 
         Directory.CreateDirectory(directory);
 

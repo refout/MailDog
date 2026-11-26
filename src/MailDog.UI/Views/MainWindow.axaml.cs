@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using MailDog.Contracts.Platform;
 using MailDog.UI.Services;
 using MailDog.UI.ViewModels;
 
@@ -401,8 +402,7 @@ public partial class MainWindow : Window
     {
         var webView = new NativeWebView();
         var userDataFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MailDog",
+            ProductPaths.DataDirectory,
             "WebView2Print",
             Guid.NewGuid().ToString("N"));
         webView.EnvironmentRequested += (_, args) => ConfigurePrintEnvironment(args, userDataFolder);
@@ -1005,10 +1005,7 @@ public partial class MainWindow : Window
     {
         if (e is WindowsWebView2EnvironmentRequestedEventArgs windows)
         {
-            var folder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "MailDog",
-                "WebView2");
+            var folder = Path.Combine(ProductPaths.DataDirectory, "WebView2");
 
             Directory.CreateDirectory(folder);
             windows.UserDataFolder = folder;

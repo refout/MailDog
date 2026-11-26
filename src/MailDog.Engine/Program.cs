@@ -34,6 +34,7 @@ internal static class Program
             return RunNotificationTest();
         }
 
+#if MAILDOG_WINDOWS
         if (args.Contains("--register-integration", StringComparer.OrdinalIgnoreCase))
         {
             MailDog.Engine.Tray.WindowsIntegration.RegisterAll();
@@ -56,6 +57,7 @@ internal static class Program
             Thread.Sleep(TimeSpan.FromSeconds(5));
             return 0;
         }
+#endif
 
         var databasePath = GetArgument(args, "--db") ?? SqliteStore.DefaultDatabasePath;
         var activationUri = GetArgument(args, "--activate");

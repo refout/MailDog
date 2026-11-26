@@ -1,5 +1,6 @@
 using MailDog.Contracts.Dto;
 using MailDog.Contracts.Messages;
+using MailDog.Contracts.Platform;
 
 namespace MailDog.Mail.Storage;
 
@@ -47,16 +48,15 @@ public sealed class StorageMaintenanceService
     {
         var fullDatabasePath = Path.GetFullPath(databasePath);
         var dataDirectory = Path.GetDirectoryName(fullDatabasePath)
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailDog");
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            ?? ProductPaths.DataDirectory;
 
         return new StorageMaintenancePaths(
             dataDirectory,
             fullDatabasePath,
-            Path.Combine(localAppData, "MailDog", "logs"),
-            Path.Combine(localAppData, "MailDog", "attachments"),
+            Path.Combine(ProductPaths.DataDirectory, "logs"),
+            Path.Combine(ProductPaths.DataDirectory, "attachments"),
             Path.Combine(dataDirectory, "outbox"),
-            Path.Combine(localAppData, "MailDog", "native"),
+            Path.Combine(ProductPaths.DataDirectory, "native"),
             Path.Combine(Path.GetTempPath(), "MailDog"));
     }
 

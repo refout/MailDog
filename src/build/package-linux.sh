@@ -63,6 +63,13 @@ EOF
 
 chmod +x "$app_dir/maildog" "$app_dir/MailDog.Engine" "$app_dir/MailDog.UI" "$app_dir/MailDog.Cli"
 
+# 发布包曾出现过 CLI 与引擎版本不一致，导致 Linux 无托盘时 `maildog open` 不可用。
+# 打包前直接运行当前 CLI 的 schema，确认无托盘兜底入口确实在包里。
+if ! "$app_dir/MailDog.Cli" schema --json | grep -q '"name":"open"'; then
+    echo "CLI 包缺少 open 命令，拒绝生成发布包。" >&2
+    exit 1
+fi
+
 # CLI 不随包展开：把顶层 CLI 与 Skill 收进 cli/ 压缩包，再移除顶层文件。
 bundle_dir="$app_dir/cli"
 mkdir -p "$bundle_dir"

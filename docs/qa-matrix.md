@@ -44,7 +44,7 @@
 仍未完成：
 
 - Gmail、自定义 IMAP/SMTP 无真实账户。
-- Linux x64/arm64 桌面托盘、WebKitGTK、通知点击未验收。
+- Linux 真实桌面托盘、WebKitGTK、通知点击未验收；WSLg 只验证了窗口启动与无托盘 `quit`。
 - 真实第三方退订提交；解析与规则往返已覆盖，未向订阅方发请求。
 
 ## Windows 安装包覆盖安装与卸载（2026-11-26，XIZXI）
@@ -58,6 +58,24 @@
 5. 最终卸载 → 退出码 0，安装目录与注册项消失，`%LOCALAPPDATA%\MailDog\maildog.db` 保留。
 
 结论：覆盖升级、卸载清理与用户数据保留均通过。详见 `docs/smoke/2026-11-25-stage24.md`。
+
+## Linux WSLg 启动（2026-11-26，HOME）
+
+- 环境：WSL Ubuntu 24.04（WSL 3.0.5 / WSLg 1.0.79），`linux-x64` 0.3.4 tar 包，X11/Wayland 由 WSLg 提供。
+- `MailDog.Engine --probe`：`sqlite: ok`、`mime+imap: ok`。
+- `MailDog.UI` 打开 1280×800 窗口并显示首次启动页；安装 `fonts-noto-cjk` 后中文正常。最小 WSL 无中文字体时会显示方框。
+- 关闭 UI 后 Engine 继续驻留；包内 CLI `accounts`、`quit` 可用。
+- 发现 0.3.4 包两个问题：Linux AOT 下默认数据目录落到启动 cwd 的 `MailDog/`（`LocalApplicationData` 为空）；CLI schema 缺 `open`。0.3.5 已把数据根固定到 `$XDG_DATA_HOME` / `$HOME/.local/share`，打包脚本加入 CLI `open` 校验；新增 `ProductPathsTests` 5 项。
+- WSLg 未安装 WebKitGTK，且无通知守护进程/StatusNotifier 宿主，因此托盘、通知点击、HTML 正文不计入本轮通过。
+
+### 0.3.5 Linux x64 AOT 复测
+
+- 构建环境：Ubuntu 22.04 云主机，.NET SDK 11.0.100，clang 14；`package-linux.sh` 的 CLI `open` 守卫通过，产物 SHA-256 `781125ed5623663458eab4961ccb293c77e844b42ad2ce59cb12f1cd9600638c`。
+- WSLg 运行：Engine `--probe` 为 `sqlite: ok`、`mime+imap: ok`；UI 1280×800 首屏正常，中文正常。
+- 关闭 UI 后执行 `maildog open --json`，返回 `{"opened":true}` 并重新出现窗口；`maildog quit --json` 返回 `{"stopped":true}`。
+- CLI 从 `cli/` 子目录启动，不指定 `--engine` 时也能找到上一级目录的 Engine；`accounts` 可正常返回。
+- 数据目录：`~/.local/share/MailDog/maildog.db`，日志、native 库、outbox 均在同一目录；设置 `XDG_DATA_HOME=/tmp/mdxdg` 后落库到 `/tmp/mdxdg/MailDog/maildog.db`。
+- 构建期修复：`--register-integration` 只在 Windows 目标编译，用 `#if MAILDOG_WINDOWS` 隔离；CLI 增加 `cli/` 上一级 Engine 查找。Windows 构建与 187 项测试仍通过。
 
 ## 代码签名与崩溃上报
 
@@ -82,4 +100,4 @@
 
 - Gmail、自定义 IMAP/SMTP 没有真实账户，真实账户矩阵只覆盖 QQ 1 个和 Outlook 2 个。
 - `docs/qa-matrix.md` 中的真实账户结果来自隔离库；UI 垃圾规则测试临时换库后已恢复真实库，测试邮件已移入已删除。
-- Linux x64/arm64 桌面上的托盘、WebKitGTK 正文与通知仍需设备验收。
+- Linux 真实桌面的托盘、WebKitGTK 正文与通知仍需设备验收；WSLg 启动验收不能替代真实桌面托盘/通知测试。

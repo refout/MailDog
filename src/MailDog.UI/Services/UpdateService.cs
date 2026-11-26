@@ -236,10 +236,7 @@ public sealed class UpdateService
     }
 
     public static string UpdatesDirectory
-        => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MailDog",
-            "updates");
+        => Path.Combine(ProductPaths.DataDirectory, "updates");
 
     /// <summary>清掉已经安装过的更新包；启动时和下次下载前各跑一次，避免 updates 目录越积越多。</summary>
     public static int CleanupDownloadedInstallers(string? directory = null, string? keepPath = null)

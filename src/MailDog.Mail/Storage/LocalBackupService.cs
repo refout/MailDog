@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using MailDog.Contracts.Dto;
+using MailDog.Contracts.Platform;
 
 namespace MailDog.Mail.Storage;
 
@@ -31,7 +32,7 @@ public sealed class LocalBackupService
         _store = store;
         _databasePath = Path.GetFullPath(databasePath);
         _dataDirectory = Path.GetDirectoryName(_databasePath)
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailDog");
+            ?? ProductPaths.DataDirectory;
     }
 
     public BackupResultDto CreateBackup(string destinationPath, string? password = null)
