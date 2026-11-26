@@ -156,6 +156,18 @@
   <Style Selector="ScrollBar /template/ Thumb">
     <Setter Property="MinWidth" Value="10" />
     <Setter Property="MinHeight" Value="10" />
+    <!-- Fluent 的 Thumb 模板把 Border 的圆角绑定到 Thumb.CornerRadius。只改 Border
+         会被 FluentScrollBarThumb 的控件主题压回去；直接改 Thumb 才能保证悬停、
+         按下时也一直是圆角。 -->
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="ScrollBar /template/ Thumb:pointerover">
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="ScrollBar /template/ Thumb:pressed">
+    <Setter Property="CornerRadius" Value="4" />
   </Style>
 
   <Style Selector="ScrollBar /template/ Thumb /template/ Border">
