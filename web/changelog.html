@@ -58,12 +58,34 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.5</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.6</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
 
   <div class="wrap timeline">
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.3.6</h2>
+        <span class="date">2026-11-26</span>
+        <span class="latest">最新</span>
+      </div>
+      <p class="summary">界面重构版本：主窗口三栏改为统一圆角卡片，设置入口固定在左栏底部；11 个设置页重新分组，Windows 标题栏改为透明自绘条。</p>
+      <ul>
+        <li><b>主窗口</b>：三栏统一 12px 圆角、1px 描边和 12px 栏间距，阅读区与写邮件覆盖层同步圆角；设置入口固定在底部，不再被窗口边缘裁切。</li>
+        <li><b>设置页</b>：232px 导航、840px 内容宽度，11 个页面补齐标题与说明，27 个设置组收进卡片；修复账户列表泄漏到其他设置页的结构问题，账户页按「邮箱账户 → 账户签名 → 发信别名 → 默认签名」重排。</li>
+        <li><b>Windows 标题栏</b>：Avalonia 12 <code>WindowDecorations=Full</code> 配合客户区延展，自绘 32px 透明标题条和 MailDog 品牌，保留最小化、最大化、关闭按钮；标题条底层透明，Mica/Acrylic 不再被默认标题栏遮住。</li>
+        <li><b>材质链路</b>：修复材质启用时承载文字的表面被补成不透明的问题；Windows 11 才启用 Mica、Win10 1809+ 才启用 Acrylic，保存的不可用材质回退为纯色。</li>
+        <li><b>跨平台</b>：自绘标题条只在 Windows 启用，Linux/macOS 继续使用系统标题栏。</li>
+        <li><b>验证</b>：Release 构建 0 警告，187 项测试通过；Windows 11 实机截图确认圆角、底部设置入口和标题栏透明。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/compare/v0.3.5...v0.3.6" target="_blank" rel="noopener">对比 v0.3.5</a>
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.3.6" target="_blank" rel="noopener">Release 下载</a>
+        <a href="https://github.com/refout/MailDog/blob/main/docs/releases/0.3.6.md" target="_blank" rel="noopener">发布说明</a>
+      </div>
+    </article>
 
     <article class="release">
       <div class="release-top">
@@ -92,7 +114,7 @@
       <div class="release-top">
         <h2>v0.3.4</h2>
         <span class="date">2026-11-25</span>
-        <span class="latest">最新</span>
+        <span class="latest">已发布</span>
       </div>
       <p class="summary">CLI 原样返回 HTML 与纯文本正文；带 --json 的调用结果会留成 JSON 记录，设置里可以直接看。</p>
       <ul>
