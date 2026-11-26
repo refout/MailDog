@@ -1,5 +1,6 @@
 using System.Net.Security;
 using System.Net.Sockets;
+using MailDog.Contracts.Dto;
 using MailDog.Contracts.Messages;
 using MailDog.Mail.Accounts;
 using MailDog.Mail.Auth;
@@ -191,7 +192,8 @@ public sealed class SmtpSendService
 
             try
             {
-                if (_imap is not null)
+                // Outlook SMTP 会自动把已发送邮件写入服务器“已发送”；再 APPEND 一份会出现两条相同邮件。
+                if (_imap is not null && ShouldUploadSentCopy(account.Provider))
                 {
                     await _imap.AppendSentCopyAsync(record.AccountId, message, cancellationToken).ConfigureAwait(false);
                 }
@@ -289,6 +291,10 @@ public sealed class SmtpSendService
         await client.AuthenticateAsync(email, secret, cancellationToken).ConfigureAwait(false);
         await client.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>Outlook 服务器会自行保存已发送副本；其他服务商需要客户端 APPEND。</summary>
+    public static bool ShouldUploadSentCopy(MailProvider provider)
+        => provider != MailProvider.Outlook;
 
     private async Task SendViaSmtpAsync(
         AccountRecord account,

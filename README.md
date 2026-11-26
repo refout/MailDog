@@ -258,7 +258,7 @@ dist/
 | 21 | 规则增强：自动移动到文件夹、对历史邮件回溯应用、规则试运行与命中预览 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage21.md`） |
 | 22 | 迁移与互操作：mbox/eml 批量导入、全量导出、Thunderbird/Outlook 迁移指引 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage22.md` 与 `docs/migration.md`） |
 | 23 | 平台扩展：Linux arm64；macOS 仅在真实需求出现后评估；Linux 无托盘宿主时的兜底入口 | ✅ 已完成（2026-11-25，见 `docs/smoke/2026-11-25-stage23.md` 与 `docs/platform-evaluation.md`；macOS 结论为暂不发布） |
-| 24 | 质量工程：真实 QQ/Outlook 账号冒烟矩阵、假 IMAP/SMTP 端到端、Windows 注册表/SendTo/JumpList 实机验收、升级回滚测试 | 🟡 自动化部分完成（假 SMTP/IMAP、Windows 集成、0.3.3→当前 v15 升级/快照回滚已实测；真实账户待凭据），见 `docs/smoke/2026-11-25-stage24.md`、`docs/qa-matrix.md` |
+| 24 | 质量工程：真实 QQ/Outlook 账号冒烟矩阵、假 IMAP/SMTP 端到端、Windows 注册表/SendTo/JumpList 实机验收、升级回滚测试 | 🟡 主体完成：假 SMTP/IMAP、Windows 集成、0.3.3→当前 v15 升级/快照回滚、HOME 上 QQ×1/Outlook×2 的登录/收发/附件/草稿/搜索/定时撤回已实测；Gmail/自定义账户、Linux 桌面与安装包级回滚待做，见 `docs/smoke/2026-11-25-stage24.md`、`docs/qa-matrix.md` |
 | 25 | 批量操作补全：选择模式支持批量归档、移动、删除、标记垃圾邮件，以及对当前搜索结果全选执行 | ✅ 已完成（批量移动限同一账户；跨账户会提示） |
 | 26 | 邮件模板与快速回复：常用回复保存、简单变量（收件人/主题/日期）、按账户绑定签名 | ✅ 已完成（变量：`{{date}}`/`{{time}}`/`{{account}}`/`{{email}}`/`{{subject}}`） |
 | 27 | 应用锁与加密备份：启动 PIN/Windows Hello、闲置自动锁定、带密码的备份包；数据库整体加密单独评估 | ✅ 已完成 PIN 与 AES-256-GCM 备份；Windows Hello 未接入，数据库整体加密仍单独立项 |
@@ -274,7 +274,7 @@ dist/
 
 - v0.1.0 是只读版；写信、回复、草稿、发件箱、正文搜索、附件内嵌预览、备份恢复和 `.eml` 导出从 v0.1.2 起都已包含在发布包里。
 - 新邮件靠 IMAP IDLE 实时推送（独立监听连接），服务器不支持或断线时回退到周期轮询。
-- Outlook OAuth 与 QQ 真实账户需要真实凭据才能验收，自动化测试只覆盖到协议层。
+- Outlook OAuth 与 QQ 账户已在 HOME 上用 3 个真实账户完成登录、收发、附件、草稿、搜索、定时/撤回验收；Gmail 与自定义 IMAP/SMTP 尚无可用账户，自动化只覆盖协议层。
 - 正文搜索只覆盖已缓存到本地的邮件正文；更早、尚未同步的邮件不会进入搜索结果。
 - 会话聚合优先用 `References` / `In-Reply-To`，缺失时回退规范化主题；服务器改写过主题或跨账户同主题可能归到同一会话。
 - 联系人补全只来自本机已同步邮件的 `from_addr`，不会实时查询服务端通讯录；已发送邮件的收件人暂未纳入候选。

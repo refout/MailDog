@@ -23,6 +23,16 @@ public sealed class FakeServerEndToEndTests : IDisposable
         _accounts = new AccountService(_store, new SecretStore(_store));
     }
 
+    [Theory]
+    [InlineData(MailProvider.QQ, true)]
+    [InlineData(MailProvider.Custom, true)]
+    [InlineData(MailProvider.Outlook, false)]
+    public void OutlookServerSavesItsOwnSentCopy(MailProvider provider, bool expected)
+    {
+        // Outlook SMTP 自动保存“已发送”，客户端再 APPEND 会产生重复副本。
+        Assert.Equal(expected, SmtpSendService.ShouldUploadSentCopy(provider));
+    }
+
     [Fact]
     public async Task SmtpSendReachesFakeServer()
     {
