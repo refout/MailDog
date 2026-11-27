@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.9</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.10</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,9 +67,30 @@
 
     <article class="release">
       <div class="release-top">
+        <h2>v0.3.10</h2>
+        <span class="date">2026-11-27</span>
+        <span class="latest">最新</span>
+      </div>
+      <p class="summary">界面继续收口：标题栏交回系统原生 caption，滚动条恢复自动隐藏，阅读区附件压成单行，CLI 调用记录从独立窗口搬进设置页。</p>
+      <ul>
+        <li><b>标题栏</b>：删除自绘标题栏和 <code>WindowDrawnDecorations</code>，Windows 恢复系统 caption；Windows 11 22H2+ 按当前 Mica/Acrylic 材质设置 DWM 系统背景，并复位标题栏颜色与边框颜色。</li>
+        <li><b>滚动条</b>：左栏文件夹树和中栏邮件列表改回 <code>AllowAutoHide=True</code> 与 <code>Auto</code>，三栏不再常驻 10px 滚动条；滑块宽度和圆角保留。</li>
+        <li><b>附件</b>：阅读区附件从 200–230px 卡片改成单行列表，复选框、文件名、大小、打开、下载、拖出同一行；附件区上限 132px，文件名省略不换行。</li>
+        <li><b>CLI 记录</b>：删除独立窗口，改为设置 → 工具页内嵌展开；默认显示主题、发件人、收件人、时间、附件和正文预览，原始输出收进默认折叠的调试区。</li>
+        <li><b>验证</b>：Release 构建 0 警告，190 项测试通过；HOME 实机重启确认内嵌记录、附件单行和滚动条自动隐藏。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/compare/v0.3.9...v0.3.10" target="_blank" rel="noopener">对比 v0.3.9</a>
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.3.10" target="_blank" rel="noopener">Release 下载</a>
+        <a href="https://github.com/refout/MailDog/blob/main/docs/releases/0.3.10.md" target="_blank" rel="noopener">发布说明</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
         <h2>v0.3.9</h2>
         <span class="date">2026-11-26</span>
-        <span class="latest">最新</span>
+        <span class="latest">已发布</span>
       </div>
       <p class="summary">集中收口 0.3.8 的七处实机界面问题：窗口按钮、设置卡片宽度、三处滚动条、附件高度、HTML 失败重试和左栏边距。</p>
       <ul>
