@@ -275,15 +275,29 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SearchScopeLabel))]
     [NotifyPropertyChangedFor(nameof(SearchScopeAutomationName))]
+    [NotifyPropertyChangedFor(nameof(SearchScopeIndex))]
     private bool _isGlobalSearch;
 
     public bool HasSearchText => !string.IsNullOrWhiteSpace(SearchText);
 
     public string SearchScopeLabel => IsGlobalSearch ? "全部邮箱" : "当前文件夹";
 
+    public int SearchScopeIndex
+    {
+        get => IsGlobalSearch ? 1 : 0;
+        set
+        {
+            var isGlobalSearch = value == 1;
+            if (IsGlobalSearch != isGlobalSearch)
+            {
+                IsGlobalSearch = isGlobalSearch;
+            }
+        }
+    }
+
     public string SearchScopeAutomationName => IsGlobalSearch
-        ? "搜索全部邮箱，点击切回当前文件夹"
-        : "搜索当前文件夹，点击切换到全部邮箱";
+        ? "搜索范围：全部邮箱"
+        : "搜索范围：当前文件夹";
 
     public string SearchEmptyTitle => string.IsNullOrWhiteSpace(SearchText)
         ? "这个文件夹没有邮件"

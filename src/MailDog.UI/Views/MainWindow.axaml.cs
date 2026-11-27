@@ -755,12 +755,6 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void OnToggleSearchScopeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        _viewModel.IsGlobalSearch = !_viewModel.IsGlobalSearch;
-        e.Handled = true;
-    }
-
     private async void OnThreadMessageClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is MenuItem { DataContext: MailSummaryViewModel message })
@@ -1201,9 +1195,16 @@ public partial class MainWindow : Window
         });
     }
 
-    private async void OnAttachmentDragHandlePressed(object? sender, PointerPressedEventArgs e)
+    private async void OnAttachmentRowDragPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Control { DataContext: AttachmentViewModel attachment } control)
+        {
+            return;
+        }
+
+        if (e.Source is Visual source
+            && (source.FindAncestorOfType<Button>(includeSelf: true) is not null
+                || source.FindAncestorOfType<CheckBox>(includeSelf: true) is not null))
         {
             return;
         }
@@ -1214,28 +1215,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        e.Handled = true;
-        await StartAttachmentDragAsync(e, [attachment]);
-    }
-
-    private async void OnAttachmentDragSelectedPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (e.Pointer.Type == PointerType.Mouse
-            && !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            return;
-        }
-
         var selected = _viewModel.Reader.Attachments
-            .Where(attachment => attachment.IsSelected)
+            .Where(item => item.IsSelected)
             .ToArray();
-        if (selected.Length == 0)
-        {
-            return;
-        }
+        IReadOnlyList<AttachmentViewModel> attachments =
+            attachment.IsSelected && selected.Length > 0
+                ? selected
+                : new[] { attachment };
 
         e.Handled = true;
-        await StartAttachmentDragAsync(e, selected);
+        await StartAttachmentDragAsync(e, attachments);
     }
 
     private async Task StartAttachmentDragAsync(
