@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.11</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.12</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,9 +67,30 @@
 
     <article class="release">
       <div class="release-top">
-        <h2>v0.3.11</h2>
+        <h2>v0.3.12</h2>
         <span class="date">2026-11-27</span>
         <span class="latest">最新</span>
+      </div>
+      <p class="summary">这一版只收视觉：四边的双重留白压成统一 12px，三栏、卡片、按钮、输入框和设置页的圆角整体降一档。</p>
+      <ul>
+        <li><b>留白</b>：三栏外框从 8/10/8/12 收到统一 4，栏内边缘从 12–16 收到 8；四边总留白从原来的 20–28px 统一到 12px，栏间距仍为 8px。</li>
+        <li><b>三栏</b>：工作区卡片圆角 12→8，卡片边缘更利落，不再显得过于圆润。</li>
+        <li><b>控件</b>：卡片与弹层 8→6，按钮、输入框、附件行和状态块 6→4，面板 10→6；设置页、写信页和 CLI 调用面板同步调整。</li>
+        <li><b>保持</b>：头像、状态圆点、未读胶囊和颜色胶囊仍保持圆形或胶囊形态，不跟着压扁。</li>
+        <li><b>验证</b>：Release 构建 0 警告，190 项测试通过；HOME 实机确认四边不再出现双重边距。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/compare/v0.3.11...v0.3.12" target="_blank" rel="noopener">对比 v0.3.11</a>
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.3.12" target="_blank" rel="noopener">Release 下载</a>
+        <a href="https://github.com/refout/MailDog/blob/main/docs/releases/0.3.12.md" target="_blank" rel="noopener">发布说明</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.3.11</h2>
+        <span class="date">2026-11-27</span>
+        <span class="latest">已发布</span>
       </div>
       <p class="summary">主窗口再收一轮：搜索范围改成下拉，附件拖出不再靠按钮，左侧两栏继续收紧，账户树与邮件头像左移，同步状态不再占用底部状态栏。</p>
       <ul>
