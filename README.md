@@ -227,7 +227,7 @@ dist/
 └── MailDog-<版本>-win-x64-setup.exe
 ```
 
-正式发布的 v0.3.11 在 Release 里：win-x64 34.3 MiB、win-arm64 32.8 MiB、linux-x64 33.1 MiB、linux-arm64 31.5 MiB、x64 安装包 25.4 MiB；全部 SHA-256 见 Release 发布说明。
+正式发布的 v0.3.12 在 Release 里：win-x64 34.3 MiB、win-arm64 32.8 MiB、linux-x64 33.1 MiB、linux-arm64 31.5 MiB、x64 安装包 25.4 MiB；全部 SHA-256 见 Release 发布说明。
 
 - 三个可执行文件都是自包含单文件，不需要 .NET 运行时；UI 必须和 Engine 在同一目录才能自动拉起后台。
 - Windows 的 SQLite / Skia / HarfBuzz / ANGLE 原生库嵌在 exe 里，首次启动解到 `%LOCALAPPDATA%\MailDog\native\`；Linux 的 `libSkiaSharp.so`、`libHarfBuzzSharp.so` 随包放在可执行文件旁边，SQLite 仍在首次启动解到数据目录。
