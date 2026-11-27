@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.10</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.11</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,9 +67,31 @@
 
     <article class="release">
       <div class="release-top">
-        <h2>v0.3.10</h2>
+        <h2>v0.3.11</h2>
         <span class="date">2026-11-27</span>
         <span class="latest">最新</span>
+      </div>
+      <p class="summary">主窗口再收一轮：搜索范围改成下拉，附件拖出不再靠按钮，左侧两栏继续收紧，账户树与邮件头像左移，同步状态不再占用底部状态栏。</p>
+      <ul>
+        <li><b>搜索</b>：搜索范围从按钮切换改成下拉选择，明确列出「当前文件夹 / 全部邮箱」，不再需要从按钮文案猜当前状态。</li>
+        <li><b>附件</b>：删除附件行与工具栏里的「拖出 / 拖出所选」按钮，保留打开、下载；整行可拖，多选时拖任意已选行会一起拖出，点到按钮或复选框不会误触。</li>
+        <li><b>留白</b>：三栏外框左右 12→8，左栏内容左右 16→12，中栏标题、搜索与批量栏左右 16→12；上下边距、栏间距和阅读区保持不变。</li>
+        <li><b>头像</b>：账户树缩小内边距并整体左移，账户头像较 0.3.10 左移约 17px；邮件行左边距 10→2、列表项边距 6→4，列表头像左移约 10px。</li>
+        <li><b>同步</b>：同步中、加载中和手动立即同步不再写入底部状态栏，底栏不再随同步出现又消失、也不会把三栏顶高；同步状态只留在账户行内。</li>
+        <li><b>验证</b>：Release 构建 0 警告，190 项测试通过；HOME 实机确认搜索下拉、附件行和同步期间不再出现底栏。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/compare/v0.3.10...v0.3.11" target="_blank" rel="noopener">对比 v0.3.10</a>
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.3.11" target="_blank" rel="noopener">Release 下载</a>
+        <a href="https://github.com/refout/MailDog/blob/main/docs/releases/0.3.11.md" target="_blank" rel="noopener">发布说明</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.3.10</h2>
+        <span class="date">2026-11-27</span>
+        <span class="latest">已发布</span>
       </div>
       <p class="summary">界面继续收口：标题栏交回系统原生 caption，滚动条恢复自动隐藏，阅读区附件压成单行，CLI 调用记录从独立窗口搬进设置页。</p>
       <ul>

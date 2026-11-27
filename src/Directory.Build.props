@@ -8,6 +8,6 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <Company>refout</Company>
     <Product>MailDog</Product>
-    <Version>0.3.10</Version>
+    <Version>0.3.11</Version>
   </PropertyGroup>
 </Project>
