@@ -28,7 +28,7 @@ public sealed class CliCallRecord
 
     public string Summary
         => $"{DisplayTime}  exit={ExitCode}  {DurationMs}ms"
-            + (JsonRequested ? JsonTruncated ? "  JSON 已截断" : "  JSON" : "  摘要");
+            + (JsonRequested ? JsonTruncated ? "  原始记录已截断" : "  原始记录" : "  摘要");
 
     public string JsonDisplay
         => !string.IsNullOrEmpty(Json)

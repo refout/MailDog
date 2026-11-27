@@ -246,9 +246,4 @@ public partial class SettingsView : UserControl
             vm.CliCopyStatus = $"复制失败：{exception.Message}";
         }
     }
-
-    private void OnOpenCliCallsClick(object? sender, RoutedEventArgs e)
-    {
-        new CliCallsWindow(new CliCallsViewModel()).Show();
-    }
 }

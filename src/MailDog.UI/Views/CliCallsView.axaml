@@ -1,62 +1,62 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:MailDog.UI.ViewModels"
-        xmlns:services="using:MailDog.UI.Services"
-        x:Class="MailDog.UI.Views.CliCallsWindow"
-        x:DataType="vm:CliCallsViewModel"
-        Title="CLI 调用记录"
-        Width="1040"
-        Height="700"
-        MinWidth="720"
-        MinHeight="480"
-        WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource MailDogBrushSurfaceSolid}">
-  <Grid Margin="24" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="14">
-    <Grid ColumnDefinitions="*,Auto">
-      <StackPanel Spacing="4">
-        <TextBlock Text="CLI 调用记录" FontSize="22" FontWeight="SemiBold" />
-        <TextBlock Text="最近 100 条调用。带 --json 的命令会保存当时的 JSON 输出；默认先脱敏正文，再写入记录。"
-                   Classes="caption"
-                   TextWrapping="Wrap" />
-      </StackPanel>
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MailDog.UI.ViewModels"
+             xmlns:services="using:MailDog.UI.Services"
+             x:Class="MailDog.UI.Views.CliCallsView"
+             x:DataType="vm:CliCallsViewModel">
+  <StackPanel Spacing="12">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+      <TextBlock Text="最近 100 条调用。默认显示可读摘要；原始输出收在详情底部，需要排查时再展开。"
+                 Classes="caption"
+                 TextWrapping="Wrap"
+                 VerticalAlignment="Center" />
       <Button Grid.Column="1"
               Content="刷新"
               Command="{Binding RefreshCommand}"
-              VerticalAlignment="Top"
               AutomationProperties.Name="刷新 CLI 调用记录" />
     </Grid>
 
-    <Border Grid.Row="1"
-            Background="{DynamicResource MailDogBrushSurfaceSubtle}"
+    <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
             BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
             BorderThickness="1"
             CornerRadius="8"
             Padding="12">
-      <Expander Header="Agent 权限（命令行）" IsExpanded="False">
+      <Expander Header="Agent 权限（命令行）"
+                IsExpanded="False"
+                HorizontalContentAlignment="Stretch">
         <StackPanel Spacing="8" Margin="0,8,0,0">
           <TextBlock Text="命令行默认只能写待确认队列；这里决定哪些写命令可以直接执行。修改后对新启动的 maildog 生效。"
                      Classes="caption"
                      TextWrapping="Wrap" />
-          <StackPanel Orientation="Horizontal" Spacing="20">
+          <WrapPanel Orientation="Horizontal">
             <CheckBox Content="全局只读（拒绝所有写命令）"
-                      IsChecked="{Binding PolicyReadOnly, Mode=TwoWay}" />
+                      IsChecked="{Binding PolicyReadOnly, Mode=TwoWay}"
+                      Margin="0,0,24,6" />
             <CheckBox Content="记录 JSON 前先脱敏正文"
-                      IsChecked="{Binding PolicyRedactBody, Mode=TwoWay}" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="14">
+                      IsChecked="{Binding PolicyRedactBody, Mode=TwoWay}"
+                      Margin="0,0,24,6" />
+          </WrapPanel>
+          <TextBlock Text="允许直接执行的写命令" Classes="caption" />
+          <WrapPanel Orientation="Horizontal">
             <CheckBox Content="保存草稿（draft）"
-                      IsChecked="{Binding PolicyAllowDraft, Mode=TwoWay}" />
+                      IsChecked="{Binding PolicyAllowDraft, Mode=TwoWay}"
+                      Margin="0,0,24,6" />
             <CheckBox Content="发送（send）"
-                      IsChecked="{Binding PolicyAllowSend, Mode=TwoWay}" />
+                      IsChecked="{Binding PolicyAllowSend, Mode=TwoWay}"
+                      Margin="0,0,24,6" />
             <CheckBox Content="标记已读（mark）"
-                      IsChecked="{Binding PolicyAllowMark, Mode=TwoWay}" />
+                      IsChecked="{Binding PolicyAllowMark, Mode=TwoWay}"
+                      Margin="0,0,24,6" />
             <CheckBox Content="移动邮件（move）"
-                      IsChecked="{Binding PolicyAllowMove, Mode=TwoWay}" />
+                      IsChecked="{Binding PolicyAllowMove, Mode=TwoWay}"
+                      Margin="0,0,24,6" />
             <CheckBox Content="撤回发件（cancel）"
-                      IsChecked="{Binding PolicyAllowCancel, Mode=TwoWay}" />
+                      IsChecked="{Binding PolicyAllowCancel, Mode=TwoWay}"
+                      Margin="0,0,24,6" />
             <CheckBox Content="确认待发送（approve）"
-                      IsChecked="{Binding PolicyAllowApprove, Mode=TwoWay}" />
-          </StackPanel>
+                      IsChecked="{Binding PolicyAllowApprove, Mode=TwoWay}"
+                      Margin="0,0,24,6" />
+          </WrapPanel>
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="调用记录保留天数" VerticalAlignment="Center" />
             <TextBox Text="{Binding PolicyRetentionDaysText, Mode=TwoWay}"
@@ -76,7 +76,7 @@
       </Expander>
     </Border>
 
-    <Grid Grid.Row="2" ColumnDefinitions="340,*" ColumnSpacing="16">
+    <Grid ColumnDefinitions="280,*" ColumnSpacing="12" Height="420">
       <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
               BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
               BorderThickness="1"
@@ -112,24 +112,34 @@
               BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
               BorderThickness="1"
               CornerRadius="8"
-              Padding="16">
-        <Grid RowDefinitions="Auto,*" RowSpacing="10">
+              Padding="14">
+        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
           <StackPanel Spacing="2">
             <TextBlock Text="{Binding SelectedMeta}" FontWeight="SemiBold" TextWrapping="Wrap" />
             <TextBlock Text="{Binding FilePathDisplay}" Classes="caption" TextWrapping="Wrap" />
           </StackPanel>
           <ScrollViewer Grid.Row="1">
-            <SelectableTextBlock Text="{Binding SelectedJson}"
+            <SelectableTextBlock Text="{Binding SelectedDetail}"
                                  FontSize="13"
                                  TextWrapping="Wrap" />
           </ScrollViewer>
+          <Expander Grid.Row="2"
+                    Header="原始记录（调试用）"
+                    IsExpanded="False"
+                    HorizontalContentAlignment="Stretch">
+            <ScrollViewer MaxHeight="180">
+              <SelectableTextBlock Text="{Binding SelectedJson}"
+                                   FontFamily="Consolas"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+            </ScrollViewer>
+          </Expander>
         </Grid>
       </Border>
     </Grid>
 
-    <TextBlock Grid.Row="3"
-               Text="JSON 输出可能包含邮件正文、地址等隐私内容；默认只记录脱敏后的正文，单条最多保留约 20 万字符。"
+    <TextBlock Text="原始输出可能包含邮件正文、地址等隐私内容；默认只记录脱敏后的正文，单条最多保留约 20 万字符。"
                Classes="caption"
                TextWrapping="Wrap" />
-  </Grid>
-</Window>
+  </StackPanel>
+</UserControl>

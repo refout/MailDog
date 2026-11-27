@@ -1049,6 +1049,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     public string CliCallsLogDisplayPath
         => Path.Combine(ProductPaths.DisplayDataDirectory, "logs", "cli-calls.jsonl");
 
+    private CliCallsViewModel? _cliCalls;
+
+    /// <summary>设置页内嵌的 CLI 调用记录；不另开窗口。</summary>
+    public CliCallsViewModel CliCalls => _cliCalls ??= new CliCallsViewModel();
+
     [ObservableProperty]
     private string _cliCopyStatus = string.Empty;
 

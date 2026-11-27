@@ -4,7 +4,6 @@
         xmlns:controls="using:MailDog.UI.Controls"
         xmlns:vm="using:MailDog.UI.ViewModels"
         xmlns:views="using:MailDog.UI.Views"
-        xmlns:chrome="using:Avalonia.Controls.Chrome"
         x:Class="MailDog.UI.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="MailDog"
@@ -12,36 +11,10 @@
         Height="800"
         MinWidth="900"
         MinHeight="680"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaTitleBarHeightHint="32"
-        WindowDecorations="Full"
         TransparencyLevelHint="Mica, Blur"
         TransparencyBackgroundFallback="{DynamicResource MailDogBrushSurfaceSolid}"
         Background="Transparent">
-  <Grid x:Name="WindowChromeRoot" RowDefinitions="32,*">
-    <Border Grid.Row="0"
-            x:Name="CustomTitleBar"
-            Margin="0,0,150,0"
-            Background="Transparent"
-            chrome:WindowDecorationProperties.ElementRole="TitleBar">
-      <StackPanel Orientation="Horizontal"
-                  Spacing="8"
-                  Margin="12,0,0,0"
-                  VerticalAlignment="Center"
-                  IsHitTestVisible="False">
-        <Image Source="avares://MailDog.UI/Assets/logo.png"
-               Width="16"
-               Height="16"
-               Stretch="UniformToFill" />
-        <TextBlock Text="MailDog"
-                   FontSize="13"
-                   FontWeight="SemiBold"
-                   VerticalAlignment="Center"
-                   Foreground="{DynamicResource MailDogBrushTextPrimary}" />
-      </StackPanel>
-    </Border>
-
-    <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto">
+  <Grid RowDefinitions="Auto,*,Auto">
     <Border Grid.Row="0"
             IsVisible="{Binding IsOffline}"
             Background="{DynamicResource MailDogBrushStatusWarningTint}"
@@ -187,7 +160,7 @@
                     Padding="11,0,6,0"
                     Margin="0"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                    ScrollViewer.VerticalScrollBarVisibility="Visible"
+                    ScrollViewer.VerticalScrollBarVisibility="Auto"
                     ItemsSource="{Binding Accounts}"
                     SelectedItem="{Binding SelectedSidebarItem}">
             <TreeView.ItemContainerTheme>
@@ -797,7 +770,8 @@
                      Classes="mail-list"
                      Background="Transparent"
                      Margin="0"
-                     ScrollViewer.VerticalScrollBarVisibility="Visible"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
                      ItemsSource="{Binding Messages}"
                      SelectedItem="{Binding SelectedMessage}">
               <ListBox.ItemTemplate>
@@ -1086,85 +1060,71 @@
                 </Border>
               </StackPanel>
             </Grid>
-            <ScrollViewer MaxHeight="176"
+            <ScrollViewer MaxHeight="132"
                           HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding Reader.Attachments}">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <WrapPanel />
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:AttachmentViewModel">
-                  <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
-                          BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                          BorderThickness="1"
-                          CornerRadius="8"
-                          MinWidth="200"
-                          MaxWidth="230"
-                          Padding="8,6"
-                          Margin="0,0,8,8">
-                    <StackPanel Spacing="4">
-                      <Grid RowDefinitions="Auto,Auto"
-                            ColumnDefinitions="Auto,Auto,*"
-                            ColumnSpacing="6"
-                            RowSpacing="4">
-                        <CheckBox Grid.Row="0"
-                                  Grid.Column="0"
+              <ItemsControl ItemsSource="{Binding Reader.Attachments}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:AttachmentViewModel">
+                    <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
+                            BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="6,3"
+                            Margin="0,0,0,4">
+                      <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto"
+                            ColumnSpacing="6">
+                        <CheckBox Grid.Column="0"
                                   IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                   VerticalAlignment="Center"
                                   ToolTip.Tip="选中后可批量导出"
                                   AutomationProperties.Name="{Binding SelectAutomationName}" />
-                        <ic:FluentIcon Grid.Row="0"
-                                       Grid.Column="1"
+                        <ic:FluentIcon Grid.Column="1"
                                        Icon="Attach"
                                        IconSize="Size16"
                                        VerticalAlignment="Center" />
-                        <StackPanel Grid.Row="0"
-                                    Grid.Column="2"
-                                    Spacing="1">
-                          <TextBlock Text="{Binding FileName}"
-                                     FontSize="11.5"
-                                     TextTrimming="CharacterEllipsis"
-                                     ToolTip.Tip="{Binding FileName}" />
-                          <TextBlock Text="{Binding SizeText}"
-                                     Classes="caption" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="1"
-                                    Grid.ColumnSpan="3"
-                                    Orientation="Horizontal"
-                                    Spacing="4"
-                                    HorizontalAlignment="Right"
-                                    VerticalAlignment="Center">
-                          <Button Content="打开"
-                                  Classes="subtle sm"
-                                  Command="{Binding PreviewCommand}"
-                                  ToolTip.Tip="下载并用默认程序打开"
-                                  AutomationProperties.Name="打开附件" />
-                          <Button Content="下载"
-                                  Classes="subtle sm"
-                                  Command="{Binding DownloadCommand}"
-                                  AutomationProperties.Name="下载附件" />
-                          <Border Background="Transparent"
-                                  BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-                                  BorderThickness="1"
-                                  CornerRadius="4"
-                                  Padding="6,2"
-                                  Cursor="Hand"
-                                  PointerPressed="OnAttachmentDragHandlePressed"
-                                  ToolTip.Tip="拖到资源管理器">
-                            <TextBlock Text="拖出"
-                                       FontSize="11"
-                                       AutomationProperties.Name="拖出附件" />
-                          </Border>
-                        </StackPanel>
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding FileName}"
+                                   FontSize="11.5"
+                                   TextWrapping="NoWrap"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center"
+                                   ToolTip.Tip="{Binding FileName}" />
+                        <TextBlock Grid.Column="3"
+                                   Text="{Binding SizeText}"
+                                   Classes="caption"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,4,0" />
+                        <Button Grid.Column="4"
+                                Content="打开"
+                                Classes="subtle sm"
+                                Command="{Binding PreviewCommand}"
+                                ToolTip.Tip="下载并用默认程序打开"
+                                AutomationProperties.Name="打开附件" />
+                        <Button Grid.Column="5"
+                                Content="下载"
+                                Classes="subtle sm"
+                                Command="{Binding DownloadCommand}"
+                                AutomationProperties.Name="下载附件" />
+                        <Border Grid.Column="6"
+                                Background="Transparent"
+                                BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="6,2"
+                                VerticalAlignment="Center"
+                                Cursor="Hand"
+                                PointerPressed="OnAttachmentDragHandlePressed"
+                                ToolTip.Tip="拖到资源管理器">
+                          <TextBlock Text="拖出"
+                                     FontSize="11"
+                                     AutomationProperties.Name="拖出附件" />
+                        </Border>
                       </Grid>
-                    </StackPanel>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
             </ScrollViewer>
           </StackPanel>
 
@@ -1499,7 +1459,6 @@
                  TextTrimming="CharacterEllipsis" />
     </Border>
 
-  </Grid>
   </Grid>
 </Window>
 

@@ -21,7 +21,7 @@ public sealed partial class CliCallsViewModel : ObservableObject
     private string _policyStatus = string.Empty;
 
     public string EmptyMessage
-        => "还没有 CLI 调用记录。命令行运行过一次后，这里会显示摘要；带 --json 的调用还能看到当时的 JSON 输出。";
+        => "还没有 CLI 调用记录。命令行运行过一次后，这里会显示摘要；带 --json 的调用还会保留原始输出，默认只显示可读摘要。";
 
     public bool HasCalls => Calls.Count > 0;
 
@@ -123,9 +123,18 @@ public sealed partial class CliCallsViewModel : ObservableObject
             ? string.Empty
             : $"{SelectedCall.Command}  exit={SelectedCall.ExitCode}  {SelectedCall.DurationMs}ms"
                 + (SelectedCall.JsonRequested
-                    ? SelectedCall.JsonTruncated ? "  ·  JSON 已截断" : "  ·  JSON 输出"
+                    ? SelectedCall.JsonTruncated ? "  ·  原始记录已截断" : "  ·  原始记录"
                     : "  ·  只有摘要")
                 + (SelectedCall.JsonRedacted ? "  ·  正文已脱敏" : string.Empty);
+
+    public string SelectedDetail
+        => SelectedCall is null
+            ? "选择左侧一条记录查看详情。"
+            : !string.IsNullOrWhiteSpace(SelectedCall.Json)
+                ? CliCallDetailFormatter.Format(SelectedCall.Json)
+                : SelectedCall.JsonRequested
+                    ? "这次调用带了 --json，但命令没有输出可解析的 JSON。"
+                    : "这次调用没有带 --json，只保留了调用摘要。";
 
     public string SelectedJson
         => SelectedCall?.JsonDisplay ?? "选择左侧一条记录查看详情。";
@@ -216,6 +225,7 @@ public sealed partial class CliCallsViewModel : ObservableObject
     partial void OnSelectedCallChanged(CliCallRecord? value)
     {
         OnPropertyChanged(nameof(SelectedMeta));
+        OnPropertyChanged(nameof(SelectedDetail));
         OnPropertyChanged(nameof(SelectedJson));
     }
 }

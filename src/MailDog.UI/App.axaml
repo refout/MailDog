@@ -1,16 +1,11 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:chrome="using:Avalonia.Controls.Chrome"
              x:Class="MailDog.UI.App"
              RequestedThemeVariant="Default">
   <Application.Resources>
     <ResourceDictionary>
       <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
       <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
-      <!-- 客户区延展后的标题条不能带底色，否则会盖住 Mica/Acrylic。 -->
-      <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent" />
-      <x:Double x:Key="CaptionButtonWidth">46</x:Double>
-      <x:Double x:Key="CaptionButtonHeight">32</x:Double>
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://MailDog.UI/Themes/Tokens.axaml" />
       </ResourceDictionary.MergedDictionaries>
@@ -25,32 +20,6 @@
     </FluentTheme>
     <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
     <StyleInclude Source="avares://MailDog.UI/Themes/Controls.axaml" />
-    <!-- 标题文字和品牌由 MainWindow 自绘；这里隐藏默认 overlay 文字与全屏按钮。 -->
-    <Style Selector="chrome|WindowDrawnDecorations /template/ Panel#PART_TitleTextPanel TextBlock">
-      <Setter Property="Opacity" Value="0" />
-    </Style>
-    <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_FullScreenButton">
-      <Setter Property="IsVisible" Value="False" />
-    </Style>
-    <!-- 原生 caption 按钮是方块；关闭按钮悬停保持系统红，不跟随通用按钮的圆角和灰底。 -->
-    <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_MinimizeButton">
-      <Setter Property="CornerRadius" Value="0" />
-      <Setter Property="BorderThickness" Value="0" />
-    </Style>
-    <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_MaximizeButton">
-      <Setter Property="CornerRadius" Value="0" />
-      <Setter Property="BorderThickness" Value="0" />
-    </Style>
-    <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_CloseButton">
-      <Setter Property="CornerRadius" Value="0" />
-      <Setter Property="BorderThickness" Value="0" />
-    </Style>
-    <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_CloseButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource CaptionButtonCloseBackground}" />
-    </Style>
-    <Style Selector="chrome|WindowDrawnDecorations /template/ Button#PART_CloseButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource CaptionButtonCloseBorderBrush}" />
-    </Style>
   </Application.Styles>
 </Application>
 

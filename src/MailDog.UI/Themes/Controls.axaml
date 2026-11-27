@@ -142,9 +142,10 @@
 
   <!-- ================= 滚动条 ================= -->
 
-  <!-- 关闭自动隐藏，让滚动条占位而不是压在内容上；滑块统一圆角。 -->
+  <!-- 使用 Fluent 默认的自动隐藏：滚动条只在内容溢出、鼠标悬停或滚动时出现，
+       不再常驻占位。滑块统一圆角，展开时保持 10px。 -->
   <Style Selector="ScrollViewer">
-    <Setter Property="AllowAutoHide" Value="False" />
+    <Setter Property="AllowAutoHide" Value="True" />
   </Style>
 
   <Style Selector="ScrollBar">

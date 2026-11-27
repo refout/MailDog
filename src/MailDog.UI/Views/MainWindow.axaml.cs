@@ -26,7 +26,8 @@ public partial class MainWindow : Window
     private const int DwmwaBorderColor = 34;
     private const int DwmwaCaptionColor = 35;
     private const int DwmwaTextColor = 36;
-    private const int DwmwaColorNone = unchecked((int)0xFFFFFFFE);
+    private const int DwmwaSystemBackdropType = 38;
+    private const int DwmwaColorDefault = unchecked((int)0xFFFFFFFF);
 
     private readonly MainWindowViewModel _viewModel;
     private readonly Dictionary<TreeViewItem, AccountViewModel> _accountNodes = [];
@@ -50,15 +51,6 @@ public partial class MainWindow : Window
     public MainWindow(MainWindowViewModel viewModel)
     {
         InitializeComponent();
-
-        if (!OperatingSystem.IsWindows())
-        {
-            // 自绘标题条只服务于 Windows 的 Mica/Acrylic 客户区延展；
-            // Linux/macOS 仍使用系统标题栏，避免出现第二条空白标题栏。
-            CustomTitleBar.IsVisible = false;
-            WindowChromeRoot.RowDefinitions[0].Height = new GridLength(0);
-            ExtendClientAreaToDecorationsHint = false;
-        }
 
         _viewModel = viewModel;
         DataContext = viewModel;
@@ -87,10 +79,8 @@ public partial class MainWindow : Window
         viewModel.ScrollToMessageRequested += OnScrollToMessageRequested;
         FolderTree.ContainerPrepared += OnFolderTreeContainerPrepared;
         FolderTree.ContainerClearing += OnFolderTreeContainerClearing;
-        FolderTree.Loaded += (_, _) => ConfigureSidebarScrollViewer(FolderTree);
         MailList.ContainerPrepared += OnMailListContainerPrepared;
         MailList.ContainerClearing += OnMailListContainerClearing;
-        MailList.Loaded += (_, _) => ConfigureSidebarScrollViewer(MailList);
         MailList.AddHandler(ScrollViewer.ScrollChangedEvent, OnMailListScrollChanged);
         viewModel.Messages.CollectionChanged += OnMessagesCollectionChanged;
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
@@ -120,17 +110,6 @@ public partial class MainWindow : Window
     private void OnWindowSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         UpdateColumns(e.NewSize.Width);
-    }
-
-    private static void ConfigureSidebarScrollViewer(Control control)
-    {
-        foreach (var viewer in control.GetVisualDescendants().OfType<ScrollViewer>())
-        {
-            // 模板内的 ScrollViewer 会用自己的默认值覆盖窗口级样式；这里直接落到实例上，
-            // 保证三栏滚动条都按 10px 槽宽常显，而不是鼠标移上去才出现。
-            viewer.AllowAutoHide = false;
-            viewer.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
-        }
     }
 
     private void UpdateColumns(double width)
@@ -898,7 +877,7 @@ public partial class MainWindow : Window
         var opacity = translucent ? Math.Clamp(_viewModel.BackgroundOpacity, 40, 100) / 100d : 1d;
 
         ApplyPalette(baseColor, opacity, translucent, ActualThemeVariant == ThemeVariant.Dark, materialActive);
-        ApplyNativeTitleBarTheme(IsDark(baseColor), baseColor, materialActive);
+        ApplyNativeTitleBarTheme(IsDark(baseColor), baseColor, material);
 
         if (translucent)
         {
@@ -908,7 +887,7 @@ public partial class MainWindow : Window
                     if (ActualTransparencyLevel == WindowTransparencyLevel.None)
                     {
                         ApplyPalette(baseColor, 1d, false, ActualThemeVariant == ThemeVariant.Dark, false);
-                        ApplyNativeTitleBarTheme(IsDark(baseColor), baseColor, false);
+                        ApplyNativeTitleBarTheme(IsDark(baseColor), baseColor, "none");
                     }
                 },
                 TimeSpan.FromMilliseconds(600));
@@ -1034,7 +1013,7 @@ public partial class MainWindow : Window
         application.Resources[key] = new SolidColorBrush(color);
     }
 
-    private void ApplyNativeTitleBarTheme(bool dark, Color baseColor, bool materialActive)
+    private void ApplyNativeTitleBarTheme(bool dark, Color baseColor, string material)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -1062,13 +1041,27 @@ public partial class MainWindow : Window
         var text = dark ? 0xFFFFFF : 0x1B1B1B;
         _ = DwmSetWindowAttribute(handle, DwmwaTextColor, ref text, sizeof(int));
 
+        // Avalonia 的 Mica/Acrylic 只作用于客户区；要覆盖原生非客户区标题栏，
+        // 必须额外告诉 DWM 使用系统背景材质。Build 22621 起才支持该属性。
+        var materialActive = !string.Equals(material, "none", StringComparison.Ordinal);
+        if (Environment.OSVersion.Version.Build >= 22621)
+        {
+            var backdrop = material switch
+            {
+                "mica" => 2,     // DWMSBT_MAINWINDOW
+                "acrylic" => 3,  // DWMSBT_TRANSIENTWINDOW
+                _ => 1           // DWMSBT_NONE
+            };
+            _ = DwmSetWindowAttribute(handle, DwmwaSystemBackdropType, ref backdrop, sizeof(int));
+        }
+
         if (materialActive)
         {
-            // DWMWA_COLOR_NONE：把标题栏重新交还给 DWM 的系统材质。
-            // 之前强制写入不透明 caption color 会覆盖云母/亚克力，只剩客户区能看到材质。
-            var none = DwmwaColorNone;
-            _ = DwmSetWindowAttribute(handle, DwmwaCaptionColor, ref none, sizeof(int));
-            _ = DwmSetWindowAttribute(handle, DwmwaBorderColor, ref none, sizeof(int));
+            // 恢复 DWM 默认绘制，让 DWMWA_SYSTEMBACKDROP_TYPE 的材质能覆盖标题栏。
+            // 继续写入固定 caption/border 颜色会把系统材质盖回纯色。
+            var defaultColor = DwmwaColorDefault;
+            _ = DwmSetWindowAttribute(handle, DwmwaCaptionColor, ref defaultColor, sizeof(int));
+            _ = DwmSetWindowAttribute(handle, DwmwaBorderColor, ref defaultColor, sizeof(int));
             return;
         }
 
