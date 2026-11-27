@@ -366,7 +366,7 @@
 
   <Style Selector="ListBox.mail-list ListBoxItem">
     <Setter Property="Padding" Value="0" />
-    <Setter Property="Margin" Value="6,1" />
+    <Setter Property="Margin" Value="4,1" />
     <Setter Property="CornerRadius" Value="6" />
   </Style>
   <Style Selector="ListBox.mail-list ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
