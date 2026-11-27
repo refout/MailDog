@@ -199,7 +199,7 @@
                                           Command="{Binding SelectCommand}"
                                           ToolTip.Tip="{Binding Name}">
                                     <Grid Width="30" Height="30">
-                                      <Border CornerRadius="7"
+                                      <Border CornerRadius="6"
                                               Background="{Binding Brush}"
                                               BorderBrush="{DynamicResource MailDogBrushStrokeStrong}"
                                               BorderThickness="1" />
@@ -241,7 +241,7 @@
                                 </Flyout>
                               </Button.Flyout>
                               <Grid Width="30" Height="30">
-                                <Border CornerRadius="7"
+                                <Border CornerRadius="6"
                                         BorderBrush="{DynamicResource MailDogBrushStrokeStrong}"
                                         BorderThickness="1">
                                   <Border.Background>
@@ -747,7 +747,7 @@
                           </ItemsControl>
                           <Border BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                                   BorderThickness="1"
-                                  CornerRadius="6"
+                                  CornerRadius="4"
                                   Padding="12">
                             <StackPanel Spacing="10">
                               <TextBlock Text="新增规则" FontSize="13" FontWeight="SemiBold" />
@@ -932,7 +932,7 @@
                                         Background="{DynamicResource MailDogBrushStatusDangerTint}"
                                         BorderBrush="{DynamicResource MailDogBrushStatusDanger}"
                                         BorderThickness="1"
-                                        CornerRadius="6"
+                                        CornerRadius="4"
                                         Padding="12,10">
                                   <StackPanel Spacing="8">
                                     <TextBlock Text="删除后只会移除本地账户、缓存和凭据，不会删除服务器上的邮件或草稿；该账户尚未发出的邮件也会从发件箱移除。"
@@ -1052,7 +1052,7 @@
                                      IsVisible="{Binding !HasAccountIdentities}" />
                           <Border BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                                   BorderThickness="1"
-                                  CornerRadius="6"
+                                  CornerRadius="4"
                                   Padding="12">
                             <StackPanel Spacing="8">
                               <TextBlock Text="添加别名身份" Classes="caption" />
@@ -1372,7 +1372,7 @@
                                 <DataTemplate x:DataType="vm:OutboxItemViewModel">
                                   <Border Margin="0,0,0,8"
                                           Padding="10"
-                                          CornerRadius="6"
+                                          CornerRadius="4"
                                           Background="{DynamicResource MailDogBrushSurfacePane}"
                                           BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                                           BorderThickness="1">
@@ -1856,7 +1856,7 @@
                                          PlaceholderText="#0F7B0F" />
                                 <Border Width="26"
                                         Height="26"
-                                        CornerRadius="6"
+                                        CornerRadius="4"
                                         Background="{Binding TagColorBrush}"
                                         VerticalAlignment="Center" />
                                 <TextBlock Text="格式 #RRGGBB" Classes="caption" VerticalAlignment="Center" />
@@ -1886,7 +1886,7 @@
                         <Grid ColumnDefinitions="Auto,*" Margin="0,4,0,8">
                           <Border Width="80"
                                   Height="80"
-                                  CornerRadius="18"
+                                  CornerRadius="14"
                                   ClipToBounds="True"
                                   VerticalAlignment="Top">
                             <Image Source="avares://MailDog.UI/Assets/logo.png"

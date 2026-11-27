@@ -81,7 +81,7 @@
               <Border Background="{DynamicResource MailDogBrushAccentTint}"
                       BorderBrush="{DynamicResource MailDogBrushAccentBase}"
                       BorderThickness="1"
-                      CornerRadius="10"
+                      CornerRadius="4"
                       Padding="8,2"
                       Margin="0,0,6,4">
                 <StackPanel Orientation="Horizontal" Spacing="4">
@@ -115,7 +115,7 @@
                 Background="{DynamicResource MailDogBrushSurfacePopup}"
                 BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                 BorderThickness="1"
-                CornerRadius="6"
+                CornerRadius="4"
                 Padding="4">
           <ItemsControl ItemsSource="{Binding ToSuggestions}">
             <ItemsControl.ItemTemplate>
@@ -156,7 +156,7 @@
               <Border Background="{DynamicResource MailDogBrushAccentTint}"
                       BorderBrush="{DynamicResource MailDogBrushAccentBase}"
                       BorderThickness="1"
-                      CornerRadius="10"
+                      CornerRadius="4"
                       Padding="8,2"
                       Margin="0,0,6,4">
                 <StackPanel Orientation="Horizontal" Spacing="4">
@@ -190,7 +190,7 @@
                 Background="{DynamicResource MailDogBrushSurfacePopup}"
                 BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                 BorderThickness="1"
-                CornerRadius="6"
+                CornerRadius="4"
                 Padding="4">
           <ItemsControl ItemsSource="{Binding CcSuggestions}">
             <ItemsControl.ItemTemplate>
@@ -230,7 +230,7 @@
               <Border Background="{DynamicResource MailDogBrushAccentTint}"
                       BorderBrush="{DynamicResource MailDogBrushAccentBase}"
                       BorderThickness="1"
-                      CornerRadius="10"
+                      CornerRadius="4"
                       Padding="8,2"
                       Margin="0,0,6,4">
                 <StackPanel Orientation="Horizontal" Spacing="4">
@@ -264,7 +264,7 @@
                 Background="{DynamicResource MailDogBrushSurfacePopup}"
                 BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                 BorderThickness="1"
-                CornerRadius="6"
+                CornerRadius="4"
                 Padding="4">
           <ItemsControl ItemsSource="{Binding BccSuggestions}">
             <ItemsControl.ItemTemplate>
@@ -514,7 +514,7 @@
                     <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
                             BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                             BorderThickness="1"
-                            CornerRadius="6"
+                            CornerRadius="4"
                             Padding="8,3"
                             Margin="0,0,6,6"
                             ToolTip.Tip="{Binding FileName}"
@@ -557,7 +557,7 @@
         <StackPanel Grid.Row="1" Spacing="6">
           <Border IsVisible="{Binding HasError}"
                   Background="{DynamicResource MailDogBrushStatusDangerTint}"
-                  CornerRadius="6"
+                  CornerRadius="4"
                   Padding="10,7">
             <TextBlock Text="{Binding Error}"
                        Foreground="{DynamicResource MailDogBrushStatusDanger}"
@@ -567,7 +567,7 @@
 
           <Border IsVisible="{Binding HasStatus}"
                   Background="{DynamicResource MailDogBrushAccentTint}"
-                  CornerRadius="6"
+                  CornerRadius="4"
                   Padding="10,7">
             <TextBlock Text="{Binding Status}"
                        Foreground="{DynamicResource MailDogBrushAccentBase}"
@@ -577,7 +577,7 @@
 
           <Border IsVisible="{Binding HasUndo}"
                   Background="{DynamicResource MailDogBrushAccentTint}"
-                  CornerRadius="6"
+                  CornerRadius="4"
                   Padding="10,7">
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Text="{Binding UndoHint}"
@@ -596,7 +596,7 @@
                   Background="{DynamicResource MailDogBrushStatusWarningTint}"
                   BorderBrush="{DynamicResource MailDogBrushStatusWarning}"
                   BorderThickness="1"
-                  CornerRadius="6"
+                  CornerRadius="4"
                   Padding="10,8">
             <StackPanel Spacing="8">
               <TextBlock Text="{Binding SendWarning}"
@@ -656,4 +656,3 @@
     </Border>
   </Grid>
 </UserControl>
-

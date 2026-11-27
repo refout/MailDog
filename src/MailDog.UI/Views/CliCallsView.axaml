@@ -19,7 +19,7 @@
     <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
             BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
             BorderThickness="1"
-            CornerRadius="8"
+            CornerRadius="6"
             Padding="12">
       <Expander Header="Agent 权限（命令行）"
                 IsExpanded="False"
@@ -80,7 +80,7 @@
       <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
               BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
               BorderThickness="1"
-              CornerRadius="8"
+              CornerRadius="6"
               Padding="6">
         <Grid>
           <ListBox ItemsSource="{Binding Calls}"
@@ -111,7 +111,7 @@
               Background="{DynamicResource MailDogBrushSurfaceSubtle}"
               BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
               BorderThickness="1"
-              CornerRadius="8"
+              CornerRadius="6"
               Padding="14">
         <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
           <StackPanel Spacing="2">

@@ -49,13 +49,13 @@
           Grid.Row="1"
           ColumnDefinitions="240,360,*"
           ColumnSpacing="{DynamicResource MailDogSizeColumnGap}"
-          Margin="8,10,8,12"
+          Margin="4"
           IsVisible="{Binding !IsSettingsOpen}">
       <!-- 文件夹栏 -->
       <Border Grid.Column="0"
               Classes="workspace-column navigation">
-        <Grid RowDefinitions="Auto,*,Auto" Margin="12,16,0,8">
-          <StackPanel Grid.Row="0" Margin="0,0,12,0">
+        <Grid RowDefinitions="Auto,*,Auto" Margin="8,8,0,8">
+          <StackPanel Grid.Row="0" Margin="0,0,8,0">
             <Button Command="{Binding NewMailCommand}"
                     Classes="primary"
                     IsEnabled="{Binding HasAccounts}"
@@ -138,7 +138,7 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <Grid ColumnDefinitions="*,Auto" Margin="10,12,2,4">
+            <Grid ColumnDefinitions="*,Auto" Margin="8,8,2,4">
               <TextBlock Classes="section"
                          Text="账户"
                          VerticalAlignment="Center" />
@@ -283,9 +283,9 @@
           </TreeView>
 
             <Border Grid.Row="1"
-                    Margin="4,8,16,0"
+                    Margin="4,4,8,0"
                     Padding="10"
-                    CornerRadius="8"
+                    CornerRadius="6"
                     Background="{DynamicResource MailDogBrushSurfacePane}"
                     BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                     BorderThickness="1"
@@ -311,9 +311,9 @@
             </Border>
 
             <Border Grid.Row="1"
-                    Margin="4,8,16,0"
+                    Margin="4,4,8,0"
                     Padding="10"
-                    CornerRadius="8"
+                    CornerRadius="6"
                     Background="{DynamicResource MailDogBrushStatusWarningTint}"
                     BorderBrush="{DynamicResource MailDogBrushStatusWarning}"
                     BorderThickness="1"
@@ -336,7 +336,7 @@
           </Grid>
 
           <Border Grid.Row="2"
-                  Margin="0,2,16,0"
+                  Margin="0,2,8,0"
                   Padding="0,2,0,0"
                   BorderBrush="{DynamicResource MailDogBrushStrokeSubtle}"
                   BorderThickness="0,1,0,0">
@@ -364,8 +364,8 @@
       <!-- 邮件列表 -->
       <Border Grid.Column="1"
               Classes="workspace-column list">
-        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="0,0,0,16">
-          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="12,16,12,8">
+        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="0,0,0,8">
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="8,8,8,6">
             <TextBlock Classes="page-title" Text="{Binding FolderTitle}"
                        VerticalAlignment="Center" />
             <StackPanel Grid.Column="1"
@@ -430,7 +430,7 @@
                         <Border Background="{DynamicResource MailDogBrushSurfacePopup}"
                                 BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                                 BorderThickness="1"
-                                CornerRadius="8"
+                                CornerRadius="6"
                                 BoxShadow="0 6 18 0 #55000000"
                                 Padding="8">
                           <StackPanel Width="224" Spacing="6">
@@ -709,7 +709,7 @@
             </StackPanel>
           </Grid>
 
-          <Grid Grid.Row="1" Margin="12,0,12,8" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+          <Grid Grid.Row="1" Margin="8,0,8,6" ColumnDefinitions="*,Auto" ColumnSpacing="6">
             <TextBox x:Name="SearchBox"
                      Grid.Column="0"
                      Classes="single-line"
@@ -752,7 +752,7 @@
                   BorderThickness="0,0,0,1"
                   IsVisible="{Binding IsSelectionMode}"
                   IsEnabled="{Binding !IsBatchBusy}">
-            <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0,12,8">
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="8,0,8,6">
               <CheckBox Content="全选"
                         FontSize="12"
                         VerticalAlignment="Center"
@@ -895,7 +895,7 @@
                               Background="{DynamicResource MailDogBrushSurfacePopup}"
                               BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                               BorderThickness="1"
-                              CornerRadius="6"
+                              CornerRadius="4"
                               Padding="2">
                         <StackPanel Orientation="Horizontal" Spacing="1">
                           <Button Classes="icon sm"
@@ -945,7 +945,7 @@
 
           <ProgressBar Grid.Row="4"
                        Height="2"
-                       Margin="16,0"
+                       Margin="8,0"
                        IsIndeterminate="True"
                        IsVisible="{Binding IsLoadingMore}" />
         </Grid>
@@ -956,7 +956,7 @@
         <Grid RowDefinitions="Auto,*,Auto">
         <Grid Grid.Row="0"
               RowDefinitions="Auto,Auto,Auto"
-              Margin="16,16,16,0"
+              Margin="8,8,8,0"
               IsVisible="{Binding Reader.HasSelection}">
           <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="12">
             <Border Grid.Column="0"
@@ -1060,7 +1060,7 @@
                     <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
                             BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                             BorderThickness="1"
-                            CornerRadius="6"
+                            CornerRadius="4"
                             Padding="6,3"
                             Margin="0,0,0,4"
                             PointerPressed="OnAttachmentRowDragPressed"
@@ -1257,13 +1257,13 @@
           </Grid>
         </Grid>
 
-        <Grid Grid.Row="1" Margin="0,8,0,0" RowDefinitions="Auto,*">
+        <Grid Grid.Row="1" Margin="0,6,0,0" RowDefinitions="Auto,*">
           <Border Grid.Row="0"
                   IsVisible="{Binding Reader.ImagesBlocked}"
                   Background="{DynamicResource MailDogBrushStatusWarningTint}"
                   BorderBrush="{DynamicResource MailDogBrushStatusWarning}"
                   BorderThickness="0,1,0,1"
-                  Padding="16,8">
+                  Padding="8,6">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
               <StackPanel Spacing="1" VerticalAlignment="Center">
                 <TextBlock Text="远程图片已阻止"
@@ -1282,12 +1282,12 @@
 
           <ScrollViewer Grid.Row="1" IsVisible="{Binding Reader.IsPlainText}">
             <SelectableTextBlock Text="{Binding Reader.PlainText}"
-                                 Margin="16,8,16,16"
+                                 Margin="8,8,8,8"
                                  FontSize="14"
                                  TextWrapping="Wrap" />
           </ScrollViewer>
 
-          <NativeWebView Grid.Row="1" x:Name="WebView" Margin="16,0,16,0" IsVisible="{Binding IsReaderHtmlVisible}" />
+          <NativeWebView Grid.Row="1" x:Name="WebView" Margin="8,0" IsVisible="{Binding IsReaderHtmlVisible}" />
 
           <Border Grid.Row="1" IsVisible="{Binding Reader.ShowEmpty}"
                   Background="Transparent">
@@ -1314,10 +1314,10 @@
                        IsVisible="{Binding Reader.IsLoading}" />
         </Grid>
 
-        <StackPanel Grid.Row="2" Margin="16,0,16,16" Spacing="8">
+        <StackPanel Grid.Row="2" Margin="8,0,8,8" Spacing="8">
           <Border IsVisible="{Binding Reader.HasNotice}"
                   Background="{DynamicResource MailDogBrushStatusWarningTint}"
-                  CornerRadius="6"
+                  CornerRadius="4"
                   Padding="12,8">
             <TextBlock Text="{Binding Reader.Notice}"
                        FontSize="12"
@@ -1326,7 +1326,7 @@
 
           <Border IsVisible="{Binding Reader.HasError}"
                   Background="{DynamicResource MailDogBrushStatusDangerTint}"
-                  CornerRadius="6"
+                  CornerRadius="4"
                   Padding="12,8">
             <TextBlock Text="{Binding Reader.Error}"
                        FontSize="12"
@@ -1360,7 +1360,7 @@
                   Spacing="12">
         <Border Width="72"
                 Height="72"
-                CornerRadius="14"
+                CornerRadius="12"
                 ClipToBounds="True"
                 HorizontalAlignment="Center">
           <Image Source="avares://MailDog.UI/Assets/logo.png"
@@ -1394,7 +1394,7 @@
                   Spacing="12">
         <Border Width="72"
                 Height="72"
-                CornerRadius="16"
+                CornerRadius="12"
                 ClipToBounds="True"
                 HorizontalAlignment="Center">
           <Image Source="avares://MailDog.UI/Assets/logo.png"
@@ -1431,7 +1431,7 @@
             Background="{DynamicResource MailDogBrushSurfaceSubtle}"
             BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
             BorderThickness="0,1,0,0"
-            Padding="16,5">
+            Padding="12,5">
       <TextBlock Text="{Binding StatusMessage}"
                  FontSize="12"
                  Foreground="{DynamicResource MailDogBrushTextSecondary}"
