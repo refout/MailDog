@@ -2293,7 +2293,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                     new SyncAccountRequest { AccountId = account.Id });
             }
 
-            StatusMessage = "正在同步…";
             HasError = false;
         }
         catch (Exception exception)
@@ -6585,7 +6584,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             IsBusy = true;
             HasError = false;
-            StatusMessage = "正在加载文件夹…";
 
             Folders.Clear();
             _foldersById.Clear();
@@ -6611,15 +6609,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             RecalculateUnifiedCounts();
             UpdateActiveStates();
             RebuildMoveTargets();
-
-            if (Accounts.Count == 0)
-            {
-                StatusMessage = "正在同步文件夹…";
-            }
-            else
-            {
-                StatusMessage = null;
-            }
         }
         catch (Exception exception)
         {
@@ -6746,7 +6735,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             IsBusy = true;
             HasError = false;
             FolderTitle = title;
-            StatusMessage = "正在加载邮件…";
             _searchResultIds = null;
             if (!string.IsNullOrWhiteSpace(SearchText))
             {
@@ -6800,14 +6788,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _nextId = response.NextId;
             ApplyFilter(previousId);
 
-            if (Messages.Count == 0)
+            if (Messages.Count > 0)
             {
-                StatusMessage = "正在同步邮件…";
-            }
-            else
-            {
-                StatusMessage = null;
-
                 if (SelectedMessage is null)
                 {
                     SelectedMessage = Messages[0];
@@ -7618,7 +7600,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
                 account.SyncStatus = message;
             }
 
-            StatusMessage = message;
             return;
         }
 
@@ -7634,7 +7615,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             }
 
             HasError = true;
-            StatusMessage = message;
             return;
         }
 
@@ -7649,11 +7629,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         if (IsOffline)
         {
             HasError = true;
-            StatusMessage = OfflineMessage;
         }
         else
         {
-            StatusMessage = null;
             HasError = false;
         }
 
