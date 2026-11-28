@@ -5,11 +5,16 @@
              xmlns:views="using:MailDog.UI.Views"
              xmlns:vm="using:MailDog.UI.ViewModels"
              x:Class="MailDog.UI.Views.SettingsView"
-             x:DataType="vm:MainWindowViewModel">
+             x:DataType="vm:MainWindowViewModel"
+             Background="Transparent">
     <Border IsVisible="{Binding IsSettingsOpen}"
-            Background="{DynamicResource MailDogBrushSurfaceWindow}">
+            CornerRadius="{DynamicResource MailDogRadiusSurface}"
+            ClipToBounds="True"
+            Background="Transparent">
+      <!-- 四个子面板各带外侧圆角，避免内容背景把设置页外框盖成直角。 -->
       <Grid ColumnDefinitions="232,*">
         <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
+                CornerRadius="8,0,0,8"
                 BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                 BorderThickness="0,0,1,0">
           <Grid RowDefinitions="Auto,*,Auto">
@@ -104,14 +109,17 @@
         </Border>
 
         <Grid Grid.Column="1" RowDefinitions="Auto,*">
-          <Border Background="{DynamicResource MailDogBrushSurfaceWindow}">
+          <Border Background="{DynamicResource MailDogBrushSurfaceWindow}"
+                  CornerRadius="0,8,0,0">
             <controls:PageHeader Title="{Binding OverlayTitle}"
                                  BackCommand="{Binding BackFromOverlayCommand}" />
           </Border>
-          <ScrollViewer Grid.Row="1"
-                        Background="{DynamicResource MailDogBrushSurfaceWindow}"
-                        HorizontalScrollBarVisibility="Disabled"
-                        VerticalScrollBarVisibility="Auto">
+          <Border Grid.Row="1"
+                  Background="{DynamicResource MailDogBrushSurfaceWindow}"
+                  CornerRadius="0,0,8,0">
+            <ScrollViewer Background="Transparent"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
             <Grid MaxWidth="840"
                   Margin="32,24,32,36">
             <StackPanel Spacing="18">
@@ -2080,6 +2088,7 @@
                     </StackPanel>
             </Grid>
                   </ScrollViewer>
+          </Border>
 
                 </Grid>
       </Grid>

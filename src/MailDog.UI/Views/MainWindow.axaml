@@ -1379,9 +1379,18 @@
       </StackPanel>
     </Border>
 
-    <views:SettingsView Grid.Row="1"
-                        Grid.ColumnSpan="3"
-                        IsVisible="{Binding IsSettingsOpen}" />
+    <!-- 设置页与主工作区共用 4px 外边距和 8px 圆角，避免贴满窗口呈直角。 -->
+    <Border Grid.Row="1"
+            Grid.ColumnSpan="3"
+            Margin="4"
+            IsVisible="{Binding IsSettingsOpen}"
+            CornerRadius="{DynamicResource MailDogRadiusSurface}"
+            ClipToBounds="True"
+            BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
+            BorderThickness="1"
+            Background="Transparent">
+      <views:SettingsView />
+    </Border>
 
     <Border Grid.RowSpan="3"
             Grid.ColumnSpan="3"
