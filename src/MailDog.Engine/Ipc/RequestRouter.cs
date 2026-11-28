@@ -8,6 +8,7 @@ using MailDog.Mail.Auth;
 using MailDog.Mail.Imap;
 using MailDog.Mail.Smtp;
 using MailDog.Mail.Storage;
+using System.Collections.Concurrent;
 
 namespace MailDog.Engine.Ipc;
 
@@ -20,6 +21,7 @@ public sealed class RequestRouter
     private readonly SmtpSendService _sender;
     private readonly StorageMaintenanceService _storage;
     private readonly LocalBackupService _backup;
+    private readonly ConcurrentDictionary<string, byte> _queuedSyncs = new(StringComparer.Ordinal);
 
     public RequestRouter(
         SqliteStore store,
@@ -319,12 +321,12 @@ public sealed class RequestRouter
                 {
                     foreach (var account in _accounts.GetAccounts())
                     {
-                        QueueSync(account.Id);
+                        QueueSync(account.Id, force: true);
                     }
                 }
                 else
                 {
-                    QueueSync(request.AccountId);
+                    QueueSync(request.AccountId, force: true);
                 }
 
                 return new OkResponse { Affected = 1 };
@@ -692,8 +694,26 @@ public sealed class RequestRouter
         };
     }
 
-    private void QueueSync(string accountId)
+    private void QueueSync(string accountId, bool force = false)
     {
+        var account = _accounts.GetRecord(accountId);
+        if (account is null)
+        {
+            return;
+        }
+
+        // 协议被邮箱禁用或等待重新授权时，自动同步没有意义；手动“立即同步”仍允许重试。
+        if (!force && account.Status is AccountStatus.AuthRequired or AccountStatus.ProtocolBlocked)
+        {
+            return;
+        }
+
+        // 同一账户只保留一个排队中的同步任务，避免文件夹为空时被界面反复触发。
+        if (!_queuedSyncs.TryAdd(accountId, 0))
+        {
+            return;
+        }
+
         _ = Task.Run(async () =>
         {
             try
@@ -703,6 +723,10 @@ public sealed class RequestRouter
             catch (Exception exception)
             {
                 Diagnostic?.Invoke($"同步账户 {accountId} 失败：{exception.Message}");
+            }
+            finally
+            {
+                _queuedSyncs.TryRemove(accountId, out _);
             }
         });
     }

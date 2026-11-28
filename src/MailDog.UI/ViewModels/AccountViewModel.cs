@@ -23,6 +23,7 @@ public sealed partial class AccountViewModel : ObservableObject
         StatusText = account.Status switch
         {
             AccountStatus.AuthRequired => "需重新登录",
+            AccountStatus.ProtocolBlocked => "邮箱协议受限",
             AccountStatus.Offline => "离线",
             AccountStatus.Error => "同步失败",
             _ => "已连接"
@@ -31,6 +32,7 @@ public sealed partial class AccountViewModel : ObservableObject
         {
             AccountStatus.Ok => Color.Parse("#0F7B0F"),
             AccountStatus.AuthRequired => Color.Parse("#9D5D00"),
+            AccountStatus.ProtocolBlocked => Color.Parse("#9D5D00"),
             _ => Color.Parse("#8A8A8A")
         });
         var initialSource = string.IsNullOrWhiteSpace(DisplayName) ? Email : DisplayName;

@@ -179,6 +179,7 @@ public static class DiagnosticsExporter
         => status switch
         {
             AccountStatus.AuthRequired => "需要重新登录",
+            AccountStatus.ProtocolBlocked => "邮箱协议受限",
             AccountStatus.Offline => "离线",
             AccountStatus.Error => "同步失败",
             _ => "正常"

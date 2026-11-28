@@ -23,7 +23,8 @@ public enum AccountStatus
     Ok,
     AuthRequired,
     Offline,
-    Error
+    Error,
+    ProtocolBlocked
 }
 
 public enum AuthStateKind

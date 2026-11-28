@@ -92,7 +92,11 @@ public sealed partial class ImapSyncService : IAsyncDisposable
         }
         catch (AuthenticationException exception)
         {
-            _store.UpdateAccountStatus(accountId, AccountStatus.AuthRequired);
+            var status = IsMailboxProtocolBlocked(exception)
+                ? AccountStatus.ProtocolBlocked
+                : AccountStatus.AuthRequired;
+
+            _store.UpdateAccountStatus(accountId, status);
             AuthStateChanged?.Invoke(new AuthStateEvent
             {
                 AccountId = accountId,
@@ -364,6 +368,17 @@ public sealed partial class ImapSyncService : IAsyncDisposable
             session.Gate.Release();
         }
     }
+
+    /// <summary>
+    /// Outlook.com 有可能在 OAuth 完全成功的情况下拒绝单个邮箱的 IMAP 会话：
+    /// “User is authenticated but not connected.” 或 SMTP 返回
+    /// “SmtpClientAuthentication is disabled for the Mailbox.”。
+    /// 这类问题不是令牌过期，重新登录也不会恢复，需要邮箱侧开通协议。
+    /// </summary>
+    private static bool IsMailboxProtocolBlocked(AuthenticationException exception)
+        => exception.Message.Contains("authenticated but not connected", StringComparison.OrdinalIgnoreCase)
+           || exception.Message.Contains("SmtpClientAuthentication is disabled", StringComparison.OrdinalIgnoreCase)
+           || exception.Message.Contains("IMAP access is disabled", StringComparison.OrdinalIgnoreCase);
 
     public static UnsubscribeInfoDto ParseUnsubscribe(string? listUnsubscribe, string? listUnsubscribePost)
     {

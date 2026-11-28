@@ -13,6 +13,7 @@ public sealed class AccountHealthViewModel
         StatusText = health.Status switch
         {
             AccountStatus.AuthRequired => "需要重新登录",
+            AccountStatus.ProtocolBlocked => "邮箱协议受限",
             AccountStatus.Offline => "离线",
             AccountStatus.Error => "同步失败",
             _ => "正常"
@@ -21,6 +22,7 @@ public sealed class AccountHealthViewModel
         {
             AccountStatus.Ok => Color.Parse("#0F7B0F"),
             AccountStatus.AuthRequired => Color.Parse("#9D5D00"),
+            AccountStatus.ProtocolBlocked => Color.Parse("#9D5D00"),
             _ => Color.Parse("#8A8A8A")
         });
 

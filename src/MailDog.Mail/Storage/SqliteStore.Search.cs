@@ -762,6 +762,7 @@ public sealed partial class SqliteStore
         => value switch
         {
             "AuthRequired" => AccountStatus.AuthRequired,
+            "ProtocolBlocked" => AccountStatus.ProtocolBlocked,
             "Offline" => AccountStatus.Offline,
             "Error" => AccountStatus.Error,
             _ => AccountStatus.Ok
