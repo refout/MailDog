@@ -1379,18 +1379,10 @@
       </StackPanel>
     </Border>
 
-    <!-- 设置页与主工作区共用 4px 外边距和 8px 圆角，避免贴满窗口呈直角。 -->
-    <Border Grid.Row="1"
-            Grid.ColumnSpan="3"
-            Margin="4"
-            IsVisible="{Binding IsSettingsOpen}"
-            CornerRadius="{DynamicResource MailDogRadiusSurface}"
-            ClipToBounds="True"
-            BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-            BorderThickness="1"
-            Background="Transparent">
-      <views:SettingsView />
-    </Border>
+    <!-- 设置页铺满内容区，四角由页面自身裁剪，不再额外留边或套卡片。 -->
+    <views:SettingsView Grid.Row="1"
+                        Grid.ColumnSpan="3"
+                        IsVisible="{Binding IsSettingsOpen}" />
 
     <Border Grid.RowSpan="3"
             Grid.ColumnSpan="3"

@@ -10,11 +10,10 @@
     <Border IsVisible="{Binding IsSettingsOpen}"
             CornerRadius="{DynamicResource MailDogRadiusSurface}"
             ClipToBounds="True"
-            Background="Transparent">
-      <!-- 四个子面板各带外侧圆角，避免内容背景把设置页外框盖成直角。 -->
+            Background="{DynamicResource MailDogBrushSurfaceWindow}">
+      <!-- 页面铺满内容区，四角由根 Border 统一裁剪，不再额外留边。 -->
       <Grid ColumnDefinitions="232,*">
         <Border Background="{DynamicResource MailDogBrushSurfaceSubtle}"
-                CornerRadius="8,0,0,8"
                 BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
                 BorderThickness="0,0,1,0">
           <Grid RowDefinitions="Auto,*,Auto">
@@ -109,14 +108,12 @@
         </Border>
 
         <Grid Grid.Column="1" RowDefinitions="Auto,*">
-          <Border Background="{DynamicResource MailDogBrushSurfaceWindow}"
-                  CornerRadius="0,8,0,0">
+          <Border Background="{DynamicResource MailDogBrushSurfaceWindow}">
             <controls:PageHeader Title="{Binding OverlayTitle}"
                                  BackCommand="{Binding BackFromOverlayCommand}" />
           </Border>
           <Border Grid.Row="1"
-                  Background="{DynamicResource MailDogBrushSurfaceWindow}"
-                  CornerRadius="0,0,8,0">
+                  Background="{DynamicResource MailDogBrushSurfaceWindow}">
             <ScrollViewer Background="Transparent"
                           HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
