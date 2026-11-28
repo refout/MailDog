@@ -45,6 +45,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly Dictionary<long, FolderViewModel> _foldersById = [];
     private readonly Dictionary<long, FolderRole> _folderRoles = [];
     private readonly Dictionary<string, string> _syncErrors = [];
+    private readonly SemaphoreSlim _accountsLoadGate = new(1, 1);
+    private int _accountsLoadVersion;
     private AppSettingsDto _settings = new();
 
     public ObservableCollection<AccountHealthViewModel> AccountHealth { get; } = [];
@@ -6508,68 +6510,90 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
         return ordered;
     }
 
+    /// <summary>
+    /// 重新读取账户并重建 UI 列表。
+    /// 登录成功时引擎会连续广播 AccountChanged 与 AuthState.Connected，二者都可能触发刷新；
+    /// 这里用单飞门闩串行化，避免一个刷新在 RefreshFolderTreeAsync 中枚举 Accounts 时被另一次 Clear 打断。
+    /// 版本号让排队中的旧请求直接退出，减少无意义的重复重建。
+    /// </summary>
     private async Task LoadAccountsAsync()
     {
-        var response = await _engine.RequestAsync<AccountsResponse>(
-            IpcMessageTypes.GetAccounts,
-            new GetAccountsRequest());
-        var preferencesResponse = await _engine.RequestAsync<AccountPreferencesResponse>(
-            IpcMessageTypes.GetAccountPreferences,
-            new GetAccountPreferencesRequest());
-        var preferences = preferencesResponse.Preferences;
+        var version = Interlocked.Increment(ref _accountsLoadVersion);
+        await _accountsLoadGate.WaitAsync().ConfigureAwait(true);
 
-        var selectedId = SelectedAccount?.Id;
-
-        _suppressSelectionHandlers = true;
         try
         {
-            Accounts.Clear();
-            var orderIds = preferences.AccountOrder.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            var orderedItems = response.Items
-                .OrderBy(account =>
-                {
-                    var index = Array.IndexOf(orderIds, account.Id);
-                    return index < 0 ? int.MaxValue : index;
-                })
-                .ToArray();
-
-            foreach (var account in orderedItems)
+            if (version != Volatile.Read(ref _accountsLoadVersion))
             {
-                Accounts.Add(new AccountViewModel(account)
-                {
-                    IsDefault = string.Equals(preferences.DefaultAccountId, account.Id, StringComparison.Ordinal)
-                });
+                return;
             }
 
-            ShowWelcome = Accounts.Count == 0;
-            SelectedAccount = selectedId is null
-                ? Accounts.FirstOrDefault()
-                : Accounts.FirstOrDefault(account => account.Id == selectedId) ?? Accounts.FirstOrDefault();
-            if (SelectedSignatureAccount is null
-                || !Accounts.Any(account => string.Equals(account.Id, SelectedSignatureAccount.Id, StringComparison.Ordinal)))
+            var response = await _engine.RequestAsync<AccountsResponse>(
+                IpcMessageTypes.GetAccounts,
+                new GetAccountsRequest());
+            var preferencesResponse = await _engine.RequestAsync<AccountPreferencesResponse>(
+                IpcMessageTypes.GetAccountPreferences,
+                new GetAccountPreferencesRequest());
+            var preferences = preferencesResponse.Preferences;
+
+            var selectedId = SelectedAccount?.Id;
+
+            _suppressSelectionHandlers = true;
+            try
             {
-                SelectedSignatureAccount = Accounts.FirstOrDefault();
+                // 先完成两次 IPC 再动集合，UI 线程不会看到只有半截账户的中间状态。
+                Accounts.Clear();
+                var orderIds = preferences.AccountOrder.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                var orderedItems = response.Items
+                    .OrderBy(account =>
+                    {
+                        var index = Array.IndexOf(orderIds, account.Id);
+                        return index < 0 ? int.MaxValue : index;
+                    })
+                    .ToArray();
+
+                foreach (var account in orderedItems)
+                {
+                    Accounts.Add(new AccountViewModel(account)
+                    {
+                        IsDefault = string.Equals(preferences.DefaultAccountId, account.Id, StringComparison.Ordinal)
+                    });
+                }
+
+                ShowWelcome = Accounts.Count == 0;
+                SelectedAccount = selectedId is null
+                    ? Accounts.FirstOrDefault()
+                    : Accounts.FirstOrDefault(account => account.Id == selectedId) ?? Accounts.FirstOrDefault();
+                if (SelectedSignatureAccount is null
+                    || !Accounts.Any(account => string.Equals(account.Id, SelectedSignatureAccount.Id, StringComparison.Ordinal)))
+                {
+                    SelectedSignatureAccount = Accounts.FirstOrDefault();
+                }
             }
+            finally
+            {
+                _suppressSelectionHandlers = false;
+            }
+
+            if (SelectedAccount is not null)
+            {
+                await RefreshFolderTreeAsync();
+                ExpandSelectedAccount();
+
+                // 首次进入默认打开统一收件箱；保留用户当前的文件夹选择。
+                if (SelectedFolder is null && SelectedUnifiedFolder is null)
+                {
+                    SelectedUnifiedFolder = UnifiedFolders.FirstOrDefault();
+                }
+            }
+
+            RebuildAccountSoundSettings();
+            RebuildIdentitySettings();
         }
         finally
         {
-            _suppressSelectionHandlers = false;
+            _accountsLoadGate.Release();
         }
-
-        if (SelectedAccount is not null)
-        {
-            await RefreshFolderTreeAsync();
-            ExpandSelectedAccount();
-
-            // 首次进入默认打开统一收件箱；保留用户当前的文件夹选择。
-            if (SelectedFolder is null && SelectedUnifiedFolder is null)
-            {
-                SelectedUnifiedFolder = UnifiedFolders.FirstOrDefault();
-            }
-        }
-
-        RebuildAccountSoundSettings();
-        RebuildIdentitySettings();
     }
 
     /// <summary>加载所有账户的文件夹，构建左侧两级树与统一文件夹计数。</summary>
@@ -6589,7 +6613,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             _foldersById.Clear();
             _folderRoles.Clear();
 
-            foreach (var account in Accounts)
+            // 账户列表可能在等待文件夹 IPC 时被登录事件重载；先取快照，避免 foreach 枚举被修改。
+            foreach (var account in Accounts.ToArray())
             {
                 var response = await _engine.RequestAsync<FoldersResponse>(
                     IpcMessageTypes.GetFolders,
@@ -7387,39 +7412,47 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         _ = Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            switch (message)
+            try
             {
-                case NewMailEvent newMail:
-                    if (IsFolderInActiveScope(newMail.FolderId))
-                    {
-                        await RefreshMessagesAsync();
-                    }
+                switch (message)
+                {
+                    case NewMailEvent newMail:
+                        if (IsFolderInActiveScope(newMail.FolderId))
+                        {
+                            await RefreshMessagesAsync();
+                        }
 
-                    break;
+                        break;
 
-                case MailChangedEvent changed:
-                    if (IsFolderInActiveScope(changed.FolderId))
-                    {
-                        await RefreshMessagesAsync();
-                    }
+                    case MailChangedEvent changed:
+                        if (IsFolderInActiveScope(changed.FolderId))
+                        {
+                            await RefreshMessagesAsync();
+                        }
 
-                    break;
+                        break;
 
-                case ShowMainWindowEvent show:
-                    await HandleShowRequestAsync(show);
-                    break;
+                    case ShowMainWindowEvent show:
+                        await HandleShowRequestAsync(show);
+                        break;
 
-                case SyncStateEvent syncState:
-                    HandleSyncState(syncState);
-                    break;
+                    case SyncStateEvent syncState:
+                        HandleSyncState(syncState);
+                        break;
 
-                case AuthStateEvent authState:
-                    await HandleAuthStateAsync(authState);
-                    break;
+                    case AuthStateEvent authState:
+                        await HandleAuthStateAsync(authState);
+                        break;
 
-                case AccountChangedEvent:
-                    await LoadAccountsAsync();
-                    break;
+                    case AccountChangedEvent:
+                        await LoadAccountsAsync();
+                        break;
+                }
+            }
+            catch (Exception exception)
+            {
+                // 广播处理是后台到 UI 的边界：单个事件失败不能留下未观察任务，也不能拖垮后续事件。
+                ShowError(exception);
             }
         });
     }
@@ -7654,7 +7687,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
             case AuthStateKind.Connected:
                 IsAddingAccount = false;
                 AddAccountStatus = "登录成功。";
-                await LoadAccountsAsync();
+                // OutlookAuthService 先广播 AccountChanged、再广播 Connected；
+                // 列表由 AccountChanged 统一重载，这里不再重复触发第二次重建。
                 CloseOverlay();
                 break;
 

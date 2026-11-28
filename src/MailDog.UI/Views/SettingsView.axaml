@@ -850,6 +850,7 @@
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center" />
                                   </Border>
+                                  <!-- 账户卡只展示持久状态；瞬态同步进度留在左侧账户树，避免周期同步把卡片撑高跳动。 -->
                                   <StackPanel Grid.Column="1"
                                               Margin="12,0"
                                               VerticalAlignment="Center"
@@ -875,10 +876,6 @@
                                                  FontSize="11"
                                                  Foreground="{DynamicResource MailDogBrushAccentBase}" />
                                     </Border>
-                                    <TextBlock Text="{Binding SyncStatus}"
-                                               Classes="caption"
-                                               TextTrimming="CharacterEllipsis"
-                                               IsVisible="{Binding HasSyncStatus}" />
                                   </StackPanel>
                                   <StackPanel Grid.Column="2"
                                               Orientation="Horizontal"

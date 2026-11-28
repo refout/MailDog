@@ -196,6 +196,8 @@ public sealed class OutlookAuthService : IOutlookAuthService, IAccessTokenProvid
             _store.UpdateAccountTokens(account.Id, expiry);
             _cache[account.Id] = (token.AccessToken, expiry);
 
+            // 先广播账户列表变化，再广播登录完成；UI 只由 AccountChanged 重载列表，
+            // 避免两个事件几乎同时到达时重复清空并重建同一组账户控件。
             AccountChanged?.Invoke(new AccountChangedEvent { Account = account });
             AuthStateChanged?.Invoke(new AuthStateEvent
             {

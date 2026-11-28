@@ -78,6 +78,7 @@ public sealed partial class AccountViewModel : ObservableObject
 
     public void NotifyFoldersChanged() => OnPropertyChanged(nameof(HasFolders));
 
+    /// <summary>瞬态同步进度，只用于左侧账户树；设置页不绑定，避免状态出现/消失造成布局跳动。</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSyncStatus))]
     private string? _syncStatus;
