@@ -49,7 +49,6 @@
           Grid.Row="1"
           ColumnDefinitions="240,360,*"
           ColumnSpacing="{DynamicResource MailDogSizeColumnGap}"
-          Margin="4"
           IsVisible="{Binding !IsSettingsOpen}">
       <!-- 文件夹栏 -->
       <Border Grid.Column="0"
