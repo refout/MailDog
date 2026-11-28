@@ -14,7 +14,7 @@
         TransparencyLevelHint="Mica, Blur"
         TransparencyBackgroundFallback="{DynamicResource MailDogBrushSurfaceSolid}"
         Background="Transparent">
-  <Grid RowDefinitions="Auto,*,Auto">
+  <Grid RowDefinitions="Auto,*">
     <Border Grid.Row="0"
             IsVisible="{Binding IsOffline}"
             Background="{DynamicResource MailDogBrushStatusWarningTint}"
@@ -44,11 +44,10 @@
       </Grid>
     </Border>
 
-    <!-- 三栏内容：文件夹栏、邮件列表、阅读区；设置页独立占满内容区 -->
+    <!-- 三栏内容直接铺满内容区：不套外层卡片，不加二级边距，列间只用分割线。 -->
     <Grid x:Name="MailColumns"
           Grid.Row="1"
           ColumnDefinitions="240,360,*"
-          ColumnSpacing="{DynamicResource MailDogSizeColumnGap}"
           IsVisible="{Binding !IsSettingsOpen}">
       <!-- 文件夹栏 -->
       <Border Grid.Column="0"
@@ -1383,7 +1382,21 @@
                         Grid.ColumnSpan="3"
                         IsVisible="{Binding IsSettingsOpen}" />
 
-    <Border Grid.RowSpan="3"
+    <!-- 顶部加载条：只覆盖内容区顶端 2px，不占用布局高度，避免显示/隐藏时页面跳动。 -->
+    <ProgressBar Grid.RowSpan="2"
+                 ZIndex="90"
+                 Height="2"
+                 MinHeight="2"
+                 MaxHeight="2"
+                 Margin="0"
+                 VerticalAlignment="Top"
+                 IsIndeterminate="True"
+                 IsHitTestVisible="False"
+                 IsVisible="{Binding IsBusy}"
+                 Background="Transparent"
+                 Foreground="{DynamicResource MailDogBrushAccentBase}" />
+
+    <Border Grid.RowSpan="2"
             Grid.ColumnSpan="3"
             ZIndex="100"
             IsVisible="{Binding IsAppLocked}"
@@ -1424,18 +1437,6 @@
                    HorizontalAlignment="Center"
                    IsVisible="{Binding UnlockError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
       </StackPanel>
-    </Border>
-
-    <Border Grid.Row="2"
-            IsVisible="{Binding IsStatusBarVisible}"
-            Background="{DynamicResource MailDogBrushSurfaceSubtle}"
-            BorderBrush="{DynamicResource MailDogBrushStrokeDefault}"
-            BorderThickness="0,1,0,0"
-            Padding="12,5">
-      <TextBlock Text="{Binding StatusMessage}"
-                 FontSize="12"
-                 Foreground="{DynamicResource MailDogBrushTextSecondary}"
-                 TextTrimming="CharacterEllipsis" />
     </Border>
 
   </Grid>

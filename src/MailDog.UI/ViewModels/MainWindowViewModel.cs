@@ -201,7 +201,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsOverlayOpen))]
     [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
     [NotifyPropertyChangedFor(nameof(IsWelcomeVisible))]
-    [NotifyPropertyChangedFor(nameof(IsStatusBarVisible))]
     private bool _isSettingsOpen;
 
     public bool IsOverlayOpen => IsSettingsOpen;
@@ -392,17 +391,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
 
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasStatusMessage))]
-    [NotifyPropertyChangedFor(nameof(IsStatusBarVisible))]
     private string? _statusMessage;
-
-    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
-
-    public bool IsStatusBarVisible => HasStatusMessage && !IsOverlayOpen && !IsComposeOpen;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsReaderHtmlVisible))]
-    [NotifyPropertyChangedFor(nameof(IsStatusBarVisible))]
     private bool _isComposeOpen;
 
     [ObservableProperty]

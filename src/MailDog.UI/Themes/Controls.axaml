@@ -299,22 +299,25 @@
 
   <!-- ================= 容器 ================= -->
 
-  <!-- 主窗口三栏共用一套工作区表面：同一圆角、描边和裁剪边界。 -->
+  <!-- 主工作区是一张连续页面：列与列之间只用 1px 分割线，不再各自做圆角卡片。 -->
   <Style Selector="Border.workspace-column">
-    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfacePane}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushStrokeSubtle}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="{DynamicResource MailDogRadiusSurface}" />
-    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="ClipToBounds" Value="False" />
   </Style>
   <Style Selector="Border.workspace-column.navigation">
     <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceSubtle}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushStrokeDefault}" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
   </Style>
   <Style Selector="Border.workspace-column.list">
-    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceContent}" />
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceWindow}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MailDogBrushStrokeSubtle}" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
   </Style>
   <Style Selector="Border.workspace-column.reader">
-    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceContent}" />
+    <Setter Property="Background" Value="{DynamicResource MailDogBrushSurfaceWindow}" />
   </Style>
 
   <!-- 设置页分组卡片：所有页面只保留这一种层级，组内不再各自造边框和间距。 -->
