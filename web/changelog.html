@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.14</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.15</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,9 +67,29 @@
 
     <article class="release">
       <div class="release-top">
-        <h2>v0.3.14</h2>
+        <h2>v0.3.15</h2>
         <span class="date">2026-11-28</span>
         <span class="latest">最新</span>
+      </div>
+      <p class="summary">这一版把主工作区从三张圆角卡片改成一张连续页面：去掉外层卡片和第二层外边距，三栏之间只留 1px 分割线；底部状态条移除，加载提示改成标题栏下方 2px 细进度条。同时 Outlook/Hotmail 协议受限时不再反复重试。</p>
+      <ul>
+        <li><b>主工作区</b>：移除三张独立圆角卡片和 <code>MailWorkspaceFrame</code> 外层卡片；<code>MailColumns</code> 直接铺满内容区，取消 <code>ColumnSpacing</code>，左栏右侧 1px <code>StrokeDefault</code>、列表右侧 1px <code>StrokeSubtle</code>、阅读区无边框。</li>
+        <li><b>加载提示</b>：删除底部状态条与 <code>HasStatusMessage</code>/<code>IsStatusBarVisible</code>；标题栏下方增加 2px <code>ProgressBar</code>，覆盖在两行网格上、<code>IsHitTestVisible=False</code>，由 <code>IsBusy</code> 控制，不占布局高度。</li>
+        <li><b>Outlook/Hotmail</b>：IMAP/SMTP 认证失败时识别服务端协议受限，新增 <code>AccountStatus.ProtocolBlocked</code>，账户状态显示「邮箱协议受限」；自动同步跳过，手动「立即同步」仍可强制重试；同一账户的同步请求按账户去重，空文件夹不再反复刷新。</li>
+        <li><b>验证</b>：Release 构建 0 警告 0 错误，190 项测试通过；HOME 实机确认三栏连续、无外层卡片、无底栏、顶部进度条不占布局；Hotmail 实测状态进入协议受限。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/compare/v0.3.14...v0.3.15" target="_blank" rel="noopener">对比 v0.3.14</a>
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.3.15" target="_blank" rel="noopener">Release 下载</a>
+        <a href="https://github.com/refout/MailDog/blob/main/docs/releases/0.3.15.md" target="_blank" rel="noopener">发布说明</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
+        <h2>v0.3.14</h2>
+        <span class="date">2026-11-28</span>
+        <span class="latest">已发布</span>
       </div>
       <p class="summary">这一版把六组超大源文件拆开，并把主工作区与设置页都改成铺满内容区：不再多套一层外边距，外轮廓统一 8px 圆角，主工作区保留 4px 栏间距。</p>
       <ul>
