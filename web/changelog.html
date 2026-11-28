@@ -58,7 +58,7 @@
 
 <main id="main">
   <div class="wrap page-head">
-    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.13</span></span>
+    <span class="pill"><span class="dot"></span> 当前版本 <span data-release-version>v0.3.14</span></span>
     <h1>更新日志</h1>
     <p>每个版本改了什么，这里都用日常说法写出来。每个版本都有 64 位与 Arm 的便携包，64 位另有安装包。</p>
   </div>
@@ -67,9 +67,30 @@
 
     <article class="release">
       <div class="release-top">
+        <h2>v0.3.14</h2>
+        <span class="date">2026-11-28</span>
+        <span class="latest">最新</span>
+      </div>
+      <p class="summary">这一版把六组超大源文件拆开，并把主工作区与设置页都改成铺满内容区：不再多套一层外边距，外轮廓统一 8px 圆角，主工作区保留 4px 栏间距。</p>
+      <ul>
+        <li><b>重构</b>：<code>MainWindowViewModel</code> 7,832 行拆成 9 个 <code>partial</code>；<code>SqliteStore</code>、<code>ImapSyncService</code>、<code>ComposeViewModel</code>、<code>MainWindow</code> 代码后置和 <code>EngineHost</code> 同步拆分。类名、公开成员、XAML 绑定和 IPC 路由不变。</li>
+        <li><b>设置页</b>：去掉外层圆角卡片和 4px 二级边距，页面直接铺满内容区；根 <code>Border</code> 统一 8px 裁剪，内部左栏、标题栏和内容区的分区线保持直角。</li>
+        <li><b>主工作区</b>：移除三栏外层 4px <code>Margin</code>，三栏直接铺满；保留 4px 栏间距，外轮廓由三栏各自的 8px 圆角形成。</li>
+        <li><b>修复</b>：Outlook 登录完成时账户列表只重载一次，避免文件夹树枚举被集合重建打断；设置页账户卡不再显示瞬态同步状态，卡片不再随周期同步跳动。</li>
+        <li><b>验证</b>：Release 构建 0 警告，190 项测试通过；HOME 实机确认主页面与设置页铺满、外角圆角和内部分割线。</li>
+      </ul>
+      <div class="assets">
+        <a href="https://github.com/refout/MailDog/compare/v0.3.13...v0.3.14" target="_blank" rel="noopener">对比 v0.3.13</a>
+        <a href="https://github.com/refout/MailDog/releases/tag/v0.3.14" target="_blank" rel="noopener">Release 下载</a>
+        <a href="https://github.com/refout/MailDog/blob/main/docs/releases/0.3.14.md" target="_blank" rel="noopener">发布说明</a>
+      </div>
+    </article>
+
+    <article class="release">
+      <div class="release-top">
         <h2>v0.3.13</h2>
         <span class="date">2026-11-27</span>
-        <span class="latest">最新</span>
+        <span class="latest">已发布</span>
       </div>
       <p class="summary">这一版只动三栏间距：从 8px 收到 4px，与主窗口四边的 4px 留白同档，左右栏之间的空隙明显收紧。</p>
       <ul>
